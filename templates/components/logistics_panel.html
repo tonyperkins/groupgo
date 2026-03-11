@@ -1,19 +1,19 @@
 <!-- Flexible bypass toggle -->
-<div class="card p-4 mb-4">
-  <div class="flex items-center justify-between">
+<div class="card p-5 mb-6 border-indigo-500/20 bg-[var(--bg-input)] shadow-sm">
+  <div class="flex items-center justify-between gap-4">
     <div>
-      <p class="font-semibold text-white text-sm">I'm In — Whatever You Choose!</p>
-      <p class="text-slate-400 text-xs mt-0.5">Skip logistics voting and approve everything</p>
+      <p class="font-bold text-base" style="color:var(--text-primary)">I'm In — Whatever You Choose!</p>
+      <p class="text-sm font-medium mt-1" style="color:var(--text-secondary)">Skip logistics voting and approve everything</p>
     </div>
     <button
       hx-post="/api/votes/flexible"
       hx-vals='{"is_flexible": "{% if is_flexible %}false{% else %}true{% endif %}"}'
       hx-target="#logistics-panel"
       hx-swap="innerHTML"
-      class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
-        {% if is_flexible %}bg-indigo-600{% else %}bg-slate-600{% endif %}">
-      <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out
-        {% if is_flexible %}translate-x-5{% else %}translate-x-0{% endif %}">
+      class="relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none shadow-inner
+             {% if is_flexible %}bg-indigo-500{% else %}bg-slate-500/50{% endif %}">
+      <span class="pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out
+                   {% if is_flexible %}translate-x-6{% else %}translate-x-0{% endif %}">
       </span>
     </button>
   </div>
@@ -21,56 +21,57 @@
 
 {% if is_flexible %}
 <!-- Flexible mode message -->
-<div class="card p-6 text-center border-indigo-700">
-  <div class="text-3xl mb-2">🎉</div>
-  <p class="text-white font-semibold">You're flexible!</p>
-  <p class="text-slate-400 text-sm mt-1">Your vote counts as approval for all showtime combinations. The group appreciates it!</p>
+<div class="card p-8 text-center border-indigo-500/30 bg-indigo-500/5 shadow-inner">
+  <div class="text-5xl mb-4 opacity-90">🎉</div>
+  <p class="font-bold text-xl mb-2 text-indigo-400">You're flexible!</p>
+  <p class="text-sm font-medium" style="color:var(--text-secondary)">Your vote counts as approval for all showtime combinations. The group appreciates it!</p>
 </div>
 
 {% else %}
 <!-- Session voting grouped by date → theater -->
 {% if not grouped %}
-<div class="card p-6 text-center">
-  <div class="text-3xl mb-2">📅</div>
-  <p class="text-slate-400 text-sm">No showtimes available yet. Check back after the admin fetches them.</p>
+<div class="card p-10 text-center border-dashed border-2 bg-transparent opacity-80">
+  <div class="text-5xl mb-4 opacity-50">📅</div>
+  <p class="font-bold text-lg mb-2" style="color:var(--text-primary)">No showtimes available yet</p>
+  <p class="text-sm font-medium text-slate-500">Check back after the admin fetches them.</p>
 </div>
 {% endif %}
 
 {% for date, theaters in grouped.items() %}
-<div class="mb-4">
+<div class="mb-8">
   <!-- Date header -->
-  <div class="flex items-center gap-2 mb-2 px-1">
-    <div class="text-indigo-400">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+  <div class="flex items-center gap-2.5 mb-3 px-2">
+    <div class="text-indigo-500 bg-indigo-500/10 p-1.5 rounded-lg">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25"/>
       </svg>
     </div>
-    <h3 class="text-white font-bold text-sm">{{ date | display_date }}</h3>
+    <h3 class="font-bold text-lg" style="color:var(--text-primary)">{{ date | display_date }}</h3>
   </div>
 
   {% for theater_id, theater_data in theaters.items() %}
-  <div class="card mb-2 overflow-hidden">
+  <div class="card mb-4 overflow-hidden shadow-sm border border-[var(--border)]">
     <!-- Theater header -->
-    <div class="bg-slate-700/50 px-4 py-2 border-b border-slate-700">
-      <p class="text-slate-200 font-semibold text-sm">{{ theater_data.theater_name }}</p>
+    <div class="bg-[var(--bg-input)] px-4 py-2.5 border-b border-[var(--border)]">
+      <p class="font-semibold text-sm uppercase tracking-wider" style="color:var(--text-secondary)">{{ theater_data.theater_name }}</p>
     </div>
 
     <!-- Sessions -->
-    <div class="p-3 space-y-2">
+    <div class="p-0 divide-y divide-[var(--border)]">
       {% for item in theater_data.sessions %}
       {% set s = item.session %}
       {% set current_vote = user_votes.get(('session', s.id), 'abstain') %}
-      <div class="flex items-center gap-3">
-        <div class="flex-shrink-0 text-center w-16">
-          <div class="text-white font-bold text-sm">{{ s.session_time | display_time }}</div>
+      <div class="flex items-center justify-between gap-4 p-4 hover:bg-[var(--bg-hover)] transition-colors">
+        <div class="flex-shrink-0 text-center w-20">
+          <div class="font-bold text-base" style="color:var(--text-primary)">{{ s.session_time | display_time }}</div>
           {% if s.format != 'Standard' %}
-          <div class="text-xs text-indigo-300 font-medium">{{ s.format }}</div>
+          <div class="text-[10px] uppercase tracking-wider font-bold text-indigo-400 bg-indigo-500/10 rounded-md py-0.5 mt-1">{{ s.format }}</div>
           {% endif %}
         </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-slate-300 text-xs truncate">{{ item.event_title }}</p>
+        <div class="flex-1 min-w-0 pr-2">
+          <p class="font-semibold text-sm leading-tight line-clamp-2" style="color:var(--text-secondary)">{{ item.event_title }}</p>
         </div>
-        <div class="flex-shrink-0 w-40">
+        <div class="flex-shrink-0">
           {% set session_id = s.id %}
           {% include "components/session_vote_toggle.html" %}
         </div>
@@ -83,13 +84,13 @@
 {% endfor %}
 
 <!-- Done Voting Button -->
-<div class="mt-6">
+<div class="mt-8 text-center sticky bottom-24 z-30">
   <button
     hx-post="/api/votes/complete"
     hx-swap="none"
     hx-on::after-request="window.location.href='/results'"
-    class="w-full btn-primary py-3 text-base font-semibold">
-    <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    class="inline-flex items-center gap-2 btn-primary px-8 py-3.5 text-base shadow-xl w-full justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white border-none">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     Done Voting

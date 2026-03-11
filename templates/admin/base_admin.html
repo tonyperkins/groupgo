@@ -10,33 +10,45 @@
   <link rel="stylesheet" href="/static/css/app.css"/>
   <style>
     :root {
-      --bg-page: #0f172a; --bg-card: #1e293b; --bg-input: #1e293b;
-      --bg-hover: rgba(99,102,241,0.08); --border: #334155;
-      --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-muted: #64748b;
-      --header-bg: #0f172a;
+      --bg-page: #0f172a; --bg-card: #1e293b; --bg-input: #0f172a;
+      --bg-hover: rgba(99,102,241,0.12); --border: #334155;
+      --text-primary: #f8fafc; --text-secondary: #94a3b8; --text-muted: #64748b;
+      --header-bg: rgba(15, 23, 42, 0.85); --header-border: #334155;
     }
     [data-theme="light"] {
-      --bg-page: #f1f5f9; --bg-card: #ffffff; --bg-input: #f8fafc;
-      --bg-hover: rgba(99,102,241,0.06); --border: #e2e8f0;
+      --bg-page: #f8fafc; --bg-card: #ffffff; --bg-input: #f1f5f9;
+      --bg-hover: rgba(99,102,241,0.08); --border: #e2e8f0;
       --text-primary: #0f172a; --text-secondary: #475569; --text-muted: #94a3b8;
-      --header-bg: #ffffff;
+      --header-bg: rgba(255, 255, 255, 0.85); --header-border: #e2e8f0;
     }
     html { scroll-behavior: smooth; }
     body { background-color: var(--bg-page); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; transition: background-color 0.2s, color 0.2s; }
-    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: box-shadow 0.2s; }
-    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    [data-theme="light"] .card { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    [data-theme="light"] .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .input-base { background-color: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; transition: border-color 0.15s; width: 100%; outline: none; }
-    .input-base:focus { border-color: #6366f1; }
-    .btn-primary { background-color: #6366f1; color: white; border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 600; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; border: none; }
-    .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
-    .btn-primary:active { transform: translateY(0); }
-    .btn-danger { background-color: #dc2626; color: white; border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; border: none; transition: all 0.15s; }
-    .btn-danger:hover { background-color: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
-    .btn-danger:active { transform: translateY(0); }
-    .btn-ghost { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; transition: all 0.15s; }
-    .btn-ghost:hover { border-color: #6366f1; color: #a5b4fc; background-color: rgba(99,102,241,0.05); }
+    
+    /* Header Blur */
+    header { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom-color: var(--header-border) !important; }
+
+    /* Cards */
+    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); transition: box-shadow 0.2s, transform 0.2s; }
+    .card:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.15), 0 4px 6px -4px rgba(0,0,0,0.1); }
+    [data-theme="light"] .card { box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05), 0 1px 2px -1px rgba(0,0,0,0.05); }
+    [data-theme="light"] .card:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04); }
+    
+    /* Inputs */
+    .input-base { background-color: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); border-radius: 0.75rem; padding: 0.625rem 1rem; font-size: 0.875rem; transition: all 0.2s; width: 100%; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+    .input-base:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.2), inset 0 1px 2px rgba(0,0,0,0.05); }
+    
+    /* Buttons */
+    .btn-primary { background-color: #4f46e5; color: white; border-radius: 0.75rem; padding: 0.625rem 1.25rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; border: none; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .btn-primary:hover { background-color: #4338ca; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79,70,229,0.4); }
+    .btn-primary:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    
+    .btn-danger { background-color: #ef4444; color: white; border-radius: 0.75rem; padding: 0.625rem 1.25rem; font-weight: 600; font-size: 0.875rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; border: none; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .btn-danger:hover { background-color: #dc2626; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,0.4); }
+    .btn-danger:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    
+    .btn-ghost { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.625rem 1.25rem; font-weight: 500; font-size: 0.875rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
+    .btn-ghost:hover { border-color: #6366f1; color: #818cf8; background-color: var(--bg-hover); }
+    [data-theme="light"] .btn-ghost:hover { color: #4f46e5; }
     .btn-ghost:active { transform: scale(0.98); }
     .status-draft { background: #1e3a5f; color: #60a5fa; }
     .status-open { background: #14532d; color: #4ade80; }
