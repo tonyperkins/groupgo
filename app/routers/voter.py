@@ -226,7 +226,11 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/vote/showtimes", response_class=HTMLResponse)
 @router.get("/vote/logistics", response_class=HTMLResponse)
-async def voter_logistics(request: Request, db: Session = Depends(get_db)):
+async def voter_logistics(
+    request: Request,
+    view_all: bool = False,
+    db: Session = Depends(get_db)
+):
     user = get_current_user_optional(request, db)
     if not user:
         return _identity_redirect(request, db)
@@ -237,7 +241,11 @@ async def voter_logistics(request: Request, db: Session = Depends(get_db)):
 
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
-    grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=showtime_event_ids)
+    
+    # If they are browsing all, pass None to event_ids so it returns everything
+    fetch_event_ids = None if view_all else showtime_event_ids
+    grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=fetch_event_ids)
+    
     is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
     poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
@@ -254,7 +262,8 @@ async def voter_logistics(request: Request, db: Session = Depends(get_db)):
             "user_votes": user_votes,
             "is_flexible": is_flexible,
             "voted_session_count": voted_session_count,
-            "needs_movie_pick_first": showtime_event_ids == [],
+            "needs_movie_pick_first": showtime_event_ids == [] and not view_all,
+            "view_all_mode": view_all,
             "participation": participation,
             "poll_preferences": poll_preferences,
             "active_tab": "logistics",
