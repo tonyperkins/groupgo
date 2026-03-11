@@ -6,7 +6,7 @@ services:
     container_name: groupgo
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${GROUPGO_HOST_PORT:-8001}:8000"
     environment:
       APP_ENV: ${APP_ENV:-development}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
