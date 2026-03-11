@@ -1,0 +1,301 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'members' %}
+{% block title %}Members — GroupGo Admin{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-white">Members</h1>
+    <p class="text-slate-400 text-sm mt-0.5">Manage who can vote in polls</p>
+  </div>
+  <div class="flex gap-2">
+    <button onclick="document.getElementById('add-group-modal').classList.remove('hidden')"
+      class="btn-ghost text-sm gap-2">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197"/>
+      </svg>
+      New Group
+    </button>
+    <button onclick="openAddMember()"
+      class="btn-primary text-sm gap-2">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Add Member
+    </button>
+  </div>
+</div>
+
+<!-- Groups section -->
+{% if groups %}
+<div class="mb-6">
+  <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Groups</h2>
+  <div class="flex flex-wrap gap-2">
+    {% for g in groups %}
+    <div class="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5">
+      <span class="text-sm text-white">{{ g.name }}</span>
+      <span class="text-xs text-slate-500">{{ users | selectattr('group_id', 'equalto', g.id) | list | length }} members</span>
+      {% if g.id != 1 %}
+      <button onclick="deleteGroup({{ g.id }}, '{{ g.name | replace("'", "\\'") }}')"
+        class="text-slate-600 hover:text-red-400 transition-colors ml-1">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Members table -->
+<div class="card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-slate-500 text-xs bg-slate-800/80 border-b border-slate-700">
+        <th class="px-5 py-3">Name</th>
+        <th class="px-5 py-3 hidden sm:table-cell">Email</th>
+        <th class="px-5 py-3 hidden md:table-cell">Group</th>
+        <th class="px-5 py-3">Role</th>
+        <th class="px-5 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-800">
+      {% for u in users %}
+      <tr class="hover:bg-slate-700/20 transition-colors">
+        <td class="px-5 py-4">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full bg-indigo-900/60 text-indigo-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {{ u.name[0] | upper }}
+            </div>
+            <span class="font-semibold text-white">{{ u.name }}</span>
+          </div>
+        </td>
+        <td class="px-5 py-4 text-slate-400 hidden sm:table-cell text-xs">{{ u.email or '—' }}</td>
+        <td class="px-5 py-4 hidden md:table-cell">
+          {% if u.group_id and u.group_id in group_map %}
+          <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{{ group_map[u.group_id] }}</span>
+          {% else %}
+          <span class="text-xs text-slate-600">—</span>
+          {% endif %}
+        </td>
+        <td class="px-5 py-4">
+          {% if u.is_admin %}
+          <span class="text-xs bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded-full">Admin</span>
+          {% else %}
+          <span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Voter</span>
+          {% endif %}
+        </td>
+        <td class="px-5 py-4">
+          <div class="flex items-center gap-1 justify-end">
+            <button onclick="editMember({{ u.id }}, '{{ u.name | replace("'", "\\'") }}', '{{ (u.email or '') | replace("'", "\\'") }}', {{ u.group_id or 'null' }})"
+              class="text-slate-500 hover:text-indigo-400 transition-colors p-1.5 rounded">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+              </svg>
+            </button>
+            {% if not u.is_admin %}
+            <button onclick="deleteMember({{ u.id }}, '{{ u.name | replace("'", "\\'") }}')"
+              class="text-slate-500 hover:text-red-400 transition-colors p-1.5 rounded">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916"/>
+              </svg>
+            </button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-slate-500 mt-3">
+  Members identify themselves on the voter app at <strong class="text-slate-400">/identify</strong>. No passwords — identification is by name selection only.
+</p>
+
+<!-- Add Member Modal -->
+<div id="add-member-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-white">Add Member</h2>
+      <button onclick="document.getElementById('add-member-modal').classList.add('hidden')"
+        class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Name *</label>
+        <input id="new-member-name" type="text" placeholder="Alex"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Email (optional)</label>
+        <input id="new-member-email" type="email" placeholder="alex@example.com"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Group</label>
+        <select id="new-member-group"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <option value="">— No group —</option>
+          {% for g in groups %}
+          <option value="{{ g.id }}">{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-2 justify-end mt-5">
+      <button onclick="document.getElementById('add-member-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
+      <button onclick="addMember()" class="btn-primary text-sm">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Member Modal -->
+<div id="edit-member-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-white">Edit Member</h2>
+      <button onclick="document.getElementById('edit-member-modal').classList.add('hidden')"
+        class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <input type="hidden" id="edit-member-id"/>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Name</label>
+        <input id="edit-member-name" type="text"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"/>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Email</label>
+        <input id="edit-member-email" type="email"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"/>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Group</label>
+        <select id="edit-member-group"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <option value="">— No group —</option>
+          {% for g in groups %}
+          <option value="{{ g.id }}">{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-2 justify-end mt-5">
+      <button onclick="document.getElementById('edit-member-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
+      <button onclick="saveMember()" class="btn-primary text-sm">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Group Modal -->
+<div id="add-group-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-sm">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-white">New Group</h2>
+      <button onclick="document.getElementById('add-group-modal').classList.add('hidden')"
+        class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div>
+      <label class="text-xs text-slate-400 mb-1 block font-medium">Group Name *</label>
+      <input id="new-group-name" type="text" placeholder="The Smiths"
+        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
+    </div>
+    <p class="text-xs text-slate-500 mt-2">Groups let you separate multiple families or friend circles using the same GroupGo instance.</p>
+    <div class="flex gap-2 justify-end mt-4">
+      <button onclick="document.getElementById('add-group-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
+      <button onclick="addGroup()" class="btn-primary text-sm">Create Group</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openAddMember() {
+  document.getElementById('new-member-name').value = '';
+  document.getElementById('new-member-email').value = '';
+  document.getElementById('new-member-group').value = '';
+  document.getElementById('add-member-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('new-member-name').focus(), 50);
+}
+
+async function addMember() {
+  const name = document.getElementById('new-member-name').value.trim();
+  const email = document.getElementById('new-member-email').value.trim();
+  const group_id = document.getElementById('new-member-group').value || null;
+  if (!name) { showToast('Name is required.', 'error'); return; }
+  const resp = await fetch('/api/admin/users', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, email: email || null, group_id: group_id ? parseInt(group_id) : null})
+  });
+  if (resp.ok) { window.location.reload(); }
+  else { const d = await resp.json(); showToast(d.detail || 'Error adding member.', 'error'); }
+}
+
+function editMember(id, name, email, groupId) {
+  document.getElementById('edit-member-id').value = id;
+  document.getElementById('edit-member-name').value = name;
+  document.getElementById('edit-member-email').value = email;
+  document.getElementById('edit-member-group').value = groupId || '';
+  document.getElementById('edit-member-modal').classList.remove('hidden');
+}
+
+async function saveMember() {
+  const id = document.getElementById('edit-member-id').value;
+  const name = document.getElementById('edit-member-name').value.trim();
+  const email = document.getElementById('edit-member-email').value.trim();
+  const group_id = document.getElementById('edit-member-group').value || null;
+  const resp = await fetch(`/api/admin/users/${id}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, email: email || null, group_id: group_id ? parseInt(group_id) : null})
+  });
+  if (resp.ok) { window.location.reload(); }
+  else { const d = await resp.json(); showToast(d.detail || 'Error saving member.', 'error'); }
+}
+
+function deleteMember(id, name) {
+  showConfirm(`Remove ${name} from the system? Their votes will also be deleted.`, async () => {
+    const r = await fetch(`/api/admin/users/${id}`, {method: 'DELETE'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error deleting member.', 'error'); }
+  });
+}
+
+async function addGroup() {
+  const name = document.getElementById('new-group-name').value.trim();
+  if (!name) { showToast('Group name is required.', 'error'); return; }
+  const resp = await fetch('/api/admin/groups', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name})
+  });
+  if (resp.ok) { window.location.reload(); }
+  else { const d = await resp.json(); showToast(d.detail || 'Error creating group.', 'error'); }
+}
+
+function deleteGroup(id, name) {
+  showConfirm(`Delete group "${name}"? Members will be unassigned from this group.`, async () => {
+    const r = await fetch(`/api/admin/groups/${id}`, {method: 'DELETE'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error deleting group.', 'error'); }
+  });
+}
+</script>
+{% endblock %}

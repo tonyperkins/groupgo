@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Movies — GroupGo{% endblock %}
+
+{% block header_right %}
+<span class="text-slate-400 text-sm">Hey, <span class="text-white font-medium">{{ user.name }}</span></span>
+<a href="/identify" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">Switch</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 pt-4 pb-24">
+
+  <!-- Participation bar -->
+  <div class="mb-4 flex items-center gap-2 text-sm">
+    <div class="flex gap-1">
+      {% for p in participation.participants %}
+      <div title="{{ p.user.name }}{% if p.fully_voted %}{% if p.is_flexible %} ✓ Flexible (auto-complete){% else %} ✓ Voted on movies & times{% endif %}{% else %} • Needs to vote on {% if p.user.id == user.id %}movies & times{% else %}everything{% endif %}{% endif %}"
+        class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+        {% if p.fully_voted %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-400{% endif %}">
+        {{ p.user.name[0] }}
+      </div>
+      {% endfor %}
+    </div>
+    <span class="text-slate-400" title="Members who voted on all movies and showtimes">{{ participation.fully_voted_count }}/{{ participation.total }} done</span>
+  </div>
+
+  <!-- Poll title -->
+  <h1 class="text-xl font-bold text-white mb-1">{{ poll.title }}</h1>
+  <p class="text-slate-400 text-sm mb-5">Vote on each movie — Yes to approve, No to reject</p>
+
+  {% if not events %}
+  <div class="card p-8 text-center">
+    <div class="text-4xl mb-3">🍿</div>
+    <p class="text-slate-400">No movies in this poll yet. Check back soon!</p>
+  </div>
+  {% endif %}
+
+  <!-- Movie cards -->
+  <div class="space-y-4">
+    {% for event in events %}
+    {% set current_vote = user_votes.get(('event', event.id), 'abstain') %}
+    <div class="card overflow-hidden">
+      <div class="flex gap-3 p-4">
+        <!-- Poster -->
+        <div class="flex-shrink-0">
+          {% if event.poster_path %}
+          <img src="{{ poster_url(event.poster_path, 'w185') }}"
+               alt="{{ event.title }} poster"
+               class="w-16 h-24 object-cover rounded-lg bg-slate-700"
+               loading="lazy"/>
+          {% else %}
+          <div class="w-16 h-24 rounded-lg bg-slate-700 flex items-center justify-center text-2xl">🎬</div>
+          {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2 mb-1">
+            <h2 class="font-bold text-white text-base leading-tight">{{ event.title }}</h2>
+            {% if event.tmdb_rating and event.tmdb_rating > 0 %}
+            <span class="flex-shrink-0 text-xs bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded font-mono">
+              ★ {{ "%.1f"|format(event.tmdb_rating) }}
+            </span>
+            {% endif %}
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 mb-2">
+            {% if event.year %}<span class="text-xs text-slate-400">{{ event.year }}</span>{% endif %}
+            {% if event.runtime_mins %}<span class="text-xs text-slate-500">·</span><span class="text-xs text-slate-400">{{ event.runtime_mins }} min</span>{% endif %}
+          </div>
+
+          {% if event.synopsis %}
+          <p class="text-slate-400 text-xs leading-relaxed line-clamp-2">{{ event.synopsis }}</p>
+          {% endif %}
+
+          {% if event.genres %}
+          <div class="flex flex-wrap gap-1 mt-2">
+            {% for g in (event.genres | fromjson) %}
+            <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{{ g }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Trailer button -->
+      {% if event.trailer_key %}
+      <div class="px-4 pb-3">
+        <div class="trailer-container" id="trailer-{{ event.id }}" data-trailer-key="{{ event.trailer_key }}">
+          <button onclick="loadTrailer('{{ event.id }}', '{{ event.trailer_key }}')"
+            class="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg py-2 transition-colors">
+            <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            Watch Trailer
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Vote buttons -->
+      <div class="px-4 pb-4">
+        {% set event_id = event.id %}
+        {% include "components/movie_vote_toggle.html" %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Continue CTA -->
+  {% if events %}
+  <div class="mt-6 text-center">
+    <a href="/vote/logistics"
+      class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
+      Next: Pick Times
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block bottom_nav %}
+{% include "components/bottom_nav.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadTrailer(eventId, key) {
+  const container = document.getElementById('trailer-' + eventId);
+  container.innerHTML = `
+    <div class="relative">
+      <button onclick="closeTrailer('${eventId}')" class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition-colors" title="Close trailer">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-lg">
+        <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${key}?autoplay=1&rel=0" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      </div>
+    </div>`;
+}
+
+function closeTrailer(eventId) {
+  const container = document.getElementById('trailer-' + eventId);
+  container.innerHTML = `
+    <button onclick="loadTrailer('${eventId}', '${container.dataset.trailerKey}')" class="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg py-2 transition-colors">
+      <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      Watch Trailer
+    </button>`;
+}
+</script>
+{% endblock %}

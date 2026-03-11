@@ -1,0 +1,28 @@
+<div class="flex gap-2" id="movie-toggle-{{ event_id }}">
+  <button
+    hx-post="/api/votes/movie"
+    hx-vals='{"event_id": {{ event_id }}, "vote": "{% if current_vote == "yes" %}abstain{% else %}yes{% endif %}"}'
+    hx-target="#movie-toggle-{{ event_id }}"
+    hx-swap="outerHTML"
+    hx-indicator="#movie-toggle-{{ event_id }}"
+    class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border text-sm font-semibold transition-all
+      {% if current_vote == 'yes' %}vote-yes-active border-green-500{% else %}bg-slate-700 text-slate-300 border-slate-600 hover:border-green-600 hover:text-green-400{% endif %}">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+    </svg>
+    Yes
+  </button>
+  <button
+    hx-post="/api/votes/movie"
+    hx-vals='{"event_id": {{ event_id }}, "vote": "{% if current_vote == "no" %}abstain{% else %}no{% endif %}"}'
+    hx-target="#movie-toggle-{{ event_id }}"
+    hx-swap="outerHTML"
+    hx-indicator="#movie-toggle-{{ event_id }}"
+    class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border text-sm font-semibold transition-all
+      {% if current_vote == 'no' %}vote-no-active border-red-500{% else %}bg-slate-700 text-slate-300 border-slate-600 hover:border-red-600 hover:text-red-400{% endif %}">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+    No
+  </button>
+</div>

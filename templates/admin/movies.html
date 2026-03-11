@@ -1,0 +1,54 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Movies — GroupGo Admin{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb">
+  <a href="/admin">Dashboard</a>
+  <span class="sep">›</span>
+  <span class="active">{{ poll.title }}</span>
+  <span class="sep">›</span>
+  <span class="current">Movies</span>
+</nav>
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-white">Movies</h1>
+    <p class="text-slate-400 text-sm mt-0.5">
+      <span class="status-{{ poll.status | lower }} text-xs px-2 py-0.5 rounded-full">{{ poll.status }}</span>
+    </p>
+  </div>
+  <div class="flex gap-2">
+    <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-sm">Showtimes →</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Search -->
+  <div class="card p-5">
+    <h2 class="text-base font-bold text-white mb-3">Search TMDB</h2>
+    <form hx-get="/api/admin/movies/search"
+          hx-target="#search-results"
+          hx-swap="innerHTML"
+          hx-indicator="#search-spinner"
+          class="flex gap-2 mb-4">
+      <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
+      <input type="text" name="q" placeholder="Search movie title..."
+        class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+        autofocus/>
+      <button type="submit" class="btn-primary text-sm">
+        <span id="search-spinner" class="htmx-indicator mr-1 animate-spin">⟳</span>
+        Search
+      </button>
+    </form>
+    <div id="search-results" class="min-h-[80px]">
+      <p class="text-slate-500 text-sm text-center py-4">Search for a movie above to add it to the poll.</p>
+    </div>
+  </div>
+
+  <!-- Current poll movies -->
+  <div class="card p-5">
+    <h2 class="text-base font-bold text-white mb-3">In This Poll</h2>
+    {% include "components/admin_movie_list.html" %}
+  </div>
+</div>
+{% endblock %}

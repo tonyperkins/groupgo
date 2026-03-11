@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Admin — GroupGo{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="/static/css/app.css"/>
+  <style>
+    :root {
+      --bg-page: #0f172a; --bg-card: #1e293b; --bg-input: #1e293b;
+      --bg-hover: rgba(99,102,241,0.08); --border: #334155;
+      --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-muted: #64748b;
+      --header-bg: #0f172a;
+    }
+    [data-theme="light"] {
+      --bg-page: #f1f5f9; --bg-card: #ffffff; --bg-input: #f8fafc;
+      --bg-hover: rgba(99,102,241,0.06); --border: #e2e8f0;
+      --text-primary: #0f172a; --text-secondary: #475569; --text-muted: #94a3b8;
+      --header-bg: #ffffff;
+    }
+    html { scroll-behavior: smooth; }
+    body { background-color: var(--bg-page); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; transition: background-color 0.2s, color 0.2s; }
+    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: box-shadow 0.2s; }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    [data-theme="light"] .card { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    [data-theme="light"] .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .input-base { background-color: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; transition: border-color 0.15s; width: 100%; outline: none; }
+    .input-base:focus { border-color: #6366f1; }
+    .btn-primary { background-color: #6366f1; color: white; border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 600; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; border: none; }
+    .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-danger { background-color: #dc2626; color: white; border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; border: none; transition: all 0.15s; }
+    .btn-danger:hover { background-color: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
+    .btn-danger:active { transform: translateY(0); }
+    .btn-ghost { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; transition: all 0.15s; }
+    .btn-ghost:hover { border-color: #6366f1; color: #a5b4fc; background-color: rgba(99,102,241,0.05); }
+    .btn-ghost:active { transform: scale(0.98); }
+    .status-draft { background: #1e3a5f; color: #60a5fa; }
+    .status-open { background: #14532d; color: #4ade80; }
+    .status-closed { background: #422006; color: #fb923c; }
+    .status-archived { background: #1e1b4b; color: #818cf8; }
+    [data-theme="light"] .status-draft { background: #dbeafe; color: #1d4ed8; }
+    [data-theme="light"] .status-open { background: #dcfce7; color: #16a34a; }
+    [data-theme="light"] .status-closed { background: #ffedd5; color: #c2410c; }
+    [data-theme="light"] .status-archived { background: #ede9fe; color: #7c3aed; }
+    #gg-toast { transition: transform 0.25s ease, opacity 0.25s ease; }
+    #gg-confirm { backdrop-filter: blur(2px); }
+    [data-theme="light"] .nav-tab-inactive { color: #64748b; }
+    [data-theme="light"] .nav-tab-inactive:hover { color: #0f172a; background: #f1f5f9; }
+    [data-theme="light"] header { border-color: #e2e8f0; }
+    [data-theme="light"] tbody tr:hover { background: rgba(99,102,241,0.04) !important; }
+    [data-theme="light"] .divide-slate-800 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
+    [data-theme="light"] .text-slate-400 { color: #475569; }
+    [data-theme="light"] .text-slate-500 { color: #64748b; }
+    [data-theme="light"] .text-slate-600 { color: #475569; }
+    [data-theme="light"] .bg-slate-700 { background-color: #e2e8f0; }
+    [data-theme="light"] .bg-slate-700\/50 { background-color: rgba(148,163,184,0.18); }
+    [data-theme="light"] .bg-slate-700\/30 { background-color: rgba(148,163,184,0.1); }
+    [data-theme="light"] .bg-slate-600 { background-color: #94a3b8; }
+    [data-theme="light"] .bg-slate-800\/80 { background-color: rgba(241,245,249,0.9); }
+    [data-theme="light"] .border-slate-700 { border-color: #e2e8f0; }
+    [data-theme="light"] .border-slate-600 { border-color: #cbd5e1; }
+    [data-theme="light"] .border-slate-800 { border-color: #e2e8f0; }
+    [data-theme="light"] .text-white { color: #0f172a; }
+    [data-theme="light"] .bg-slate-700\/20 { background: rgba(99,102,241,0.04); }
+    [data-theme="light"] .bg-slate-900 { background-color: #ffffff; }
+    [data-theme="light"] .bg-slate-800 { background-color: #f1f5f9; }
+    [data-theme="light"] .opacity-40 { opacity: 0.45; }
+    [data-theme="light"] .text-indigo-300 { color: #4f46e5; }
+    [data-theme="light"] .text-indigo-400 { color: #4338ca; }
+    [data-theme="light"] .bg-indigo-900\/60 { background-color: rgba(99,102,241,0.15); }
+    [data-theme="light"] .bg-green-900\/40 { background-color: rgba(22,163,74,0.12); }
+    [data-theme="light"] .text-green-400 { color: #16a34a; }
+    [data-theme="light"] .border-green-800 { border-color: #86efac; }
+    [data-theme="light"] .bg-amber-500 { background-color: #d97706; }
+    /* Light mode contrast fixes */
+    [data-theme="light"] .text-slate-300 { color: #334155; }
+    [data-theme="light"] .bg-slate-700 { background-color: #cbd5e1; }
+    [data-theme="light"] .bg-slate-700\/50 { background-color: rgba(203,213,225,0.5); }
+    [data-theme="light"] .border-slate-600 { border-color: #94a3b8; }
+    [data-theme="light"] .border-slate-700 { border-color: #cbd5e1; }
+    [data-theme="light"] .text-indigo-300 { color: #4338ca; }
+    [data-theme="light"] .bg-indigo-900\/60 { background-color: rgba(79,70,229,0.15); border-color: rgba(79,70,229,0.3); }
+    [data-theme="light"] .text-purple-300 { color: #7c3aed; }
+    [data-theme="light"] .bg-purple-900\/60 { background-color: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); }
+    [data-theme="light"] .bg-green-900\/60 { background-color: rgba(22,163,74,0.15); border-color: rgba(22,163,74,0.3); }
+    [data-theme="light"] .bg-amber-900\/40 { background-color: rgba(217,119,6,0.15); }
+    [data-theme="light"] .text-amber-400 { color: #d97706; }
+    [data-theme="light"] tbody td { color: #334155; }
+    [data-theme="light"] .font-medium { color: #1e293b; }
+    [data-theme="light"] .text-xs.text-slate-500 { color: #64748b; }
+    /* breadcrumb chevron alignment */
+    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; flex-wrap: wrap; }
+    .breadcrumb > * { display: inline-flex; align-items: center; line-height: 1; }
+    .breadcrumb a { color: var(--text-secondary); text-decoration: none; transition: color 0.15s; }
+    .breadcrumb a:hover { color: #818cf8; }
+    .breadcrumb .sep { color: var(--text-muted); }
+    .breadcrumb .current { color: #818cf8; font-weight: 500; }
+    .breadcrumb .active { color: var(--text-primary); font-weight: 500; }
+  </style>
+</head>
+<body class="min-h-screen overflow-x-hidden">
+
+  <!-- Admin header -->
+  <header class="border-b px-4 py-3 flex items-center justify-between sticky top-0 z-40" style="background:var(--header-bg);border-color:var(--border);">
+    <div class="flex items-center gap-3">
+      <span class="text-indigo-500 text-xl">🎬</span>
+      <span class="font-bold text-lg" style="color:var(--text-primary)">GroupGo</span>
+      <span class="text-xs bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded-full font-medium border border-indigo-600/30">Admin</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <nav class="flex items-center gap-1 mr-2">
+        <a href="/admin" class="text-sm px-3 py-3.5 rounded-lg font-medium transition-colors nav-tab-inactive leading-none {% if active_page == 'dashboard' %}bg-indigo-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-700/50{% endif %}">Dashboard</a>
+        <a href="/admin/theaters" class="text-sm px-3 py-3.5 rounded-lg font-medium transition-colors nav-tab-inactive leading-none {% if active_page == 'theaters' %}bg-indigo-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-700/50{% endif %}">Theaters</a>
+        <a href="/admin/members" class="text-sm px-3 py-3.5 rounded-lg font-medium transition-colors nav-tab-inactive leading-none {% if active_page == 'members' %}bg-indigo-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-700/50{% endif %}">Members</a>
+      </nav>
+      <!-- Theme toggle -->
+      <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"
+        class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-slate-700/50 text-slate-400 hover:text-white">
+        <svg id="theme-icon-dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
+        </svg>
+        <svg id="theme-icon-light" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toast -->
+  <div id="gg-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-xl shadow-2xl text-sm font-medium pointer-events-none translate-y-4 opacity-0 flex items-center gap-2"></div>
+
+  <!-- Confirm dialog -->
+  <div id="gg-confirm" class="hidden fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4">
+    <div class="card w-full max-w-sm p-5 shadow-2xl">
+      <p id="gg-confirm-msg" class="text-sm mb-5" style="color:var(--text-primary)"></p>
+      <div class="flex gap-2 justify-end">
+        <button id="gg-confirm-cancel" class="btn-ghost text-sm">Cancel</button>
+        <button id="gg-confirm-ok" class="btn-danger text-sm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    // ── Theme ──────────────────────────────────────────────────────────────────
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      document.getElementById('theme-icon-dark').classList.toggle('hidden', t === 'light');
+      document.getElementById('theme-icon-light').classList.toggle('hidden', t === 'dark');
+    }
+    function toggleTheme() {
+      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('gg-theme', next);
+      applyTheme(next);
+    }
+    applyTheme(localStorage.getItem('gg-theme') || 'dark');
+
+    // ── Toast ──────────────────────────────────────────────────────────────────
+    let _toastTimer;
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('gg-toast');
+      const styles = {
+        success: 'bg-green-700 text-white',
+        error: 'bg-red-700 text-white',
+        info: 'bg-indigo-700 text-white',
+        warn: 'bg-amber-600 text-white',
+      };
+      el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-2 ${styles[type] || styles.success}`;
+      el.textContent = msg;
+      el.style.transform = 'translateX(-50%) translateY(0)';
+      el.style.opacity = '1';
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => {
+        el.style.transform = 'translateX(-50%) translateY(1rem)';
+        el.style.opacity = '0';
+      }, 3500);
+    }
+
+    // ── Confirm dialog ─────────────────────────────────────────────────────────
+    function showConfirm(msg, onOk, okLabel = 'Confirm', danger = true) {
+      const dialog = document.getElementById('gg-confirm');
+      document.getElementById('gg-confirm-msg').textContent = msg;
+      const okBtn = document.getElementById('gg-confirm-ok');
+      okBtn.textContent = okLabel;
+      okBtn.className = `text-sm ${danger ? 'btn-danger' : 'btn-primary'}`;
+      dialog.classList.remove('hidden');
+      const cancel = () => { dialog.classList.add('hidden'); };
+      const ok = () => { dialog.classList.add('hidden'); onOk(); };
+      document.getElementById('gg-confirm-cancel').onclick = cancel;
+      okBtn.onclick = ok;
+      dialog.onclick = (e) => { if (e.target === dialog) cancel(); };
+    }
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

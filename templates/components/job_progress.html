@@ -1,0 +1,47 @@
+{% set pct = ((job.completed_tasks / job.total_tasks) * 100) | int if job.total_tasks else 0 %}
+<div id="job-progress-{{ job.id }}"
+  {% if job.status == 'running' %}
+  hx-get="/api/admin/jobs/{{ job.id }}"
+  hx-trigger="every 2s"
+  hx-target="#job-progress-{{ job.id }}"
+  hx-swap="outerHTML"
+  {% endif %}>
+
+  <div class="card p-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-semibold text-white">
+        {% if job.status == 'running' %}
+        Fetching showtimes...
+        {% elif job.status == 'complete' %}
+        ✓ Fetch complete
+        {% else %}
+        ⚠ Fetch finished with errors
+        {% endif %}
+      </span>
+      <span class="text-xs text-slate-400">{{ job.completed_tasks }}/{{ job.total_tasks }}</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="w-full bg-slate-700 rounded-full h-2 mb-2">
+      <div class="h-2 rounded-full transition-all duration-300
+        {% if job.status == 'complete' %}bg-green-500{% elif job.status == 'failed' %}bg-red-500{% else %}bg-indigo-500{% endif %}"
+        style="width: {{ pct }}%">
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 text-xs text-slate-400">
+      <span>{{ pct }}%</span>
+      {% if job.failed_tasks > 0 %}
+      <span class="text-amber-400">{{ job.failed_tasks }} failed</span>
+      {% endif %}
+      {% if job.status == 'running' %}
+      <span class="animate-pulse text-indigo-400">● Live</span>
+      {% endif %}
+    </div>
+    {% if job.last_error %}
+    <div class="mt-2 bg-red-900/40 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg">
+      {{ job.last_error }}
+    </div>
+    {% endif %}
+  </div>
+</div>

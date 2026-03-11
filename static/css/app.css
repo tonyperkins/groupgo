@@ -1,0 +1,66 @@
+/* GroupGo — minimal custom styles to complement Tailwind */
+
+/* Line clamp utility */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Touch target minimum */
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Override for small decorative elements */
+.no-min-size {
+  min-height: 0;
+  min-width: 0;
+}
+
+/* HTMX request spinner on buttons */
+button.htmx-request {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Prevent layout shift during HTMX swaps */
+[hx-swap], [data-hx-swap] {
+  min-height: 1px;
+}
+
+/* Accent color for checkboxes/radios */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #6366f1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

@@ -1,0 +1,63 @@
+from sqlmodel import Session, select
+from app.models import Theater
+
+
+def get_all_theaters(db: Session) -> list[Theater]:
+    return db.exec(select(Theater).order_by(Theater.name)).all()
+
+
+def get_active_theaters(db: Session) -> list[Theater]:
+    return db.exec(
+        select(Theater).where(Theater.is_active == True).order_by(Theater.name)
+    ).all()
+
+
+def get_theater(theater_id: int, db: Session) -> Theater:
+    t = db.get(Theater, theater_id)
+    if not t:
+        raise ValueError("Theater not found")
+    return t
+
+
+def add_theater(name: str, address: str, serpapi_query: str, db: Session) -> Theater:
+    t = Theater(name=name, address=address, serpapi_query=serpapi_query, is_active=True)
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+def toggle_theater(theater_id: int, db: Session) -> Theater:
+    t = db.get(Theater, theater_id)
+    if not t:
+        raise ValueError("Theater not found")
+    t.is_active = not t.is_active
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+def update_theater(
+    theater_id: int,
+    name: str | None,
+    address: str | None,
+    serpapi_query: str | None,
+    is_active: bool | None,
+    db: Session,
+) -> Theater:
+    t = db.get(Theater, theater_id)
+    if not t:
+        raise ValueError("Theater not found")
+    if name is not None:
+        t.name = name
+    if address is not None:
+        t.address = address
+    if serpapi_query is not None:
+        t.serpapi_query = serpapi_query
+    if is_active is not None:
+        t.is_active = is_active
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t

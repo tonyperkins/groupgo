@@ -1,0 +1,258 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'dashboard' %}
+{% block title %}Dashboard — GroupGo Admin{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+  <button onclick="openNewPollModal()"
+    class="btn-primary gap-2 text-sm">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    </svg>
+    New Poll
+  </button>
+</div>
+
+{% if not polls %}
+<div class="card p-10 text-center">
+  <div class="text-5xl mb-4">🎬</div>
+  <p class="text-white font-semibold text-lg mb-2">No polls yet</p>
+  <p class="text-slate-400 text-sm mb-4">Create your first poll to get started.</p>
+  <button onclick="openNewPollModal()"
+    class="btn-primary text-sm">Create First Poll</button>
+</div>
+{% else %}
+
+<div class="space-y-3">
+  {% for item in polls %}
+  {% set poll = item.poll %}
+  <div class="card overflow-hidden">
+    <!-- Colored top accent stripe by status -->
+    <div class="h-0.5
+      {% if poll.status == 'OPEN' %}bg-green-500{% elif poll.status == 'CLOSED' %}bg-amber-500{% elif poll.status == 'DRAFT' %}bg-slate-500{% else %}bg-indigo-500{% endif %}"></div>
+    <div class="p-5 flex items-start justify-between gap-4">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+          <h2 class="font-bold text-white text-base">{{ poll.title }}</h2>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium status-{{ poll.status | lower }}">
+            {{ poll.status }}
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+          <span class="flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c0 .621.504 1.125 1.125 1.125h15A1.125 1.125 0 0018.375 8.25m-15.75 0h15"/></svg>
+            {{ item.event_count }} movie{{ 's' if item.event_count != 1 else '' }}
+          </span>
+          <span class="flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
+            {{ item.session_count }} showtime{{ 's' if item.session_count != 1 else '' }}
+          </span>
+          {% if item.participation %}
+          <span class="flex items-center gap-1
+            {% if item.participation.fully_voted_count == item.participation.total %}text-green-400{% endif %}">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+            {{ item.participation.fully_voted_count }}/{{ item.participation.total }} voted
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+        {% if poll.status == 'DRAFT' %}
+          <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Edit</a>
+          <button onclick="publishPoll({{ poll.id }})" class="btn-primary text-xs">Publish</button>
+          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+        {% elif poll.status == 'OPEN' %}
+          <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Movies</a>
+          <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-xs">Times</a>
+          <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
+          <button onclick="closePoll({{ poll.id }})" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
+          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+        {% elif poll.status == 'CLOSED' %}
+          <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Declare Winner</a>
+          <button onclick="reopenPoll({{ poll.id }})" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
+          <button onclick="archivePoll({{ poll.id }})" class="btn-ghost text-xs">Archive</button>
+          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+        {% else %}
+          <a href="/admin/polls/{{ poll.id }}/results" class="btn-ghost text-xs">View</a>
+          <button onclick="reopenPoll({{ poll.id }})" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
+          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- New Poll Modal -->
+<div id="new-poll-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold" style="color:var(--text-primary)">New Poll</h2>
+      <button onclick="document.getElementById('new-poll-modal').classList.add('hidden')" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form onsubmit="createPoll(event)">
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1" style="color:var(--text-secondary)">Poll Title</label>
+        <input id="poll-title" type="text" placeholder="e.g. Weekend of March 14"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-2" style="color:var(--text-secondary)">Target Dates</label>
+        <!-- Mini calendar -->
+        <div class="border border-slate-600 rounded-lg overflow-hidden bg-slate-800/60">
+          <div class="flex items-center justify-between px-3 py-2 bg-slate-700/40 border-b border-slate-600">
+            <button type="button" onclick="calNav(-1)" class="text-slate-400 hover:text-white p-0.5 rounded transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+            </button>
+            <span id="cal-month-label" class="text-sm font-semibold text-white"></span>
+            <button type="button" onclick="calNav(1)" class="text-slate-400 hover:text-white p-0.5 rounded transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+            </button>
+          </div>
+          <div class="p-2">
+            <div class="grid grid-cols-7 text-center mb-1">
+              {% for d in ['Su','Mo','Tu','We','Th','Fr','Sa'] %}
+              <div class="text-xs text-slate-500 py-1">{{ d }}</div>
+              {% endfor %}
+            </div>
+            <div id="cal-grid" class="grid grid-cols-7 gap-0.5"></div>
+          </div>
+        </div>
+        <!-- Selected dates pills -->
+        <div id="cal-selected" class="flex flex-wrap gap-1.5 mt-2 min-h-[1.5rem]"></div>
+      </div>
+      <div id="poll-create-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="document.getElementById('new-poll-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
+        <button type="submit" class="btn-primary text-sm">Create Poll</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Calendar date picker ────────────────────────────────────────────────────
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let _calYear, _calMonth, _calSelected = new Set();
+
+function calInit() {
+  const now = new Date();
+  _calYear = now.getFullYear();
+  _calMonth = now.getMonth();
+  _calSelected.clear();
+  calRender();
+}
+
+function calNav(dir) { _calMonth += dir; if (_calMonth > 11) { _calMonth = 0; _calYear++; } if (_calMonth < 0) { _calMonth = 11; _calYear--; } calRender(); }
+
+function calRender() {
+  document.getElementById('cal-month-label').textContent = `${MONTHS[_calMonth]} ${_calYear}`;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const firstDay = new Date(_calYear, _calMonth, 1).getDay();
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  const today = new Date().toISOString().slice(0,10);
+  for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sel = _calSelected.has(iso);
+    const isToday = iso === today;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = d;
+    btn.dataset.iso = iso;
+    btn.className = `w-full aspect-square text-xs rounded font-medium transition-all ${sel ? 'bg-indigo-600 text-white' : isToday ? 'ring-1 ring-indigo-500 text-indigo-300 hover:bg-indigo-600/20' : 'text-slate-300 hover:bg-slate-600/50'}`;
+    btn.onclick = () => calToggle(iso);
+    grid.appendChild(btn);
+  }
+  calRenderPills();
+}
+
+function calToggle(iso) {
+  if (_calSelected.has(iso)) _calSelected.delete(iso); else _calSelected.add(iso);
+  calRender();
+}
+
+function calRenderPills() {
+  const sorted = [..._calSelected].sort();
+  document.getElementById('cal-selected').innerHTML = sorted.map(d =>
+    `<span class="inline-flex items-center gap-1 bg-indigo-900/50 text-indigo-300 text-xs px-2 py-0.5 rounded-full border border-indigo-700/50">
+      ${d}
+      <button type="button" onclick="calToggle('${d}')" class="text-indigo-400 hover:text-white ml-0.5">×</button>
+    </span>`
+  ).join('');
+}
+
+function openNewPollModal() { calInit(); document.getElementById('new-poll-modal').classList.remove('hidden'); }
+calInit();
+
+// ── Poll CRUD ───────────────────────────────────────────────────────────────
+async function createPoll(e) {
+  e.preventDefault();
+  const title = document.getElementById('poll-title').value.trim();
+  const dates = [..._calSelected].sort();
+  const errEl = document.getElementById('poll-create-error');
+  errEl.classList.add('hidden');
+  if (!title || !dates.length) {
+    errEl.textContent = 'Title and at least one date are required.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const resp = await fetch('/api/admin/polls', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title, target_dates: dates})
+  });
+  if (resp.ok) { window.location.reload(); }
+  else { const d = await resp.json(); errEl.textContent = d.detail || 'Error creating poll.'; errEl.classList.remove('hidden'); }
+}
+
+function publishPoll(id) {
+  showConfirm('Publish this poll? Voters will be able to see and vote on it.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}/publish`, {method:'POST'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error publishing.', 'error'); }
+  }, 'Publish', false);
+}
+
+function closePoll(id) {
+  showConfirm('Close this poll? No new votes will be accepted.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}/close`, {method:'POST'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error closing.', 'error'); }
+  }, 'Close Poll');
+}
+
+function archivePoll(id) {
+  showConfirm('Archive this poll?', async () => {
+    const r = await fetch(`/api/admin/polls/${id}/archive`, {method:'POST'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error archiving.', 'error'); }
+  }, 'Archive');
+}
+
+function reopenPoll(id) {
+  showConfirm('Reopen this poll? This will reset any declared winner and allow new votes.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}/reopen`, {method:'POST'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error reopening poll.', 'error'); }
+  }, 'Reopen');
+}
+
+function deletePoll(id) {
+  showConfirm('Permanently delete this poll? This cannot be undone. All votes, movies, and showtimes will be deleted.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}`, {method:'DELETE'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error deleting poll.', 'error'); }
+  }, 'Delete', true);
+}
+
+</script>
+{% endblock %}

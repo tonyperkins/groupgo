@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Logistics — GroupGo{% endblock %}
+
+{% block header_right %}
+<span class="text-slate-400 text-sm">Hey, <span class="text-white font-medium">{{ user.name }}</span></span>
+<a href="/identify" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">Switch</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 pt-4 pb-24">
+
+  <!-- Participation bar -->
+  <div class="mb-4 flex items-center gap-2 text-sm">
+    <div class="flex gap-1">
+      {% for p in participation.participants %}
+      <div title="{{ p.user.name }}{% if p.fully_voted %}{% if p.is_flexible %} ✓ Flexible (auto-complete){% else %} ✓ Voted on movies & times{% endif %}{% else %} • Needs to vote on {% if p.user.id == user.id %}movies & times{% else %}everything{% endif %}{% endif %}"
+        class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+        {% if p.fully_voted %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-400{% endif %}">
+        {{ p.user.name[0] }}
+      </div>
+      {% endfor %}
+    </div>
+    <span class="text-slate-400" title="Members who voted on all movies and showtimes">{{ participation.fully_voted_count }}/{{ participation.total }} done</span>
+  </div>
+
+  <h1 class="text-xl font-bold text-white mb-1">{{ poll.title }}</h1>
+  <p class="text-slate-400 text-sm mb-4">Mark each showtime as Can Do or Can't Do</p>
+
+  <!-- Logistics panel (swapped by HTMX when flexible toggle changes) -->
+  <div id="logistics-panel">
+    {% include "components/logistics_panel.html" %}
+  </div>
+
+  <!-- Continue CTA -->
+  <div class="mt-6 text-center">
+    <a href="/results" class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
+      See Results
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block bottom_nav %}
+{% include "components/bottom_nav.html" %}
+{% endblock %}
