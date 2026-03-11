@@ -196,6 +196,21 @@ def get_voted_movie_count(user_id: int, poll_id: int, db: Session) -> int:
     ).all()
     return len(count)
 
+def get_yes_movie_count(user_id: int, poll_id: int, db: Session) -> int:
+    from app.models import Vote, PollEvent
+    count = db.exec(
+        select(Vote)
+        .join(PollEvent, Vote.target_id == PollEvent.event_id)
+        .where(
+            Vote.user_id == user_id,
+            Vote.poll_id == poll_id,
+            Vote.target_type == "event",
+            Vote.vote_value == "yes",
+            PollEvent.poll_id == poll_id
+        )
+    ).all()
+    return len(count)
+
 def get_showtime_event_ids(user_votes: dict) -> list[int] | None:
     yes_event_ids = [
         target_id

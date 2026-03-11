@@ -231,6 +231,7 @@ async def get_vote_state(
     needs_movie_pick_first = showtime_event_ids == []
     voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
     voted_movie_count = vote_service.get_voted_movie_count(user.id, poll.id, db)
+    yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
 
     movies_opted_in = poll_preferences["is_participating"]
     has_saved_votes = any(v != "abstain" for v in user_votes.values())
@@ -245,6 +246,7 @@ async def get_vote_state(
             "poll": poll,
             "events": events,
             "voted_movie_count": voted_movie_count,
+            "yes_movie_count": yes_movie_count,
             "voted_session_count": voted_session_count,
             "is_flexible": is_flexible,
             "needs_movie_pick_first": needs_movie_pick_first,

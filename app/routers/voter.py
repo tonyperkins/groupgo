@@ -199,6 +199,7 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
     movies_opted_in = poll_preferences["is_participating"]
     has_saved_votes = any(vote_value != "abstain" for vote_value in user_votes.values())
     voted_movie_count = vote_service.get_voted_movie_count(user.id, poll.id, db)
+    yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
 
     return templates.TemplateResponse(
         request,
@@ -215,6 +216,7 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
             "movies_opted_in": movies_opted_in,
             "has_saved_votes": has_saved_votes,
             "voted_movie_count": voted_movie_count,
+            "yes_movie_count": yes_movie_count,
             "poster_url": movie_service.poster_url,
             "active_tab": "movies",
             "secure_entry": is_secure_entry(request),
