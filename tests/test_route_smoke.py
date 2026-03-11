@@ -107,6 +107,8 @@ def test_voter_showtimes_page_hides_sessions_when_user_rejects_movies(client, se
     poll, event, _ = poll_with_sessions
     token = _set_user_token(seeded_db, 2)
     client.cookies.set("token", token)
+    from app.services.vote_service import set_participating
+    set_participating(2, poll.id, True, seeded_db)
     cast_vote(2, poll.id, "event", event.id, "no", seeded_db)
 
     response = client.get("/vote/showtimes")

@@ -19,8 +19,8 @@ def get_theater(theater_id: int, db: Session) -> Theater:
     return t
 
 
-def add_theater(name: str, address: str, serpapi_query: str, db: Session) -> Theater:
-    t = Theater(name=name, address=address, serpapi_query=serpapi_query, is_active=True)
+def add_theater(name: str, address: str, website_url: str | None, serpapi_query: str, db: Session) -> Theater:
+    t = Theater(name=name, address=address, website_url=website_url, serpapi_query=serpapi_query, is_active=True)
     db.add(t)
     db.commit()
     db.refresh(t)
@@ -42,6 +42,7 @@ def update_theater(
     theater_id: int,
     name: str | None,
     address: str | None,
+    website_url: str | None,
     serpapi_query: str | None,
     is_active: bool | None,
     db: Session,
@@ -53,6 +54,8 @@ def update_theater(
         t.name = name
     if address is not None:
         t.address = address
+    if website_url is not None:
+        t.website_url = website_url
     if serpapi_query is not None:
         t.serpapi_query = serpapi_query
     if is_active is not None:

@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 
 from app.db import get_db
 from app.middleware.identity import get_current_user_optional, get_secure_poll_id, is_secure_entry
-from app.models import Poll, User
+from app.models import Poll, Theater, User
 from app.services import movie_service, showtime_service, vote_service
 from app.services.security_service import ensure_user_token, normalize_member_pin, set_voter_identity_cookies
 from app.templates_config import templates
@@ -194,6 +194,10 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
     events = movie_service.get_poll_events(poll.id, db)
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    movies_opted_in = poll_preferences["is_participating"]
+    has_saved_votes = any(vote_value != "abstain" for vote_value in user_votes.values())
+    voted_movie_count = vote_service.get_voted_movie_count(user.id, poll.id, db)
 
     return templates.TemplateResponse(
         request,
@@ -205,6 +209,10 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
             "events": events,
             "user_votes": user_votes,
             "participation": participation,
+            "poll_preferences": poll_preferences,
+            "movies_opted_in": movies_opted_in,
+            "has_saved_votes": has_saved_votes,
+            "voted_movie_count": voted_movie_count,
             "poster_url": movie_service.poster_url,
             "active_tab": "movies",
             "secure_entry": is_secure_entry(request),
@@ -228,6 +236,8 @@ async def voter_logistics(request: Request, db: Session = Depends(get_db)):
     grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=showtime_event_ids)
     is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
 
     return templates.TemplateResponse(
         request,
@@ -239,8 +249,10 @@ async def voter_logistics(request: Request, db: Session = Depends(get_db)):
             "grouped": grouped,
             "user_votes": user_votes,
             "is_flexible": is_flexible,
+            "voted_session_count": voted_session_count,
             "needs_movie_pick_first": showtime_event_ids == [],
             "participation": participation,
+            "poll_preferences": poll_preferences,
             "active_tab": "logistics",
             "secure_entry": is_secure_entry(request),
         },
@@ -260,6 +272,8 @@ async def voter_results(request: Request, db: Session = Depends(get_db)):
     results = vote_service.calculate_results(poll.id, db)
     personal_results = vote_service.calculate_user_results(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    theater_map = {t.id: t for t in db.exec(select(Theater)).all()}
 
     winner_event = None
     winner_session = None
@@ -278,6 +292,8 @@ async def voter_results(request: Request, db: Session = Depends(get_db)):
             "results": results,
             "personal_results": personal_results,
             "participation": participation,
+            "poll_preferences": poll_preferences,
+            "theater_map": theater_map,
             "poster_url": movie_service.poster_url,
             "winner_event": winner_event,
             "winner_session": winner_session,

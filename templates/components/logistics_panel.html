@@ -3,7 +3,7 @@
   <div class="flex items-center justify-between gap-4">
     <div>
       <p class="font-semibold text-white text-base">I'm In — Whatever You Choose!</p>
-      <p class="text-slate-400 text-sm mt-1">Skip showtime voting and count yourself as available for every showtime.</p>
+      <p class="text-slate-400 text-sm mt-1">{% if poll_preferences.is_participating %}Skip showtime voting and count yourself as available for every showtime.{% else %}You can browse showtimes now, but flexible mode unlocks only after you join from Movies.{% endif %}</p>
     </div>
     <button
       hx-post="/api/votes/flexible"
@@ -12,7 +12,8 @@
       hx-swap="innerHTML"
       role="switch"
       aria-checked="{{ 'true' if is_flexible else 'false' }}"
-      class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
+      {% if not poll_preferences.is_participating or poll_preferences.has_completed_voting %}disabled{% endif %}
+      class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {% if not poll_preferences.is_participating or poll_preferences.has_completed_voting %}opacity-60 cursor-not-allowed{% endif %}
         {% if is_flexible %}bg-indigo-600{% else %}bg-slate-600{% endif %}">
       <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out
         {% if is_flexible %}translate-x-5{% else %}translate-x-0{% endif %}">
@@ -31,7 +32,13 @@
 
 {% else %}
 <!-- Session voting grouped by date → theater -->
-{% if needs_movie_pick_first %}
+{% if not poll_preferences.is_participating %}
+<div class="card empty-state border-amber-900/50">
+  <div class="empty-state-icon">🗓️</div>
+  <p class="text-white font-semibold text-lg">Showtimes are preview-only right now</p>
+  <p class="text-slate-400 text-sm mt-2">You can browse the available times, but your showtime choices will unlock after you choose <span class="text-slate-200 font-semibold">Count Me In</span> on Movies.</p>
+</div>
+{% elif needs_movie_pick_first %}
 <div class="card empty-state border-amber-900/50">
   <div class="empty-state-icon">🎟️</div>
   <p class="text-white font-semibold text-lg">No showtimes in your list yet</p>
@@ -60,31 +67,30 @@
   {% for theater_id, theater_data in theaters.items() %}
   <div class="card mb-3 overflow-hidden">
     <!-- Theater header -->
-    <div class="bg-slate-700/50 px-4 py-3 border-b border-slate-700">
-      <p class="text-slate-100 font-semibold text-base">{{ theater_data.theater_name }}</p>
+    <div class="bg-slate-700/50 px-4 pt-3 pb-1.5 border-b border-slate-700">
+      <p class="text-white font-semibold text-base">{{ theater_data.theater_name }}</p>
+      <div class="flex items-center gap-3 mt-0.5 flex-wrap text-xs">
+        {% if theater_data.website_url %}
+        <a href="{{ theater_data.website_url }}" target="_blank" rel="noopener noreferrer"
+           class="text-slate-300 hover:text-indigo-300 underline underline-offset-2">Website</a>
+        {% endif %}
+        {% if theater_data.address %}
+        {% set theater_maps_query = theater_data.address | urlencode %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ theater_maps_query }}" target="_blank" rel="noopener noreferrer"
+           class="text-slate-300 hover:text-indigo-300 underline underline-offset-2">Location</a>
+        <a href="https://www.google.com/maps/dir/?api=1&destination={{ theater_maps_query }}" target="_blank" rel="noopener noreferrer"
+           class="text-slate-300 hover:text-indigo-300 underline underline-offset-2">Directions</a>
+        {% endif %}
+      </div>
     </div>
 
     <!-- Sessions -->
-    <div class="p-3 space-y-3">
+    <div class="px-3 pt-0 pb-3 space-y-3">
       {% for item in theater_data.sessions %}
       {% set s = item.session %}
       {% set current_vote = user_votes.get(('session', s.id), 'abstain') %}
-      <div class="surface-muted px-3 py-3 sm:px-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <div class="flex-shrink-0 text-center sm:text-left sm:w-32">
-          <div class="text-white font-bold text-base">{{ s.session_time | display_time }}</div>
-          {% if s.format != 'Standard' %}
-          <div class="text-xs text-indigo-300 font-medium mt-1">{{ s.format }}</div>
-          {% endif %}
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-slate-200 text-sm font-medium truncate">{{ item.event_title }}</p>
-          <p class="text-slate-500 text-xs mt-1">Tap to mark whether this plan works for you.</p>
-        </div>
-        <div class="flex-shrink-0 w-full sm:w-48">
-          {% set session_id = s.id %}
-          {% include "components/session_vote_toggle.html" %}
-        </div>
-      </div>
+      {% set session_id = s.id %}
+      {% include "components/session_card.html" %}
       {% endfor %}
     </div>
   </div>
@@ -92,17 +98,9 @@
 </div>
 {% endfor %}
 
-<!-- Done Voting Button -->
-<div class="mt-6">
-  <button
-    hx-post="/api/votes/complete"
-    hx-swap="none"
-    hx-on::after-request="window.location.href='/results'"
-    class="w-full btn-primary py-3 text-base font-semibold">
-    <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
-    Done Voting
-  </button>
+{% if grouped %}
+<div class="mt-8 mb-4 flex flex-col items-center gap-3">
+  {% include "components/logistics_hero_actions.html" %}
 </div>
+{% endif %}
 {% endif %}

@@ -13,48 +13,24 @@
 {% block content %}
 <div class="page-shell">
 
-  <section class="page-hero mb-6">
-    <span class="page-eyebrow">Results</span>
-    <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <h1 class="page-title text-white">{{ poll.title }}</h1>
-        <p class="page-subtitle mt-3">{% if poll.status == 'OPEN' %}Live results update automatically as votes come in, so you can keep an eye on the strongest movie-and-showtime combination.{% else %}This poll is closed, so you’re looking at the locked final standings.{% endif %}</p>
-      </div>
-      <div class="inline-pills">
-        <span class="soft-pill soft-pill-strong">{{ poll.status }}</span>
-        <span class="soft-pill">{% if poll.status == 'OPEN' %}Auto-refreshing{% else %}Final state{% endif %}</span>
-      </div>
-    </div>
-    <div class="step-strip mt-6">
-      <a href="/vote/movies" class="step-chip">
-        <span class="step-index">1</span>
-        <span class="step-copy">
-          <span class="step-label">Movies</span>
-          <span class="step-meta">Approve your shortlist</span>
-        </span>
-      </a>
-      <a href="/vote/showtimes" class="step-chip">
-        <span class="step-index">2</span>
-        <span class="step-copy">
-          <span class="step-label">Showtimes</span>
-          <span class="step-meta">Choose what works</span>
-        </span>
-      </a>
-      <a href="/results" class="step-chip is-active">
-        <span class="step-index">3</span>
-        <span class="step-copy">
-          <span class="step-label">Results</span>
-          <span class="step-meta">Compare group standings</span>
-        </span>
-      </a>
-    </div>
-  </section>
+  {% set hero_eyebrow = 'Results' %}
+  {% set hero_pills = [
+    {'label': poll.status, 'strong': true},
+    {'label': 'Auto-refreshing' if poll.status == 'OPEN' else 'Final state', 'strong': false}
+  ] %}
+  {% set hero_body_partial = 'components/results_hero_body.html' %}
+  {% include 'components/voter_page_hero.html' %}
 
   {% if poll.status == 'CLOSED' and winner_event and winner_session %}
+  {% set theater = theater_map.get(winner_session.theater_id) %}
+  {% if theater and theater.address %}
+  {% set winner_maps_query = theater.address | urlencode %}
+  {% endif %}
   <!-- Official winner banner -->
   <div class="card p-5 sm:p-6 mb-6 result-highlight">
     <p class="text-yellow-400 text-xs font-bold uppercase tracking-wider mb-3">🏆 Official Plan</p>
-    <div class="flex gap-4 items-center">
+    <div class="flex gap-4 items-center justify-between flex-wrap">
+      <div class="flex gap-4 items-center">
       {% if winner_event.poster_path %}
       <img src="{{ poster_url(winner_event.poster_path, 'w92') }}"
            class="w-16 h-24 object-cover rounded-2xl" alt="{{ winner_event.title }}"/>
@@ -65,6 +41,27 @@
         <p class="text-indigo-300 font-semibold text-sm mt-1">{{ winner_session.session_time | display_time }}
           {% if winner_session.format != 'Standard' %}· {{ winner_session.format }}{% endif %}
         </p>
+        {% if theater %}
+        <p class="text-slate-400 text-sm mt-1">{{ theater.name }}</p>
+        {% endif %}
+        {% if theater and theater.address %}
+        <div class="flex items-center gap-3 mt-2 flex-wrap text-xs">
+          {% if theater.website_url %}
+          <a href="{{ theater.website_url }}" target="_blank" rel="noopener noreferrer"
+             class="text-slate-300 hover:text-indigo-200 underline underline-offset-2">Website</a>
+          {% endif %}
+          <a href="https://www.google.com/maps/search/?api=1&query={{ winner_maps_query }}" target="_blank" rel="noopener noreferrer"
+             class="text-slate-300 hover:text-indigo-200 underline underline-offset-2">Location</a>
+          <a href="https://www.google.com/maps/dir/?api=1&destination={{ winner_maps_query }}" target="_blank" rel="noopener noreferrer"
+             class="text-slate-300 hover:text-indigo-200 underline underline-offset-2">Directions</a>
+        </div>
+        {% elif theater and theater.website_url %}
+        <div class="flex items-center gap-3 mt-2 flex-wrap text-xs">
+          <a href="{{ theater.website_url }}" target="_blank" rel="noopener noreferrer"
+             class="text-slate-300 hover:text-indigo-200 underline underline-offset-2">Website</a>
+        </div>
+        {% endif %}
+      </div>
       </div>
     </div>
   </div>

@@ -18,6 +18,16 @@ FORMAT_KEYWORDS = {
 }
 
 
+BOOKING_URL_KEYS = (
+    "link",
+    "url",
+    "booking_link",
+    "booking_url",
+    "ticket_url",
+    "tickets",
+)
+
+
 def extract_format(raw: str) -> str:
     lower = raw.lower()
     for fmt, keywords in FORMAT_KEYWORDS.items():
@@ -39,6 +49,14 @@ def normalize_time(raw: str) -> str:
     elif meridiem == "am" and hour == 12:
         hour = 0
     return f"{hour:02d}:{minute}"
+
+
+def extract_booking_url(showing: dict) -> str | None:
+    for key in BOOKING_URL_KEYS:
+        value = showing.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 _DAY_ABBREVS = {
@@ -115,9 +133,17 @@ def parse_serpapi_showtimes(
                 if theater_name.lower() not in block_theater_name and block_theater_name not in theater_name.lower():
                     continue
 
+            theater_booking_url = None
+            for key in BOOKING_URL_KEYS:
+                value = theater_block.get(key)
+                if isinstance(value, str) and value.strip():
+                    theater_booking_url = value.strip()
+                    break
+
             for showing in theater_block.get("showing", []):
                 raw_type = showing.get("type", "Standard")
                 fmt = extract_format(raw_type)
+                booking_url = extract_booking_url(showing) or theater_booking_url
                 times = showing.get("time", [])
                 if isinstance(times, str):
                     times = [times]
@@ -130,9 +156,14 @@ def parse_serpapi_showtimes(
                         "session_date": block_date,
                         "session_time": norm,
                         "format": fmt,
+                        "booking_url": booking_url,
                         "fetch_timestamp": now_ts,
                         "fetch_status": "success",
-                        "raw_serpapi": json.dumps({"day": day_str, "theater": theater_block.get("name")}),
+                        "raw_serpapi": json.dumps({
+                            "day": day_str,
+                            "theater": theater_block.get("name"),
+                            "showing": showing,
+                        }),
                     })
 
     return results
@@ -166,6 +197,8 @@ def get_or_create_sessions(sessions_data: list[dict], db: Session) -> list[ShowS
             )
         ).first()
         if existing:
+            existing.booking_url = data.get("booking_url")
+            existing.raw_serpapi = data.get("raw_serpapi")
             existing.fetch_timestamp = data["fetch_timestamp"]
             existing.fetch_status = data["fetch_status"]
             db.add(existing)
@@ -220,6 +253,8 @@ def get_sessions_grouped(
             grouped[date][theater_id] = {
                 "theater_name": theater_name,
                 "theater_id": theater_id,
+                "address": theater.address if theater else None,
+                "website_url": theater.website_url if theater else None,
                 "sessions": [],
             }
         event = events.get(s.event_id)

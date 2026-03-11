@@ -61,6 +61,8 @@ def set_flexible(user_id: int, poll_id: int, is_flexible: bool, db: Session):
     ).first()
     if pref:
         pref.is_flexible = is_flexible
+        if is_flexible:
+            pref.is_participating = True
         pref.updated_at = _now()
         db.add(pref)
     else:
@@ -68,14 +70,14 @@ def set_flexible(user_id: int, poll_id: int, is_flexible: bool, db: Session):
             user_id=user_id,
             poll_id=poll_id,
             is_flexible=is_flexible,
+            is_participating=is_flexible,
             updated_at=_now(),
         )
         db.add(pref)
     db.commit()
 
 
-def mark_voting_complete(user_id: int, poll_id: int, db: Session):
-    """Mark user's voting as complete for a poll"""
+def mark_voting_complete(user_id: int, poll_id: int, is_complete: bool, db: Session):
     pref = db.exec(
         select(UserPollPreference).where(
             UserPollPreference.user_id == user_id,
@@ -83,14 +85,42 @@ def mark_voting_complete(user_id: int, poll_id: int, db: Session):
         )
     ).first()
     if pref:
-        pref.has_completed_voting = True
+        pref.has_completed_voting = is_complete
+        if is_complete:
+            pref.is_participating = True
         pref.updated_at = _now()
         db.add(pref)
     else:
         pref = UserPollPreference(
             user_id=user_id,
             poll_id=poll_id,
-            has_completed_voting=True,
+            has_completed_voting=is_complete,
+            is_participating=is_complete,
+            updated_at=_now(),
+        )
+        db.add(pref)
+    db.commit()
+
+
+def set_participating(user_id: int, poll_id: int, is_participating: bool, db: Session):
+    pref = db.exec(
+        select(UserPollPreference).where(
+            UserPollPreference.user_id == user_id,
+            UserPollPreference.poll_id == poll_id,
+        )
+    ).first()
+    if pref:
+        pref.is_participating = is_participating
+        if not is_participating:
+            pref.has_completed_voting = False
+            pref.is_flexible = False
+        pref.updated_at = _now()
+        db.add(pref)
+    else:
+        pref = UserPollPreference(
+            user_id=user_id,
+            poll_id=poll_id,
+            is_participating=is_participating,
             updated_at=_now(),
         )
         db.add(pref)
@@ -117,6 +147,35 @@ def get_is_flexible(user_id: int, poll_id: int, db: Session) -> bool:
     ).first()
     return pref.is_flexible if pref else False
 
+
+def get_user_poll_preferences(user_id: int, poll_id: int, db: Session) -> dict:
+    pref = db.exec(
+        select(UserPollPreference).where(
+            UserPollPreference.user_id == user_id,
+            UserPollPreference.poll_id == poll_id,
+        )
+    ).first()
+    return {
+        "is_flexible": pref.is_flexible if pref else False,
+        "has_completed_voting": pref.has_completed_voting if pref else False,
+        "is_participating": pref.is_participating if pref else False,
+    }
+
+
+def get_voted_movie_count(user_id: int, poll_id: int, db: Session) -> int:
+    from app.models import Vote, PollEvent
+    count = db.exec(
+        select(Vote)
+        .join(PollEvent, Vote.target_id == PollEvent.event_id)
+        .where(
+            Vote.user_id == user_id,
+            Vote.poll_id == poll_id,
+            Vote.target_type == "event",
+            Vote.vote_value != "abstain",
+            PollEvent.poll_id == poll_id
+        )
+    ).all()
+    return len(count)
 
 def get_showtime_event_ids(user_votes: dict) -> list[int] | None:
     yes_event_ids = [
@@ -160,6 +219,7 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
         select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
     ).all()
     flexible_user_ids = {p.user_id for p in prefs if p.is_flexible}
+    unavailable_user_ids = {p.user_id for p in prefs if not p.is_participating}
 
     candidates = []
     for event in events:
@@ -172,14 +232,15 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
         "user_ids": user_ids,
         "vote_lookup": vote_lookup,
         "flexible_user_ids": flexible_user_ids,
+        "unavailable_user_ids": unavailable_user_ids,
         "candidates": candidates,
     }
-
 
 def _score_candidates(
     candidates: list[tuple[Event, ShowSession]],
     users: list[User],
     flexible_user_ids: set[int],
+    unavailable_user_ids: set[int],
     vote_lookup: dict[tuple, str],
     require_support: bool = False,
 ) -> list[dict]:
@@ -188,30 +249,57 @@ def _score_candidates(
         score = 0
         compatible_user_ids = []
         supporters = []
+        user_states = []
         for user in users:
             uid = user.id
+            if uid in unavailable_user_ids:
+                user_states.append({
+                    "user": user,
+                    "is_supporting": False,
+                    "is_compatible": False,
+                    "is_flexible": False,
+                    "is_participating": False,
+                })
+                continue
+
             if uid in flexible_user_ids:
                 score += 2
                 compatible_user_ids.append(uid)
                 supporters.append({"user": user, "is_flexible": True})
+                user_states.append({
+                    "user": user,
+                    "is_supporting": True,
+                    "is_compatible": True,
+                    "is_flexible": True,
+                    "is_participating": True,
+                })
                 continue
 
             movie_vote = vote_lookup.get(("event", event.id, uid), "abstain")
             session_vote = vote_lookup.get(("session", session.id, uid), "abstain")
+            is_compatible = movie_vote != "no" and session_vote != "cant_do"
+            is_supporting = movie_vote == "yes" and session_vote == "can_do"
 
             if movie_vote == "yes":
                 score += 1
             if session_vote == "can_do":
                 score += 1
-            if movie_vote != "no" and session_vote != "cant_do":
+            if is_compatible:
                 compatible_user_ids.append(uid)
-            if movie_vote == "yes" and session_vote == "can_do":
+            if is_supporting:
                 supporters.append({"user": user, "is_flexible": False})
+            user_states.append({
+                "user": user,
+                "is_supporting": is_supporting,
+                "is_compatible": is_compatible,
+                "is_flexible": False,
+                "is_participating": True,
+            })
 
         if require_support and not supporters:
             continue
 
-        scored.append((score, event, session, compatible_user_ids, supporters))
+        scored.append((score, event, session, compatible_user_ids, supporters, user_states))
 
     scored.sort(key=lambda x: (-x[0], x[2].session_date, x[2].session_time))
 
@@ -225,8 +313,9 @@ def _score_candidates(
             "compatible_count": len(compatible_user_ids),
             "supporters": supporters,
             "supporter_count": len(supporters),
+            "user_states": user_states,
         }
-        for i, (score, event, session, compatible_user_ids, supporters) in enumerate(scored)
+        for i, (score, event, session, compatible_user_ids, supporters, user_states) in enumerate(scored)
     ]
 
 
@@ -245,6 +334,7 @@ def calculate_results(poll_id: int, db: Session) -> dict:
         result_inputs["candidates"],
         result_inputs["users"],
         result_inputs["flexible_user_ids"],
+        result_inputs["unavailable_user_ids"],
         result_inputs["vote_lookup"],
         require_support=True,
     )
@@ -273,6 +363,7 @@ def calculate_user_results(user_id: int, poll_id: int, db: Session) -> dict:
         candidates,
         result_inputs["users"],
         result_inputs["flexible_user_ids"],
+        result_inputs["unavailable_user_ids"],
         result_inputs["vote_lookup"],
         require_support=True,
     )
@@ -310,13 +401,18 @@ def get_participation(poll_id: int, db: Session) -> dict:
             )
         ).first()
         is_flexible = pref.is_flexible if pref else False
+        is_participating = pref.is_participating if pref else False
         has_completed = pref.has_completed_voting if pref else False
 
-        if is_flexible:
+        if not is_participating:
+            fully_voted = False
+            status_label = "Not joined"
+        elif is_flexible:
             fully_voted = True
+            status_label = "Flexible"
         elif has_completed:
-            # User explicitly marked voting as complete
             fully_voted = True
+            status_label = "All set"
         else:
             user_votes = db.exec(
                 select(Vote).where(
@@ -349,11 +445,15 @@ def get_participation(poll_id: int, db: Session) -> dict:
             all_events_voted = set(event_ids).issubset(voted_event_ids) if event_ids else True
             all_sessions_voted = set(required_session_ids).issubset(voted_session_ids) if required_session_ids else True
             fully_voted = all_events_voted and all_sessions_voted
+            status_label = "All set" if fully_voted else "Pending"
 
         participants.append({
             "user": user,
             "fully_voted": fully_voted,
             "is_flexible": is_flexible,
+            "is_participating": is_participating,
+            "has_completed_voting": has_completed,
+            "status_label": status_label,
         })
 
     fully_voted_count = sum(1 for p in participants if p["fully_voted"])

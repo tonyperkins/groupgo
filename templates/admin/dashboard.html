@@ -153,7 +153,7 @@
         <label class="text-xs text-slate-400 mb-2 block font-medium">Share this URL with voters</label>
         <div class="flex flex-col gap-2 sm:flex-row">
           <input id="invite-link-field" type="text" readonly
-            class="input-base flex-1 text-xs sm:text-sm"/>
+            class="input-base flex-1 text-xs sm:text-sm text-white placeholder:text-slate-400"/>
           <button type="button" onclick="copyInviteLink()" class="btn-primary text-sm whitespace-nowrap">Copy Link</button>
         </div>
       </div>
@@ -386,8 +386,25 @@ function showInviteLinkFromButton(button) {
 async function copyInviteLink() {
   const input = document.getElementById('invite-link-field');
   if (!input.value) return;
-  await navigator.clipboard.writeText(input.value);
-  showToast('Invite link copied.', 'info');
+  try {
+    if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(input.value);
+    } else {
+      input.focus();
+      input.select();
+      input.setSelectionRange(0, input.value.length);
+      const copied = document.execCommand('copy');
+      if (!copied) {
+        throw new Error('execCommand copy failed');
+      }
+    }
+    showToast('Invite link copied.', 'info');
+  } catch (error) {
+    input.focus();
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    showToast('Copy failed. The link is selected so you can copy it manually.', 'warn');
+  }
 }
 
 </script>

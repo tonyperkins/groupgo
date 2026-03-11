@@ -11,77 +11,27 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-shell">
+<div class="page-shell" id="showtimes-page-content">
 
-  <section class="page-hero mb-6">
-    <span class="page-eyebrow">Step 2 of 3</span>
-    <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <h1 class="page-title text-white">{{ poll.title }}</h1>
-        <p class="page-subtitle mt-3">Now choose the showtimes you can make. You only need to mark the options that work for you, or flip on the flexible mode and let the group decide.</p>
-      </div>
-      <div class="inline-pills">
-        <span class="soft-pill soft-pill-strong">Showtime step</span>
-        <span class="soft-pill">{{ participation.fully_voted_count }}/{{ participation.total }} finished</span>
-      </div>
-    </div>
-    <div class="step-strip mt-6">
-      <a href="/vote/movies" class="step-chip">
-        <span class="step-index">1</span>
-        <span class="step-copy">
-          <span class="step-label">Movies</span>
-          <span class="step-meta">Preference shortlist</span>
-        </span>
-      </a>
-      <a href="/vote/showtimes" class="step-chip is-active">
-        <span class="step-index">2</span>
-        <span class="step-copy">
-          <span class="step-label">Showtimes</span>
-          <span class="step-meta">Choose what works</span>
-        </span>
-      </a>
-      <a href="/results" class="step-chip">
-        <span class="step-index">3</span>
-        <span class="step-copy">
-          <span class="step-label">Results</span>
-          <span class="step-meta">Track the best option</span>
-        </span>
-      </a>
-    </div>
-  </section>
+  {% set hero_eyebrow = 'Step 2 of 3' %}
+  {% set hero_pills = [
+    {'label': 'Showtime step', 'strong': true},
+    {'label': participation.fully_voted_count ~ '/' ~ participation.total ~ ' finished', 'strong': false}
+  ] %}
+  {% set hero_body_partial = 'components/logistics_hero_body.html' %}
+  {% include 'components/voter_page_hero.html' %}
 
   <!-- Participation bar -->
-  <div class="card p-4 mb-5">
-    <div class="section-heading">
-      <div>
-        <h2 class="section-title">Group progress</h2>
-        <p class="section-description">Flexible voters count as complete automatically.</p>
-      </div>
-      <span class="soft-pill soft-pill-strong">{{ participation.fully_voted_count }}/{{ participation.total }} done</span>
-    </div>
-    <div class="flex gap-2 flex-wrap mt-4">
-      {% for p in participation.participants %}
-      <div title="{{ p.user.name }}{% if p.fully_voted %}{% if p.is_flexible %} ✓ Flexible (auto-complete){% else %} ✓ Voted on movies & times{% endif %}{% else %} • Needs to vote on {% if p.user.id == user.id %}movies & times{% else %}everything{% endif %}{% endif %}"
-        class="inline-flex items-center gap-2 rounded-full px-3 py-2 border border-slate-700 bg-slate-700/30 {% if p.fully_voted %}text-white{% else %}text-slate-400{% endif %}">
-        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold {% if p.fully_voted %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-400{% endif %}">
-          {{ p.user.name[0] }}
-        </div>
-        <span class="text-sm font-medium">{{ p.user.name }}</span>
-        {% if p.is_flexible %}<span class="text-xs text-indigo-400">Flexible</span>{% endif %}
-      </div>
-      {% endfor %}
-    </div>
-  </div>
+  {% set group_progress_title = 'Group progress' %}
+  {% set group_progress_description = 'Flexible voters count as complete automatically.' %}
+  {% set group_progress_status = participation.fully_voted_count ~ '/' ~ participation.total ~ ' done' %}
+  {% include "components/group_progress.html" %}
 
   <div class="surface-muted p-4 mb-5">
     <div class="flex flex-wrap items-center gap-3 justify-between">
       <div>
         <p class="text-sm font-semibold text-white">How showtime voting works</p>
         <p class="text-sm text-slate-400 mt-1">Mark the showtimes you can make. Anything left as <span class="text-slate-300 font-semibold">Can't Do</span> won’t count as available for you.</p>
-      </div>
-      <div class="inline-pills">
-        <span class="soft-pill">Real-time saving</span>
-        <span class="soft-pill">Flexible mode available</span>
       </div>
     </div>
   </div>
@@ -91,15 +41,7 @@
     {% include "components/logistics_panel.html" %}
   </div>
 
-  <!-- Continue CTA -->
-  <div class="mt-8 text-center">
-    <a href="/results" class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
-      See Results
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-      </svg>
-    </a>
-  </div>
+  <div hx-get="/api/votes/state?page=showtimes" hx-trigger="voteSaved from:body" hx-swap="none"></div>
 </div>
 {% endblock %}
 

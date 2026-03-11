@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select
 
 from app.db import get_db
-from app.middleware.identity import get_current_user, get_secure_poll_id
+from app.middleware.identity import get_current_user, get_secure_poll_id, is_secure_entry
 from app.middleware.auth import verify_admin
 from app.models import Poll, FetchJob, User, Group, Event as EventModel, Theater as TheaterModel
 from app.models import Session as ShowSession
@@ -87,11 +87,12 @@ async def vote_movie(
     vote_service.cast_vote(user.id, poll.id, "event", event_id, vote, db)
 
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     current = user_votes.get(("event", event_id), "abstain")
     response = templates.TemplateResponse(
         request,
         "components/movie_vote_toggle.html",
-        {"request": request, "event_id": event_id, "current_vote": current},
+        {"request": request, "event_id": event_id, "current_vote": current, "poll_preferences": poll_preferences, "movies_opted_in": poll_preferences["is_participating"]},
     )
     response.headers["HX-Trigger"] = "voteSaved"
     return response
@@ -114,11 +115,24 @@ async def vote_session(
     vote_service.cast_vote(user.id, poll.id, "session", session_id, vote, db)
 
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     current = user_votes.get(("session", session_id), "abstain")
+    session_obj = db.get(ShowSession, session_id)
+    if not session_obj or session_obj.poll_id != poll.id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    event = db.get(EventModel, session_obj.event_id)
+    item = {"event_title": event.title if event else "Unknown title", "session": session_obj}
     response = templates.TemplateResponse(
         request,
-        "components/session_vote_toggle.html",
-        {"request": request, "session_id": session_id, "current_vote": current},
+        "components/session_card.html",
+        {
+            "request": request,
+            "session_id": session_id,
+            "current_vote": current,
+            "s": session_obj,
+            "item": item,
+            "poll_preferences": poll_preferences,
+        },
     )
     response.headers["HX-Trigger"] = "voteSaved"
     return response
@@ -141,6 +155,7 @@ async def vote_flexible(
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
     grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=showtime_event_ids)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     response = templates.TemplateResponse(
         request,
         "components/logistics_panel.html",
@@ -150,6 +165,7 @@ async def vote_flexible(
             "grouped": grouped,
             "user_votes": user_votes,
             "poll": poll,
+            "poll_preferences": poll_preferences,
             "needs_movie_pick_first": showtime_event_ids == [],
         },
     )
@@ -157,24 +173,86 @@ async def vote_flexible(
     return response
 
 
-@router.post("/api/votes/complete")
+@router.post("/api/votes/complete", response_class=JSONResponse)
 async def vote_complete(
     request: Request,
+    is_complete: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    """Mark user's voting as complete for the current poll"""
     user = get_current_user(request, db)
     poll = _get_voter_poll_for_request(request, ["OPEN"], db)
     if not poll:
         raise HTTPException(status_code=403, detail="No open poll")
 
-    vote_service.mark_voting_complete(user.id, poll.id, db)
-    
-    from fastapi.responses import JSONResponse
-    response = JSONResponse({"status": "complete"})
-    response.headers["HX-Trigger"] = "voteSaved"
+    complete = is_complete.lower() in ("true", "1", "yes")
+    vote_service.mark_voting_complete(user.id, poll.id, complete, db)
+    response = JSONResponse({"status": "ok", "is_complete": complete})
+    response.headers["HX-Refresh"] = "true"
     return response
 
+
+@router.post("/api/votes/participation", response_class=JSONResponse)
+async def vote_participation(
+    request: Request,
+    is_participating: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        raise HTTPException(status_code=403, detail="No open poll")
+
+    participating = is_participating.lower() in ("true", "1", "yes")
+    vote_service.set_participating(user.id, poll.id, participating, db)
+    response = JSONResponse({"status": "ok", "is_participating": participating})
+    response.headers["HX-Refresh"] = "true"
+    return response
+
+
+@router.get("/api/votes/state", response_class=HTMLResponse)
+async def get_vote_state(
+    request: Request,
+    page: str,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        return HTMLResponse("")
+
+    user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    participation = vote_service.get_participation(poll.id, db)
+    events = movie_service.get_poll_events(poll.id, db)
+    is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
+    showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
+    needs_movie_pick_first = showtime_event_ids == []
+    voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
+    voted_movie_count = vote_service.get_voted_movie_count(user.id, poll.id, db)
+
+    movies_opted_in = poll_preferences["is_participating"]
+    has_saved_votes = any(v != "abstain" for v in user_votes.values())
+    is_joined = movies_opted_in
+
+    return templates.TemplateResponse(
+        request,
+        "fragments/voter_state_oob.html",
+        {
+            "request": request,
+            "user": user,
+            "poll": poll,
+            "events": events,
+            "voted_movie_count": voted_movie_count,
+            "voted_session_count": voted_session_count,
+            "is_flexible": is_flexible,
+            "needs_movie_pick_first": needs_movie_pick_first,
+            "is_joined": is_joined,
+            "has_saved_votes": has_saved_votes,
+            "poll_preferences": poll_preferences,
+            "participation": participation,
+            "page": page,
+        },
+    )
 
 # ─── Results ──────────────────────────────────────────────────────────────────
 
@@ -192,6 +270,8 @@ async def results_fragment(request: Request, db: Session = Depends(get_db)):
     results = vote_service.calculate_results(poll.id, db)
     personal_results = vote_service.calculate_user_results(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
+    theaters = theater_service.get_all_theaters(db)
+    theater_map = {theater.id: theater for theater in theaters}
 
     return templates.TemplateResponse(
         request,
@@ -203,6 +283,7 @@ async def results_fragment(request: Request, db: Session = Depends(get_db)):
             "personal_results": personal_results,
             "participation": participation,
             "poll": poll,
+            "theater_map": theater_map,
             "poster_url": movie_service.poster_url,
         },
     )
@@ -486,12 +567,13 @@ async def admin_add_theater(
     body = await request.json()
     name = body.get("name", "").strip()
     address = body.get("address", "")
+    website_url = body.get("website_url", "").strip() or None
     serpapi_query = body.get("serpapi_query", "").strip()
     if not name or not serpapi_query:
         raise HTTPException(status_code=400, detail="name and serpapi_query required")
-    t = theater_service.add_theater(name, address, serpapi_query, db)
+    t = theater_service.add_theater(name, address, website_url, serpapi_query, db)
     return JSONResponse(
-        {"id": t.id, "name": t.name, "address": t.address, "is_active": t.is_active},
+        {"id": t.id, "name": t.name, "address": t.address, "website_url": t.website_url, "is_active": t.is_active},
         status_code=201,
     )
 
@@ -524,13 +606,14 @@ async def admin_update_theater(
             theater_id,
             name=body.get("name"),
             address=body.get("address"),
+            website_url=body.get("website_url"),
             serpapi_query=body.get("serpapi_query"),
             is_active=body.get("is_active"),
             db=db,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    return {"id": t.id, "name": t.name, "address": t.address, "is_active": t.is_active}
+    return {"id": t.id, "name": t.name, "address": t.address, "website_url": t.website_url, "is_active": t.is_active}
 
 
 # ─── Admin: Sessions visibility ──────────────────────────────────────────────
@@ -934,6 +1017,38 @@ async def admin_job_status(
     job = db.get(FetchJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    response = templates.TemplateResponse(
+        request,
+        "components/job_progress.html",
+        {"request": request, "job": job},
+    )
+    if job.status in ("complete", "failed"):
+        response.headers["HX-Trigger"] = "jobComplete"
+    return response
+
+
+@router.get("/api/admin/jobs/{job_id}/json")
+async def admin_job_status_json(
+    request: Request,
+    job_id: str,
+    db: Session = Depends(get_db),
+):
+    verify_admin(request)
+    job = db.get(FetchJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    pct = int((job.completed_tasks / job.total_tasks * 100)) if job.total_tasks else 0
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "total_tasks": job.total_tasks,
+        "completed_tasks": job.completed_tasks,
+        "failed_tasks": job.failed_tasks,
+        "percent": pct,
+        "started_at": job.started_at,
+        "finished_at": job.finished_at,
+    }
 
     response = templates.TemplateResponse(
         request,

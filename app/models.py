@@ -74,6 +74,7 @@ class Theater(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     address: Optional[str] = Field(default=None)
+    website_url: Optional[str] = Field(default=None)
     serpapi_query: str
     is_active: bool = Field(default=True)
     created_at: str = Field(default_factory=_now)
@@ -118,6 +119,7 @@ class UserPollPreference(SQLModel, table=True):
     poll_id: int = Field(foreign_key="polls.id", primary_key=True)
     is_flexible: bool = Field(default=False)
     has_completed_voting: bool = Field(default=False)
+    is_participating: bool = Field(default=False)
     updated_at: str = Field(default_factory=_now)
 
 

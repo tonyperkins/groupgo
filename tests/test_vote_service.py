@@ -1,5 +1,13 @@
 import pytest
-from app.services.vote_service import cast_vote, calculate_results, calculate_user_results, get_participation, get_showtime_event_ids, set_flexible
+from app.services.vote_service import (
+    calculate_results,
+    calculate_user_results,
+    cast_vote,
+    get_participation,
+    get_showtime_event_ids,
+    set_flexible,
+    set_participating,
+)
 
 
 def test_cast_movie_vote(seeded_db, poll_with_event):
@@ -141,6 +149,7 @@ def test_showtime_event_ids_returns_empty_list_when_all_movies_rejected(seeded_d
 def test_participation_fully_voted(seeded_db, poll_with_sessions):
     poll, event, sessions = poll_with_sessions
     user_id = 2
+    set_participating(user_id, poll.id, True, seeded_db)
     cast_vote(user_id, poll.id, "event", event.id, "yes", seeded_db)
     for s in sessions:
         cast_vote(user_id, poll.id, "session", s.id, "can_do", seeded_db)

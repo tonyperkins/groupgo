@@ -24,6 +24,7 @@ SEED_THEATERS = [
     {
         "name": "Cinemark Cedar Park",
         "address": "3000 E Whitestone Blvd, Cedar Park, TX 78613",
+        "website_url": "https://www.cinemark.com/theatres/tx-cedar-park/cinemark-cedar-park",
         "serpapi_query": "Cinemark Cedar Park Texas showtimes",
         "is_active": True,
     },
@@ -56,6 +57,8 @@ def init_db():
         _add_column_if_missing(db, "polls", "access_uuid", "TEXT")
         _add_column_if_missing(db, "sessions", "is_included", "INTEGER NOT NULL DEFAULT 1")
         _add_column_if_missing(db, "user_poll_preferences", "has_completed_voting", "INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(db, "user_poll_preferences", "is_participating", "INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(db, "theaters", "website_url", "TEXT")
 
         # Seed default group
         existing_groups = db.exec(select(Group)).all()

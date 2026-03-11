@@ -124,18 +124,22 @@
 
 <!-- Manual add showtime -->
 <div class="card p-5 sm:p-6 mb-6">
-  <div class="flex items-center justify-between mb-3">
+  <button type="button"
+    id="manual-showtime-toggle"
+    class="w-full flex items-center justify-between gap-4 mb-3 text-left"
+    aria-expanded="false"
+    aria-controls="manual-showtime-form"
+    onclick="toggleManualShowtimeForm()">
     <div>
       <h2 class="section-title">Add showtime manually</h2>
       <p class="section-description mt-1">Use this when a scrape misses a valid session you still want available to voters.</p>
     </div>
-    <button type="button" onclick="document.getElementById('manual-showtime-form').classList.toggle('hidden')" 
-      class="text-slate-400 hover:text-white transition-colors">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <span class="inline-flex items-center justify-center rounded-xl border border-slate-600/80 bg-slate-900/30 p-3 text-slate-400 transition-colors pointer-events-none">
+      <svg id="manual-showtime-chevron" class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>
-    </button>
-  </div>
+    </span>
+  </button>
   <form id="manual-showtime-form" hx-post="/api/admin/showtimes"
         hx-target="#admin-session-list"
         hx-swap="outerHTML"
@@ -162,8 +166,15 @@
 
     <div>
       <label class="text-xs text-slate-400 mb-1 block">Date (YYYY-MM-DD)</label>
-      <input type="date" name="session_date"
-        class="input-base"/>
+      <div class="date-input-shell">
+        <input id="manual-session-date" type="date" name="session_date"
+          class="input-base"/>
+        <button type="button" class="date-input-trigger" aria-label="Open calendar" onclick="openManualDatePicker()">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-13 9h16a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div>
@@ -345,7 +356,34 @@ function resetSessionFilters() {
   filterSessions();
 }
 
+function syncManualShowtimeToggle() {
+  const form = document.getElementById('manual-showtime-form');
+  const toggle = document.getElementById('manual-showtime-toggle');
+  const chevron = document.getElementById('manual-showtime-chevron');
+  if (!form || !toggle || !chevron) return;
+  const expanded = !form.classList.contains('hidden');
+  toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  chevron.classList.toggle('rotate-180', expanded);
+}
+
+function toggleManualShowtimeForm() {
+  const form = document.getElementById('manual-showtime-form');
+  if (!form) return;
+  form.classList.toggle('hidden');
+  syncManualShowtimeToggle();
+}
+
+function openManualDatePicker() {
+  const input = document.getElementById('manual-session-date');
+  if (!input) return;
+  input.focus();
+  if (typeof input.showPicker === 'function') {
+    input.showPicker();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => filterSessions());
+document.addEventListener('DOMContentLoaded', () => syncManualShowtimeToggle());
 
 async function checkSerpApi() {
   const badge = document.getElementById('serpapi-status-badge');

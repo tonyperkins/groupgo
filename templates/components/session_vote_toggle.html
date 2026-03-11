@@ -1,11 +1,12 @@
 <div id="session-toggle-{{ session_id }}">
   <button
+    {% if not poll_preferences.is_participating or poll_preferences.has_completed_voting %}disabled{% endif %}
     hx-post="/api/votes/session"
     hx-vals='{"session_id": {{ session_id }}, "vote": "{% if current_vote == "can_do" %}cant_do{% else %}can_do{% endif %}"}'
-    hx-target="#session-toggle-{{ session_id }}"
+    hx-target="#session-card-{{ session_id }}"
     hx-swap="outerHTML"
     aria-pressed="{{ 'true' if current_vote == 'can_do' else 'false' }}"
-    class="w-full vote-button flex items-center justify-center gap-2 px-3 border text-xs font-semibold transition-all
+    class="w-full vote-button flex items-center justify-center gap-2 px-3 border text-xs font-semibold transition-all {% if not poll_preferences.is_participating or poll_preferences.has_completed_voting %}vote-button-locked{% endif %}
       {% if current_vote == 'can_do' %}vote-cando-active border-green-500 shadow-lg shadow-green-900/20{% else %}bg-slate-700/50 text-slate-300 border-slate-600 hover:border-green-600 hover:text-green-400{% endif %}">
     {% if current_vote == 'can_do' %}
     <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/15">
