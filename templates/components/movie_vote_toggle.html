@@ -20,6 +20,7 @@
         <span class="text-[10px] sm:text-[11px] font-medium leading-tight {% if current_vote == 'yes' %}text-white/80{% else %}text-slate-400{% endif %}">Keep it in the running</span>
       </span>
     </button>
+
     <button
       {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}disabled{% endif %}
       hx-post="/api/votes/movie"
@@ -28,7 +29,7 @@
       hx-swap="outerHTML"
       hx-indicator="#movie-toggle-{{ event_id }}"
       aria-pressed="{{ 'true' if current_vote == 'no' else 'false' }}"
-      class="vote-button flex-1 flex items-center justify-center gap-2 sm:gap-2.5 border text-sm font-semibold transition-all px-3 sm:px-4 {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}vote-button-locked{% endif %}
+      class="vote-button w-full flex items-center justify-center gap-2 sm:gap-2.5 border text-sm font-semibold transition-all px-3 sm:px-4 {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}vote-button-locked{% endif %}
       {% if current_vote == 'no' %}vote-no-active border-red-500 shadow-lg shadow-red-900/20{% else %}bg-slate-700/60 text-slate-200 border-slate-600 hover:border-red-600 hover:text-red-400{% endif %}">
       <span class="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0 {% if current_vote == 'no' %}bg-white/15{% else %}bg-red-500/10 text-red-400{% endif %}">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -44,41 +45,69 @@
   
   {% if current_vote == 'no' %}
   {% set current_reason = veto_reasons.get(event_id) if veto_reasons else None %}
-  <div class="flex items-center flex-wrap gap-2 px-1 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
-    <span class="text-[11px] font-medium text-slate-400 mr-1">Care to share why?</span>
-    
-    <button 
-      {% if poll_preferences.has_completed_voting %}disabled{% endif %}
-      hx-post="/api/votes/movie"
-      hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Seen it"}'
-      hx-target="#movie-toggle-{{ event_id }}"
-      hx-swap="outerHTML"
-      class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
-      {% if current_reason == 'Seen it' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
-      👁️ Seen it
-    </button>
-    
-    <button 
-      {% if poll_preferences.has_completed_voting %}disabled{% endif %}
-      hx-post="/api/votes/movie"
-      hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Not my vibe"}'
-      hx-target="#movie-toggle-{{ event_id }}"
-      hx-swap="outerHTML"
-      class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
-      {% if current_reason == 'Not my vibe' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
-      🥱 Not my vibe
-    </button>
-    
-    <button 
-      {% if poll_preferences.has_completed_voting %}disabled{% endif %}
-      hx-post="/api/votes/movie"
-      hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Too long"}'
-      hx-target="#movie-toggle-{{ event_id }}"
-      hx-swap="outerHTML"
-      class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
-      {% if current_reason == 'Too long' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
-      ⏳ Too long
-    </button>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-[0.55rem] animate-in fade-in slide-in-from-top-2 duration-200">
+    <div class="hidden md:block"></div>
+    <div class="flex items-center flex-wrap gap-2 px-1">
+      <div class="w-full md:w-auto md:mb-0 mb-1">
+        <span class="text-[11px] font-medium text-slate-400 mr-1 hidden md:inline-block">Why?</span>
+        <span class="text-[11px] font-medium text-slate-400 mr-1 md:hidden">Care to share why?</span>
+      </div>
+      
+      <button 
+        {% if poll_preferences.has_completed_voting %}disabled{% endif %}
+        hx-post="/api/votes/movie"
+        hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Schedule"}'
+        hx-target="#movie-toggle-{{ event_id }}"
+        hx-swap="outerHTML"
+        class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
+        {% if current_reason == 'Schedule' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
+        📅 Schedule
+      </button>
+
+      <button 
+        {% if poll_preferences.has_completed_voting %}disabled{% endif %}
+        hx-post="/api/votes/movie"
+        hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Seen it"}'
+        hx-target="#movie-toggle-{{ event_id }}"
+        hx-swap="outerHTML"
+        class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
+        {% if current_reason == 'Seen it' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
+        🍿 Seen it
+      </button>
+      
+      <button 
+        {% if poll_preferences.has_completed_voting %}disabled{% endif %}
+        hx-post="/api/votes/movie"
+        hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Not my vibe"}'
+        hx-target="#movie-toggle-{{ event_id }}"
+        hx-swap="outerHTML"
+        class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
+        {% if current_reason == 'Not my vibe' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
+        👎 Not my vibe
+      </button>
+      
+      <button 
+        {% if poll_preferences.has_completed_voting %}disabled{% endif %}
+        hx-post="/api/votes/movie"
+        hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Not feeling well"}'
+        hx-target="#movie-toggle-{{ event_id }}"
+        hx-swap="outerHTML"
+        class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
+        {% if current_reason == 'Not feeling well' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
+        🤒 Not feeling well
+      </button>
+
+      <button 
+        {% if poll_preferences.has_completed_voting %}disabled{% endif %}
+        hx-post="/api/votes/movie"
+        hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Other..."}'
+        hx-target="#movie-toggle-{{ event_id }}"
+        hx-swap="outerHTML"
+        class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
+        {% if current_reason == 'Other...' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
+        ❓ Other...
+      </button>
+    </div>
   </div>
   {% endif %}
 </div>
