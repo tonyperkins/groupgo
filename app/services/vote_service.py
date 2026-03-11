@@ -18,6 +18,7 @@ def cast_vote(
     target_id: int,
     vote_value: str,
     db: Session,
+    veto_reason: str | None = None,
 ) -> Vote:
     existing = db.exec(
         select(Vote).where(
@@ -32,24 +33,29 @@ def cast_vote(
     if existing:
         existing.vote_value = vote_value
         existing.updated_at = now
+        if vote_value == "no" and veto_reason is not None:
+            existing.veto_reason = veto_reason
+        elif vote_value != "no":
+            existing.veto_reason = None
         db.add(existing)
         db.commit()
         db.refresh(existing)
         return existing
 
-    vote = Vote(
+    new_vote = Vote(
         user_id=user_id,
         poll_id=poll_id,
         target_type=target_type,
         target_id=target_id,
         vote_value=vote_value,
+        veto_reason=veto_reason if vote_value == "no" else None,
         voted_at=now,
         updated_at=now,
     )
-    db.add(vote)
+    db.add(new_vote)
     db.commit()
-    db.refresh(vote)
-    return vote
+    db.refresh(new_vote)
+    return new_vote
 
 
 def set_flexible(user_id: int, poll_id: int, is_flexible: bool, db: Session):
@@ -136,6 +142,19 @@ def get_user_votes(user_id: int, poll_id: int, db: Session) -> dict:
         )
     ).all()
     return {(v.target_type, v.target_id): v.vote_value for v in votes}
+
+def get_user_veto_reasons(user_id: int, poll_id: int, db: Session) -> dict[int, str]:
+    """Returns {event_id: veto_reason} for all explicit 'no' votes on events with a reason."""
+    votes = db.exec(
+        select(Vote).where(
+            Vote.user_id == user_id,
+            Vote.poll_id == poll_id,
+            Vote.target_type == "event",
+            Vote.vote_value == "no",
+            Vote.veto_reason != None,
+        )
+    ).all()
+    return {v.target_id: v.veto_reason for v in votes if v.veto_reason}
 
 
 def get_is_flexible(user_id: int, poll_id: int, db: Session) -> bool:

@@ -75,6 +75,7 @@ async def vote_movie(
     request: Request,
     event_id: int = Form(...),
     vote: str = Form(...),
+    veto_reason: str = Form(default=None),
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
@@ -84,15 +85,16 @@ async def vote_movie(
     if vote not in ("yes", "no", "abstain"):
         raise HTTPException(status_code=400, detail="Invalid vote value")
 
-    vote_service.cast_vote(user.id, poll.id, "event", event_id, vote, db)
+    vote_service.cast_vote(user.id, poll.id, "event", event_id, vote, db, veto_reason=veto_reason)
 
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    veto_reasons = vote_service.get_user_veto_reasons(user.id, poll.id, db)
     poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     current = user_votes.get(("event", event_id), "abstain")
     response = templates.TemplateResponse(
         request,
         "components/movie_vote_toggle.html",
-        {"request": request, "event_id": event_id, "current_vote": current, "poll_preferences": poll_preferences, "movies_opted_in": poll_preferences["is_participating"]},
+        {"request": request, "event_id": event_id, "current_vote": current, "veto_reasons": veto_reasons, "poll_preferences": poll_preferences, "movies_opted_in": poll_preferences["is_participating"]},
     )
     response.headers["HX-Trigger"] = "voteSaved"
     return response

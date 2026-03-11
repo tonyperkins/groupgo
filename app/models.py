@@ -108,6 +108,7 @@ class Vote(SQLModel, table=True):
     target_type: str  # 'event' or 'session'
     target_id: int
     vote_value: str  # yes, no, can_do, cant_do, abstain
+    veto_reason: Optional[str] = Field(default=None)  # Used when vote_value is 'no' for events
     voted_at: str = Field(default_factory=_now)
     updated_at: str = Field(default_factory=_now)
 

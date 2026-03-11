@@ -193,6 +193,7 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
 
     events = movie_service.get_poll_events(poll.id, db)
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    veto_reasons = vote_service.get_user_veto_reasons(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
     poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     movies_opted_in = poll_preferences["is_participating"]
@@ -208,6 +209,7 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
             "poll": poll,
             "events": events,
             "user_votes": user_votes,
+            "veto_reasons": veto_reasons,
             "participation": participation,
             "poll_preferences": poll_preferences,
             "movies_opted_in": movies_opted_in,

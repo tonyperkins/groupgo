@@ -59,6 +59,7 @@ def init_db():
         _add_column_if_missing(db, "user_poll_preferences", "has_completed_voting", "INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(db, "user_poll_preferences", "is_participating", "INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(db, "theaters", "website_url", "TEXT")
+        _add_column_if_missing(db, "votes", "veto_reason", "TEXT")
 
         # Seed default group
         existing_groups = db.exec(select(Group)).all()
