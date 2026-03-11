@@ -1,45 +1,50 @@
 <div id="admin-session-list">
 {% if not sessions %}
-<div class="text-center py-6 text-slate-400 text-sm">No showtimes cached yet.</div>
+<div class="empty-state text-slate-400 text-sm">No showtimes cached yet.</div>
 {% else %}
 <!-- Filter row -->
-<div class="flex flex-wrap gap-2 mb-3">
-  <select id="sf-movie" onchange="filterSessions()" class="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+<div class="surface-muted p-3 mb-4">
+  <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:flex-nowrap">
+  <select id="sf-movie" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
     <option value="">All Movies</option>
     {% set seen_movies = [] %}
     {% for s in sessions %}{% set t = events.get(s.event_id) %}{% if t and t.title not in seen_movies %}
     <option value="{{ t.title }}">{{ t.title }}</option>{% set _ = seen_movies.append(t.title) %}{% endif %}{% endfor %}
   </select>
-  <select id="sf-theater" onchange="filterSessions()" class="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+  <select id="sf-theater" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
     <option value="">All Theaters</option>
     {% set seen_theaters = [] %}
     {% for s in sessions %}{% set t = theaters.get(s.theater_id) %}{% if t and t.name not in seen_theaters %}
     <option value="{{ t.name }}">{{ t.name }}</option>{% set _ = seen_theaters.append(t.name) %}{% endif %}{% endfor %}
   </select>
-  <select id="sf-format" onchange="filterSessions()" class="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+  <select id="sf-format" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
     <option value="">All Formats</option>
     {% for fmt in ['Standard','IMAX','Dolby','3D','D-BOX','4DX','Laser'] %}
     <option value="{{ fmt }}">{{ fmt }}</option>{% endfor %}
   </select>
-  <select id="sf-included" onchange="filterSessions()" class="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+  <select id="sf-included" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
     <option value="">All</option>
     <option value="yes">In Poll</option>
     <option value="no">Excluded</option>
   </select>
-  <span id="sf-count" class="text-xs text-slate-500 self-center ml-1"></span>
+  <div class="flex items-center justify-between gap-3 xl:justify-end xl:flex-none">
+    <button type="button" onclick="resetSessionFilters()" class="btn-ghost text-xs px-3 py-2 whitespace-nowrap">Reset</button>
+    <span id="sf-count" class="text-xs text-slate-500 whitespace-nowrap"></span>
+  </div>
 </div>
-<div class="overflow-x-auto">
+</div>
+<div class="table-shell overflow-x-auto">
   <table class="w-full text-sm">
     <thead>
-      <tr class="text-left text-slate-500 text-xs border-b border-slate-700">
-        <th class="pb-2 pr-4">Movie</th>
-        <th class="pb-2 pr-4">Theater</th>
-        <th class="pb-2 pr-4">Date</th>
-        <th class="pb-2 pr-4">Time</th>
-        <th class="pb-2 pr-4">Format</th>
-        <th class="pb-2 pr-4">Status</th>
-        <th class="pb-2 pr-4 text-center">In Poll</th>
-        <th class="pb-2"></th>
+      <tr class="text-left text-slate-500 text-xs border-b border-slate-700 bg-slate-800/40">
+        <th class="px-4 py-3 pr-4">Movie</th>
+        <th class="px-4 py-3 pr-4">Theater</th>
+        <th class="px-4 py-3 pr-4">Date</th>
+        <th class="px-4 py-3 pr-4">Time</th>
+        <th class="px-4 py-3 pr-4">Format</th>
+        <th class="px-4 py-3 pr-4">Status</th>
+        <th class="px-4 py-3 pr-4 text-center">In Poll</th>
+        <th class="px-4 py-3"></th>
       </tr>
     </thead>
     <tbody class="divide-y divide-slate-800" id="session-tbody">
@@ -50,44 +55,46 @@
         data-theater="{{ th.name if th else '' }}"
         data-format="{{ s.format }}"
         data-included="{{ 'yes' if s.is_included else 'no' }}">
-        <td class="py-2 pr-4 font-medium text-white text-xs">
+        <td class="px-4 py-3 pr-4 font-medium text-white text-xs">
           {{ events.get(s.event_id).title if events.get(s.event_id) else 'Unknown' }}
         </td>
-        <td class="py-2 pr-4 text-xs">{{ theaters.get(s.theater_id).name if theaters.get(s.theater_id) else 'Unknown' }}</td>
-        <td class="py-2 pr-4 text-xs">{{ s.session_date | short_date }}</td>
-        <td class="py-2 pr-4 text-xs font-mono">{{ s.session_time | display_time }}</td>
-        <td class="py-2 pr-4">
+        <td class="px-4 py-3 pr-4 text-xs">{{ theaters.get(s.theater_id).name if theaters.get(s.theater_id) else 'Unknown' }}</td>
+        <td class="px-4 py-3 pr-4 text-xs">{{ s.session_date | short_date }}</td>
+        <td class="px-4 py-3 pr-4 text-xs font-mono">{{ s.session_time | display_time }}</td>
+        <td class="px-4 py-3 pr-4">
           {% if s.format != 'Standard' %}
-          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded">{{ s.format }}</span>
+          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded-full">{{ s.format }}</span>
           {% else %}
           <span class="text-xs text-slate-500">Std</span>
           {% endif %}
         </td>
-        <td class="py-2 pr-4">
+        <td class="px-4 py-3 pr-4">
           {% if s.fetch_status == 'manual' %}
-          <span class="text-xs bg-purple-900/60 text-purple-300 px-1.5 py-0.5 rounded">Manual</span>
+          <span class="text-xs bg-purple-900/60 text-purple-300 px-2 py-0.5 rounded-full">Manual</span>
           {% elif s.fetch_status == 'success' %}
-          <span class="text-xs bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded">Auto</span>
+          <span class="text-xs bg-green-900/60 text-green-400 px-2 py-0.5 rounded-full">Auto</span>
           {% else %}
-          <span class="text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">{{ s.fetch_status }}</span>
+          <span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">{{ s.fetch_status }}</span>
           {% endif %}
         </td>
-        <td class="py-2 pr-4 text-center">
-          <button onclick="toggleSessionVisibility({{ s.id }}, {{ 'true' if s.is_included else 'false' }})"
+        <td class="px-4 py-3 pr-4 text-center">
+          <button data-session-id="{{ s.id }}" data-current-included="{{ 'true' if s.is_included else 'false' }}"
+            onclick="toggleSessionVisibility(Number(this.dataset.sessionId), this.dataset.currentIncluded === 'true')"
             title="{{ 'Remove from poll' if s.is_included else 'Add to poll' }}"
             class="text-xs px-2 py-0.5 rounded-full font-medium border transition-all
               {{ 'bg-green-900/40 text-green-400 border-green-800 hover:opacity-60' if s.is_included else 'bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800' }}">
             {{ '✓' if s.is_included else '○' }}
           </button>
         </td>
-        <td class="py-2">
+        <td class="px-4 py-3">
           <button
             id="del-sess-{{ s.id }}"
+            data-confirm-message="Delete this showtime?"
             hx-delete="/api/admin/showtimes/{{ s.id }}"
             hx-target="#admin-session-list"
             hx-swap="outerHTML"
             hx-trigger="confirmed"
-            onclick="showConfirm('Delete this showtime?', () => htmx.trigger('#del-sess-{{ s.id }}', 'confirmed')); return false;"
+            onclick="confirmHtmxButton(this); return false;"
             class="text-slate-600 hover:text-red-400 transition-colors p-1">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>

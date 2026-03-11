@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Join Poll — GroupGo{% endblock %}
+
+{% block content %}
+<div class="page-shell min-h-[calc(100vh-5rem)] flex items-center">
+  <div class="w-full grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+    <section class="page-hero">
+      <span class="page-eyebrow">Secure poll link</span>
+      <h1 class="page-title mt-4 text-white">Enter your member PIN to open your ballot.</h1>
+      <p class="page-subtitle mt-4">
+        {% if poll %}
+        This invite is locked to <span class="text-white font-semibold">{{ poll.title }}</span>. Enter your unique 4-digit member PIN and GroupGo will take you straight into your own voting flow.
+        {% else %}
+        This invite link could not be matched to an active GroupGo poll.
+        {% endif %}
+      </p>
+      <div class="hero-metrics mt-6">
+        <div class="metric-card">
+          <div class="metric-value">4</div>
+          <div class="metric-label">Digit member PIN</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">Direct</div>
+          <div class="metric-label">Opens your ballot without name picking</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">Locked</div>
+          <div class="metric-label">Secure-link sessions cannot switch to another voter</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card p-6 sm:p-8">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/15 text-3xl mb-4">🔐</div>
+        <h2 class="text-2xl font-bold text-white">Member PIN</h2>
+        <p class="text-slate-400 mt-2 text-sm">
+          {% if poll %}
+          Use the 4-digit PIN assigned in the admin portal.
+          {% else %}
+          Ask the admin for a fresh invite link.
+          {% endif %}
+        </p>
+      </div>
+
+      {% if error %}
+      <div class="bg-red-900/50 border border-red-700 text-red-300 text-sm px-4 py-3 rounded-2xl mb-4">
+        {{ error }}
+      </div>
+      {% endif %}
+
+      {% if poll %}
+      <form method="post" action="/join/{{ poll.access_uuid }}" class="space-y-4">
+        <div>
+          <label for="member_pin" class="text-xs text-slate-400 mb-2 block font-medium">4-digit PIN</label>
+          <input
+            id="member_pin"
+            name="member_pin"
+            type="password"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="[0-9]{4}"
+            maxlength="4"
+            placeholder="1234"
+            class="w-full rounded-2xl border border-slate-600 bg-slate-700/50 px-4 py-4 text-center text-2xl tracking-[0.35em] text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            autofocus
+            required
+          />
+        </div>
+        <button type="submit" class="btn-primary w-full text-sm py-3">Open My Ballot</button>
+      </form>
+      {% else %}
+      <div class="surface-muted rounded-2xl p-4 text-sm text-slate-400">
+        This poll link is unavailable. Double-check the invite URL or generate a new one from the admin dashboard.
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

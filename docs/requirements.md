@@ -48,7 +48,7 @@ A single trusted family member who manages polls. Responsibilities:
 
 ### 2.2 Voter (Family Member)
 Any of the five family members. Responsibilities:
-- Identify themselves on first visit (persistent token stored client-side).
+- Enter their unique 4-digit member PIN when arriving from a secure poll invite link, or identify themselves on trusted devices.
 - Vote approval/rejection on each movie option.
 - Vote availability on each Day/Time/Theater combination.
 - Optionally invoke the "I'm in, whatever" bypass.
@@ -63,12 +63,13 @@ Any of the five family members. Responsibilities:
 
 | ID | Requirement |
 |----|-------------|
-| AUTH-01 | The system MUST provide a "Who are you?" identity selection on first visit. |
-| AUTH-02 | On selection, the system MUST persist the user's identity as a UUID token in `localStorage` and an HTTP-only cookie. |
-| AUTH-03 | Returning visitors MUST be auto-identified without re-selecting. |
-| AUTH-04 | Users MUST be able to switch identity via a menu option (covers shared devices). |
-| AUTH-05 | Admin routes (`/admin/*`) MUST be protected by HTTP Basic Auth using credentials stored in server environment variables. |
-| AUTH-06 | The SerpApi trigger endpoint MUST be rate-limited to 1 request per theater per date per 12-hour window to prevent quota waste. |
+| AUTH-01 | The system MUST provide a trusted-device "Who are you?" identity selection flow at `/identify`. |
+| AUTH-02 | The system MUST provide a secure poll entry flow at `/join/{access_uuid}` that prompts for a member's unique 4-digit PIN. |
+| AUTH-03 | Successful secure-link entry MUST create a poll-scoped session that binds the voter identity to that poll and prevents switching to another voter from that session. |
+| AUTH-04 | Returning visitors with a valid cookie-backed identity MUST be auto-identified without re-selecting. |
+| AUTH-05 | Generic trusted-device identity switching MUST remain available outside secure invite sessions. |
+| AUTH-06 | Admin routes (`/admin/*`) MUST be protected by HTTP Basic Auth using credentials stored in server environment variables. |
+| AUTH-07 | The SerpApi trigger endpoint MUST be rate-limited to 1 request per theater per date per 12-hour window to prevent quota waste. |
 
 ### 3.2 Movie Management (Admin)
 
@@ -118,6 +119,7 @@ Any of the five family members. Responsibilities:
 | POLL-06 | Votes MUST NOT be accepted on polls in `DRAFT`, `CLOSED`, or `ARCHIVED` status. |
 | POLL-07 | Admin MUST be able to view all past polls in any status on the dashboard. |
 | POLL-08 | A poll MUST have a human-readable title (e.g., "Weekend of March 14") auto-generated from target dates, editable by admin. |
+| POLL-09 | Admin MUST be able to generate or re-open a shareable secure invite link for any `OPEN` poll. The link MUST include a poll-specific UUID and be built from a configured public base URL. |
 
 ### 3.6 Voting — Movie Screen
 
@@ -130,18 +132,18 @@ Any of the five family members. Responsibilities:
 | VOTE-05 | Users MUST be able to change their vote at any time while the poll is `OPEN`. |
 | VOTE-06 | A voter who has not voted on a movie MUST be treated as **abstain** (neither approval nor veto) in the algorithm. |
 
-### 3.7 Voting — Logistics Screen
+### 3.7 Voting — Showtimes Screen
 
 | ID | Requirement |
 |----|-------------|
-| LOG-01 | The logistics screen MUST display all available Day/Time/Theater combinations from the cached showtime data (only `is_included=true` sessions). |
+| LOG-01 | The showtimes screen MUST display available Day/Time/Theater combinations from the cached showtime data only for movies the voter marked `yes` and only for sessions with `is_included=true`. If the voter has rejected every movie, the screen MUST show an instructional empty state instead of unrelated sessions. |
 | LOG-02 | Each session MUST have a **single toggle button** that alternates between **Can Do** (green) and **Can't Do** (gray/default). Sessions default to Can't Do — voters only need to mark times they **can** attend. |
-| LOG-03 | A global **"I'm In — Whatever You Choose!"** bypass toggle MUST be available at the top of the logistics panel. |
+| LOG-03 | A global **"I'm In — Whatever You Choose!"** bypass toggle MUST be available at the top of the showtimes panel. |
 | LOG-04 | Activating the bypass MUST set `is_flexible=true` in `user_poll_preferences` — voter is excluded from all veto checks and counted as +1 approval for all combinations. |
 | LOG-05 | Deactivating the bypass MUST restore the voter's individual combination votes. |
-| LOG-06 | Logistics votes MUST be saved in real time via HTMX with a toast confirmation. |
-| LOG-07 | A **"Done Voting"** button MUST be present at the bottom of the logistics panel (when not in flexible mode). Clicking it MUST set `has_completed_voting=true` in `user_poll_preferences` and redirect to `/results`. |
-| LOG-08 | Back navigation from logistics to movie screen MUST preserve all previously entered votes without reset. |
+| LOG-06 | Showtime votes MUST be saved in real time via HTMX with a toast confirmation. |
+| LOG-07 | A **"Done Voting"** button MUST be present at the bottom of the showtimes panel (when not in flexible mode). Clicking it MUST set `has_completed_voting=true` in `user_poll_preferences` and redirect to `/results`. |
+| LOG-08 | Back navigation between Movies, Showtimes, and Results MUST preserve all previously entered votes without reset, and the stage chips on each screen MUST be clickable. |
 
 ### 3.8 Results
 
@@ -152,10 +154,12 @@ Any of the five family members. Responsibilities:
 | RES-03 | The results view MUST display the top-ranked valid combinations (minimum 3 if available), not just the single winner, ranked by score. |
 | RES-04 | Each displayed combination MUST show: movie poster/title, date, time, theater name, format, and approval score. |
 | RES-05 | The results view MUST display a participation summary: "X of 5 members have fully voted." |
-| RES-06 | If no valid combination exists (all options vetoed), the UI MUST display a clear "No valid options — contact the group" state. |
+| RES-06 | The voter-facing results view MUST split content into **Overall results** and **Your choices**. The **Your choices** section MUST only display combinations the voter explicitly selected with `yes` on the movie and `can_do` on the showtime, unless the voter is flexible. |
 | RES-07 | Results MUST recalculate and update in real-time as votes are submitted (HTMX polling or SSE). |
 | RES-08 | When the poll is `CLOSED`, admin MUST be able to mark one combination as the **official winner**, locking it visually. |
 | RES-09 | The official winner MUST be shareable as a plain-text summary (copy-to-clipboard) for pasting into group chat. |
+| RES-10 | If a voter has not selected any full combination yet, the **Your choices** section MUST show a guidance empty state without hiding the overall standings. |
+| RES-11 | The results pages for both voters and admins MUST retain the same clickable stage navigation used on the Movies and Showtimes pages. |
 
 ### 3.9 Participation Tracking
 
@@ -171,7 +175,8 @@ Any of the five family members. Responsibilities:
 |----|-------------|
 | MEM-01 | Admin MUST be able to add, rename, and delete group members via the **Members** admin page (`/admin/members`). |
 | MEM-02 | Admin MUST be able to assign members to groups for future multi-group support. |
-| MEM-03 | Only the Admin user is seeded on first install — all other members are created through the UI. |
+| MEM-03 | Each non-admin member MUST have a unique 4-digit PIN, editable from the Members admin page and auto-generated when omitted. |
+| MEM-04 | Only the Admin user is seeded on first install — all other members are created through the UI. |
 
 ### 3.11 Showtime Visibility (Admin)
 
@@ -180,6 +185,7 @@ Any of the five family members. Responsibilities:
 | VIS-01 | Admin MUST be able to toggle individual sessions as included/excluded (`is_included`) without deleting them. |
 | VIS-02 | Excluded sessions MUST NOT appear in voter logistics or be considered in result scoring. |
 | VIS-03 | Admin MUST be able to bulk-toggle session visibility (e.g., exclude all sessions for a given date). |
+| VIS-04 | The cached-showtimes table MUST provide a single-row filter toolbar with movie, theater, format, and inclusion filters plus a reset action that clears every filter at once. |
 
 ---
 

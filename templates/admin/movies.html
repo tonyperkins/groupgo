@@ -10,44 +10,80 @@
   <span class="current">Movies</span>
 </nav>
 
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-bold text-white">Movies</h1>
-    <p class="text-slate-400 text-sm mt-0.5">
-      <span class="status-{{ poll.status | lower }} text-xs px-2 py-0.5 rounded-full">{{ poll.status }}</span>
-    </p>
+<section class="page-hero mb-6">
+  <span class="page-eyebrow">Poll setup</span>
+  <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <h1 class="page-title text-white">Choose the movie shortlist</h1>
+      <p class="page-subtitle mt-3">Search TMDB, add the best candidates to this poll, and build the shortlist voters will approve or reject before picking showtimes.</p>
+    </div>
+    <div class="inline-pills">
+      <span class="soft-pill soft-pill-strong">{{ poll.title }}</span>
+      <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
+    </div>
   </div>
-  <div class="flex gap-2">
-    <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-sm">Showtimes →</a>
+  <div class="step-strip mt-6">
+    <a href="/admin/polls/{{ poll.id }}/movies" class="step-chip is-active">
+      <span class="step-index">1</span>
+      <span class="step-copy">
+        <span class="step-label">Movies</span>
+        <span class="step-meta">Curate the shortlist</span>
+      </span>
+    </a>
+    <a href="/admin/polls/{{ poll.id }}/showtimes" class="step-chip">
+      <span class="step-index">2</span>
+      <span class="step-copy">
+        <span class="step-label">Showtimes</span>
+        <span class="step-meta">Fetch and review sessions</span>
+      </span>
+    </a>
+    <a href="/admin/polls/{{ poll.id }}/results" class="step-chip">
+      <span class="step-index">3</span>
+      <span class="step-copy">
+        <span class="step-label">Results</span>
+        <span class="step-meta">Track the winning combo</span>
+      </span>
+    </a>
   </div>
-</div>
+</section>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
   <!-- Search -->
-  <div class="card p-5">
-    <h2 class="text-base font-bold text-white mb-3">Search TMDB</h2>
+  <div class="card p-5 sm:p-6">
+    <div class="section-heading mb-4">
+      <div>
+        <h2 class="section-title">Search TMDB</h2>
+        <p class="section-description">Find polished movie options with posters, ratings, and metadata before adding them to the poll.</p>
+      </div>
+    </div>
     <form hx-get="/api/admin/movies/search"
           hx-target="#search-results"
           hx-swap="innerHTML"
           hx-indicator="#search-spinner"
-          class="flex gap-2 mb-4">
+          class="flex flex-col sm:flex-row gap-2 mb-4">
       <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
       <input type="text" name="q" placeholder="Search movie title..."
-        class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+        class="input-base flex-1"
         autofocus/>
       <button type="submit" class="btn-primary text-sm">
         <span id="search-spinner" class="htmx-indicator mr-1 animate-spin">⟳</span>
         Search
       </button>
     </form>
-    <div id="search-results" class="min-h-[80px]">
-      <p class="text-slate-500 text-sm text-center py-4">Search for a movie above to add it to the poll.</p>
+    <div id="search-results" class="min-h-[10rem] surface-muted p-4">
+      <p class="text-slate-500 text-sm text-center py-6">Search for a movie above to start building this poll.</p>
     </div>
   </div>
 
   <!-- Current poll movies -->
-  <div class="card p-5">
-    <h2 class="text-base font-bold text-white mb-3">In This Poll</h2>
+  <div class="card p-5 sm:p-6">
+    <div class="section-heading mb-4">
+      <div>
+        <h2 class="section-title">In this poll</h2>
+        <p class="section-description">These are the current movie options voters will see in step one.</p>
+      </div>
+      <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-sm">Next: Showtimes →</a>
+    </div>
     {% include "components/admin_movie_list.html" %}
   </div>
 </div>

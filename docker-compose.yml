@@ -7,8 +7,17 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+      SECRET_KEY: ${SECRET_KEY:-replace-with-32-random-chars-minimum}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/groupgo.db}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-before-deploying}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      SERPAPI_RATE_LIMIT_HOURS: ${SERPAPI_RATE_LIMIT_HOURS:-12}
+      GROUP_SIZE: ${GROUP_SIZE:-5}
     volumes:
       - db_data:/data
     healthcheck:

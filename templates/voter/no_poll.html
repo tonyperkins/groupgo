@@ -2,7 +2,11 @@
 {% block title %}GroupGo{% endblock %}
 {% block header_right %}
 <span class="text-slate-400 text-sm"><span class="text-white font-medium">{{ user.name }}</span></span>
+{% if secure_entry %}
+<span class="text-xs text-indigo-300">Secure link</span>
+{% else %}
 <a href="/identify" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">Switch</a>
+{% endif %}
 {% endblock %}
 {% block content %}
 <div class="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">

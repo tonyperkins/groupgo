@@ -24,10 +24,13 @@ GroupGo is a server-rendered web application following a **thin-client / thick-s
 
 ### Key Design Principles
 
-- **No client-side state management.** The server is the single source of truth. Browser localStorage stores only the identity token.
+- **No client-side state management.** The server is the single source of truth for polls, votes, results, filters, and secure voter identity. Browser storage is limited to lightweight preferences such as theme, while voter access is enforced with HTTP-only cookies.
 - **Cache-first data access.** External APIs (TMDB, SerpApi) are called by the admin workflow only. All voter-facing reads come from SQLite.
 - **Progressive enhancement.** Core read flows (view movies, view results) work without JavaScript. HTMX enhances vote toggling.
 - **Deployment simplicity.** A single Docker container runs the entire application. No microservices, no message queues, no external caches.
+
+The preferred voter route for the showtime step is `/vote/showtimes`; `/vote/logistics` remains as a compatibility alias to the same server-rendered template.
+The preferred secure voter entry route is `/join/{access_uuid}`, which resolves the poll, prompts for the member PIN, and mints a poll-scoped signed cookie.
 
 ---
 
@@ -61,8 +64,8 @@ GroupGo is a server-rendered web application following a **thin-client / thick-s
          │   │                                       │  │
          │   │   FastAPI (Uvicorn, port 8000)        │  │
          │   │   ├── /admin/*  (HTTP Basic Auth)     │  │
-         │   │   ├── /api/*    (token auth)          │  │
-         │   │   └── /*        (public voter UI)     │  │
+         │   │   ├── /api/*    (cookie-backed voter auth) │ │
+         │   │   └── /*        (public voter UI + secure join) │ │
          │   │                                       │  │
          │   │   SQLite DB (named volume mount)      │  │
          │   └──────────────────────────────────────┘  │
@@ -93,48 +96,37 @@ GroupGo is a server-rendered web application following a **thin-client / thick-s
 │                       FASTAPI APPLICATION                           │
 │                                                                     │
 │  ┌─────────────────┐   ┌──────────────────┐   ┌─────────────────┐  │
-│  │   ROUTERS       │   │    SERVICES       │   │   TEMPLATES     │  │
-│  │                 │   │                   │   │                 │  │
-│  │ admin.py        │──▶│ movie_service.py  │   │ base.html       │  │
-│  │  - dashboard    │   │  - tmdb_search()  │   │ admin/          │  │
-│  │  - movies       │   │  - add_to_poll()  │   │   dashboard.html│  │
-│  │  - showtimes    │   │                   │   │   movies.html   │  │
-│  │  - theaters     │   │ showtime_service  │   │   showtimes.html│  │
-│  │  - polls        │   │  - fetch_all()    │   │ voter/          │  │
-│  │                 │   │  - deduplicate()  │   │   identify.html │  │
-│  │ voter.py        │──▶│  - cache_result() │   │   movies.html   │  │
-│  │  - identify     │   │                   │   │   logistics.html│  │
-│  │  - movies       │   │ vote_service.py   │   │   results.html  │  │
-│  │  - logistics    │   │  - cast_vote()    │   │ components/     │  │
-│  │  - results      │   │  - get_results()  │   │   movie_card.html│ │
-│  │                 │   │  - score_combos() │   │   toggle.html   │  │
-│  │ api.py          │──▶│                   │   │   result_row.html│ │
-│  │  - /healthz     │   │ theater_service   │   └─────────────────┘  │
-│  │  - vote POST    │   │  - list_active()  │                        │
-│  │  - results GET  │   │  - toggle()       │   ┌─────────────────┐  │
-│  └─────────────────┘   └──────────────────┘   │   DATABASE      │  │
-│                                │               │                 │  │
-│  ┌─────────────────┐           │               │ db.py           │  │
-│  │   MIDDLEWARE    │           ▼               │  - get_db()     │  │
-│  │                 │   ┌──────────────────┐    │  - init_db()    │  │
-│  │ auth.py         │   │    MODELS        │    │                 │  │
-│  │  - BasicAuth    │   │ (SQLModel/ORM)   │    │ models.py       │  │
-│  │  - TokenCheck   │   │                 │    │  - Users        │  │
-│  │                 │   │  User           │    │  - Events       │  │
-│  │ rate_limit.py   │   │  Event          │    │  - Sessions     │  │
-│  │  - serpapi_gate │   │  Session        │    │  - Votes        │  │
-│  └─────────────────┘   │  Vote           │    │  - Theaters     │  │
-│                         │  Theater        │    │  - Polls        │  │
-│  ┌─────────────────┐   │  Poll           │    └─────────────────┘  │
-│  │  STATIC ASSETS  │   └──────────────────┘                        │
-│  │                 │                                                │
-│  │  /static/       │   ┌──────────────────┐                        │
-│  │   tailwind.css  │   │  BACKGROUND JOBS │                        │
-│  │   htmx.min.js   │   │                  │                        │
-│  │   app.js        │   │ tasks.py         │                        │
-│  └─────────────────┘   │  - fetch_worker()│                        │
-│                         │  (asyncio tasks) │                        │
-│                         └──────────────────┘                        │
+│  │   ROUTERS       │   │    SERVICES      │   │   TEMPLATES     │  │
+│  │                 │   │                  │   │                 │  │
+│  │ admin.py        │──▶│ movie_service.py │   │ base.html       │  │
+│  │  - dashboard    │   │  - tmdb_search() │   │ admin/*         │  │
+│  │  - movies       │   │  - add_to_poll() │   │ voter/*         │  │
+│  │  - showtimes    │   │ showtime_service │   │ join_poll.html  │  │
+│  │  - results      │   │  - fetch_all()   │   │ results_panel   │  │
+│  │  - theaters     │   │  - deduplicate() │   │ logistics_panel │  │
+│  │  - members      │   │  - cache_result()│   │ admin_session_* │  │
+│  │                 │   │                  │   └─────────────────┘  │
+│  │ voter.py        │──▶│ security_service │                        │
+│  │  - identify     │   │  - member PINs   │   ┌─────────────────┐  │
+│  │  - join/{uuid}  │   │  - invite links  │   │   DATABASE      │  │
+│  │  - movies       │   │  - signed poll   │   │                 │  │
+│  │  - showtimes*   │   │    sessions      │   │ users           │  │
+│  │  - results      │   │                  │   │  - token        │  │
+│  │                 │   │ vote_service.py  │   │  - member_pin   │  │
+│  │ api.py          │──▶│  - cast_vote()   │   │ polls           │  │
+│  │  - vote POST    │   │  - calculate_*() │   │  - access_uuid  │  │
+│  │  - results GET  │   │  - participation │   │ sessions/votes  │  │
+│  │  - admin CRUD   │   │ theater_service  │   │ preferences     │  │
+│  │  - /healthz     │   │                  │   └─────────────────┘  │
+│  └─────────────────┘   └──────────────────┘                        │
+│                                                                     │
+│  ┌─────────────────┐   ┌──────────────────┐                        │
+│  │   MIDDLEWARE    │   │  STATIC / JOBS   │                        │
+│  │                 │   │                  │                        │
+│  │ auth.py         │   │ /static/app.css  │                        │
+│  │ identity.py     │   │ /static/app.js   │                        │
+│  │ rate_limit.py   │   │ fetch_tasks.py   │                        │
+│  └─────────────────┘   └──────────────────┘                        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -226,29 +218,31 @@ Voter Browser                 FastAPI Backend              SQLite DB
      │────────────────────────────▶│                            │
      │                             │  1. SELECT all events      │
      │                             │     in active poll         │
-     │                             │  2. SELECT all sessions    │
-     │                             │     for those events       │
+     │                             │  2. SELECT included sessions│
+     │                             │     for those events        │
      │                             │  3. SELECT all votes       │
      │                             │     for all users          │
      │                             │───────────────────────────▶│
      │                             │◀───────────────────────────│
      │                             │                            │
-     │                             │  score_service:            │
+     │                             │  vote_service:             │
      │                             │  ┌──────────────────────┐  │
      │                             │  │ Build (event×session) │  │
      │                             │  │ candidate matrix      │  │
      │                             │  │                       │  │
-     │                             │  │ Eliminate vetoed      │  │
+     │                             │  │ Score overall         │  │
      │                             │  │ combinations          │  │
+     │                             │  │ across the group      │  │
      │                             │  │                       │  │
-     │                             │  │ Score remaining       │  │
-     │                             │  │ combinations          │  │
+     │                             │  │ Derive voter-specific │  │
+     │                             │  │ "Your choices" from  │  │
+     │                             │  │ explicit yes/can_do   │  │
      │                             │  │                       │  │
      │                             │  │ Sort by score desc    │  │
      │                             │  └──────────────────────┘  │
      │                             │                            │
      │  HTML fragment:             │                            │
-     │  ranked results table       │                            │
+     │  overall + personal results │                            │
      │◀────────────────────────────│                            │
      │                             │                            │
 ```
@@ -383,7 +377,7 @@ groupgo/
 │   │
 │   ├── routers/
 │   │   ├── admin.py             # Admin page routes (protected by BasicAuth)
-│   │   ├── voter.py             # Voter-facing page routes
+│   │   ├── voter.py             # Voter-facing page routes (Movies, Showtimes, Results)
 │   │   └── api.py               # All API routes (votes, results, admin CRUD, healthz)
 │   │
 │   ├── services/
@@ -412,7 +406,7 @@ groupgo/
 │   ├── voter/
 │   │   ├── identify.html        # "Who are you?" identity selection
 │   │   ├── movies.html          # Movie voting screen
-│   │   ├── logistics.html       # Showtime availability voting screen
+│   │   ├── logistics.html       # Showtime availability voting screen used by /vote/showtimes and /vote/logistics
 │   │   └── results.html         # Live results screen
 │   └── components/
 │       ├── admin_movie_list.html     # HTMX partial: admin movie list
@@ -423,7 +417,7 @@ groupgo/
 │       ├── movie_search_results.html # HTMX partial: TMDB search results
 │       ├── movie_vote_toggle.html    # HTMX partial: Yes/No movie vote button
 │       ├── no_poll.html              # Shown when no active poll exists
-│       ├── results_panel.html        # HTMX partial: results + participation bar
+│       ├── results_panel.html        # HTMX partial: overall results, personal picks, participation bar
 │       └── session_vote_toggle.html  # HTMX partial: single Can Do/Can't Do toggle
 │
 ├── static/
@@ -463,9 +457,10 @@ All sensitive values are injected via environment variables. The application use
 | `SERPAPI_KEY` | SerpApi API key | `xyz789...` |
 | `ADMIN_USERNAME` | HTTP Basic Auth username for `/admin/*` | `admin` |
 | `ADMIN_PASSWORD` | HTTP Basic Auth password for `/admin/*` | `s3cure!pass` |
-| `SECRET_KEY` | Used for signing any future session tokens | 32+ random chars |
+| `SECRET_KEY` | Used for signing secure poll session cookies | 32+ random chars |
 | `DATABASE_URL` | SQLite file path | `sqlite:////data/groupgo.db` |
 | `APP_ENV` | `development` or `production` | `production` |
+| `APP_BASE_URL` | Public base URL used when generating secure poll invite links | `https://groupgo.duckdns.org` |
 
 ### docker-compose.yml Structure
 

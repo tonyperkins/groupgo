@@ -11,24 +11,25 @@
   <link rel="stylesheet" href="/static/css/app.css"/>
   <style>
     :root {
-      --bg-page: #0f172a; --bg-card: #1e293b; --border: #334155;
-      --text-primary: #f1f5f9; --text-secondary: #94a3b8; --header-bg: #0f172a;
+      --bg-page: #0f172a; --bg-card: rgba(30, 41, 59, 0.8); --border: rgba(148, 163, 184, 0.18);
+      --text-primary: #f8fafc; --text-secondary: #94a3b8; --header-bg: rgba(15, 23, 42, 0.72);
+      --accent: #818cf8; --accent-strong: #6366f1;
     }
     [data-theme="light"] {
-      --bg-page: #f1f5f9; --bg-card: #ffffff; --border: #e2e8f0;
-      --text-primary: #0f172a; --text-secondary: #475569; --header-bg: #ffffff;
+      --bg-page: #f1f5f9; --bg-card: rgba(255, 255, 255, 0.82); --border: rgba(148, 163, 184, 0.22);
+      --text-primary: #0f172a; --text-secondary: #475569; --header-bg: rgba(255, 255, 255, 0.78);
+      --accent: #4f46e5; --accent-strong: #4338ca;
     }
     html { scroll-behavior: smooth; }
-    body { background-color: var(--bg-page); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; transition: background-color 0.2s, color 0.2s; }
-    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: box-shadow 0.2s; }
-    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    [data-theme="light"] .card { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    [data-theme="light"] .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .btn-primary { background-color: #6366f1; color: white; border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 600; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; }
-    .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+    body { background-color: var(--bg-page); color: var(--text-primary); font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; transition: background-color 0.2s, color 0.2s; }
+    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; }
+    .card:hover { box-shadow: 0 16px 40px rgba(2,6,23,0.16); border-color: rgba(129,140,248,0.2); }
+    [data-theme="light"] .card:hover { box-shadow: 0 16px 36px rgba(15,23,42,0.08); }
+    .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border-radius: 999px; padding: 0.7rem 1.25rem; font-weight: 700; transition: all 0.18s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; border: 1px solid rgba(129,140,248,0.3); box-shadow: 0 14px 30px rgba(79,70,229,0.28); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 18px 34px rgba(79,70,229,0.34); }
     .btn-primary:active { transform: translateY(0); }
-    .btn-ghost { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 500; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; }
-    .btn-ghost:hover { border-color: #6366f1; color: #a5b4fc; background-color: rgba(99,102,241,0.05); }
+    .btn-ghost { background-color: rgba(15,23,42,0.12); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 999px; padding: 0.7rem 1.1rem; font-weight: 600; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; }
+    .btn-ghost:hover { border-color: rgba(129,140,248,0.3); color: var(--text-primary); background-color: rgba(99,102,241,0.08); }
     .btn-ghost:active { transform: scale(0.98); }
     .vote-yes-active { background-color: #16a34a !important; color: white !important; border-color: #16a34a !important; }
     .vote-no-active { background-color: #dc2626 !important; color: white !important; border-color: #dc2626 !important; }
@@ -38,6 +39,11 @@
     .htmx-request .htmx-indicator { opacity: 1; }
     .htmx-request.htmx-indicator { opacity: 1; }
     #gg-toast { transition: transform 0.25s ease, opacity 0.25s ease; }
+    .app-header { backdrop-filter: blur(18px); background: var(--header-bg); }
+    .brand-mark { width: 2.5rem; height: 2.5rem; border-radius: 0.95rem; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(99,102,241,0.26), rgba(14,165,233,0.24)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.14); }
+    .header-badge { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 999px; border: 1px solid var(--border); background: rgba(15,23,42,0.14); padding: 0.45rem 0.75rem; }
+    .header-badge:empty { display: none; }
+    [data-theme="light"] .header-badge { background: rgba(255,255,255,0.6); }
     [data-theme="light"] .text-slate-400 { color: #475569; }
     [data-theme="light"] .text-slate-500 { color: #64748b; }
     [data-theme="light"] .text-slate-300 { color: #475569; }
@@ -49,13 +55,13 @@
     [data-theme="light"] .border-slate-600 { border-color: #cbd5e1; }
     [data-theme="light"] .divide-slate-700 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
     [data-theme="light"] .bg-slate-800 { background-color: #f1f5f9; }
-    [data-theme="light"] .bg-slate-700\/50 { background-color: rgba(148,163,184,0.18); }
-    [data-theme="light"] .bg-slate-700\/30 { background-color: rgba(148,163,184,0.1); }
+    [data-theme="light"] [class~="bg-slate-700/50"] { background-color: rgba(148,163,184,0.18); }
+    [data-theme="light"] [class~="bg-slate-700/30"] { background-color: rgba(148,163,184,0.1); }
     [data-theme="light"] .text-indigo-400 { color: #4338ca; }
     [data-theme="light"] .text-indigo-300 { color: #4f46e5; }
-    [data-theme="light"] .bg-amber-900\/60 { background-color: rgba(217,119,6,0.15); }
+    [data-theme="light"] [class~="bg-amber-900/60"] { background-color: rgba(217,119,6,0.15); }
     [data-theme="light"] .text-amber-300 { color: #d97706; }
-    [data-theme="light"] .bg-green-900\/40 { background-color: rgba(22,163,74,0.12); }
+    [data-theme="light"] [class~="bg-green-900/40"] { background-color: rgba(22,163,74,0.12); }
     [data-theme="light"] .text-green-400 { color: #16a34a; }
     [data-theme="light"] .hover\:bg-slate-600:hover { background-color: #94a3b8; }
     [data-theme="light"] .text-red-400 { color: #dc2626; }
@@ -64,22 +70,29 @@
 <body class="h-full flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- Header -->
-  <header class="border-b px-4 py-3 flex items-center justify-between sticky top-0 z-40" style="background:var(--header-bg);border-color:var(--border);">
-    <div class="flex items-center gap-2">
-      <span class="text-indigo-500 text-xl">🎬</span>
-      <span class="font-bold text-lg tracking-tight" style="color:var(--text-primary)">GroupGo</span>
-    </div>
-    <div class="flex items-center gap-2">
-      {% block header_right %}{% endblock %}
-      <button onclick="toggleTheme()" title="Toggle theme"
-        class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-        <svg id="theme-icon-dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
-        </svg>
-        <svg id="theme-icon-light" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
-        </svg>
-      </button>
+  <header class="app-header border-b sticky top-0 z-40" style="border-color:var(--border);">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <a href="/" class="flex items-center gap-3 no-min-size">
+        <span class="brand-mark text-xl no-min-size">🎬</span>
+        <div class="min-w-0 flex flex-col justify-center">
+          <div class="font-bold text-lg tracking-tight leading-tight" style="color:var(--text-primary)">GroupGo</div>
+          <div class="text-xs hidden sm:block leading-tight" style="color:var(--text-secondary)">Movie night planning without the group chat spiral</div>
+        </div>
+      </a>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <div class="header-badge text-sm">
+          {% block header_right %}{% endblock %}
+        </div>
+        <button onclick="toggleTheme()" title="Toggle theme"
+          class="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors border" style="border-color:var(--border);background:rgba(15,23,42,0.12);">
+          <svg id="theme-icon-dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
+          </svg>
+          <svg id="theme-icon-light" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -92,7 +105,7 @@
   {% block bottom_nav %}{% endblock %}
 
   <!-- Toast -->
-  <div id="gg-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full shadow-xl text-sm font-medium pointer-events-none translate-y-4 opacity-0"></div>
+  <div id="gg-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-full shadow-2xl text-sm font-medium pointer-events-none translate-y-4 opacity-0"></div>
 
   <script src="/static/js/app.js"></script>
   <script>
@@ -107,23 +120,6 @@
       applyTheme(next);
     }
     applyTheme(localStorage.getItem('gg-theme') || 'dark');
-
-    let _toastTimer;
-    function showToast(msg, type = 'success') {
-      const el = document.getElementById('gg-toast');
-      const bg = { success: 'bg-green-700 text-white', error: 'bg-red-700 text-white', info: 'bg-indigo-700 text-white' };
-      el.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full shadow-xl text-sm font-medium ${bg[type] || bg.success}`;
-      el.textContent = msg;
-      el.style.transform = 'translateX(-50%) translateY(0)';
-      el.style.opacity = '1';
-      clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(() => {
-        el.style.transform = 'translateX(-50%) translateY(1rem)';
-        el.style.opacity = '0';
-      }, 3000);
-    }
-
-    document.addEventListener('voteSaved', () => showToast('✓ Vote saved'));
   </script>
   {% block extra_js %}{% endblock %}
 </body>

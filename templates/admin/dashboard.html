@@ -3,82 +3,129 @@
 {% block title %}Dashboard — GroupGo Admin{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-white">Dashboard</h1>
-  <button onclick="openNewPollModal()"
-    class="btn-primary gap-2 text-sm">
-    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-    </svg>
-    New Poll
-  </button>
-</div>
+<section class="page-hero mb-6">
+  <span class="page-eyebrow">Admin dashboard</span>
+  <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div>
+      <h1 class="page-title text-white">Plan the next movie night with less friction.</h1>
+      <p class="page-subtitle mt-3">Create a poll, curate the movie shortlist, fetch showtimes, and guide the group from idea to final plan without bouncing between tools.</p>
+    </div>
+    <div class="cta-row">
+      <button onclick="openNewPollModal()"
+        class="btn-primary gap-2 text-sm">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        New Poll
+      </button>
+    </div>
+  </div>
+  <div class="hero-metrics mt-6">
+    <div class="metric-card">
+      <div class="metric-value">{{ polls | length }}</div>
+      <div class="metric-label">Total polls in the system</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">{{ '1' if active_poll else '0' }}</div>
+      <div class="metric-label">Open polls accepting votes</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">{{ 'Ready' if draft_poll else 'None' }}</div>
+      <div class="metric-label">Draft poll ready for curation</div>
+    </div>
+  </div>
+</section>
 
 {% if not polls %}
-<div class="card p-10 text-center">
-  <div class="text-5xl mb-4">🎬</div>
+<div class="card empty-state">
+  <div class="empty-state-icon">🎬</div>
   <p class="text-white font-semibold text-lg mb-2">No polls yet</p>
-  <p class="text-slate-400 text-sm mb-4">Create your first poll to get started.</p>
+  <p class="text-slate-400 text-sm mb-4">Create your first poll to start curating movies and showtimes.</p>
   <button onclick="openNewPollModal()"
     class="btn-primary text-sm">Create First Poll</button>
 </div>
 {% else %}
 
-<div class="space-y-3">
+<div class="section-heading mb-4">
+  <div>
+    <h2 class="section-title">All polls</h2>
+    <p class="section-description">Each poll tracks the full journey from draft setup through voting and final results.</p>
+  </div>
+</div>
+
+<div class="stack-list">
   {% for item in polls %}
   {% set poll = item.poll %}
   <div class="card overflow-hidden">
     <!-- Colored top accent stripe by status -->
     <div class="h-0.5
       {% if poll.status == 'OPEN' %}bg-green-500{% elif poll.status == 'CLOSED' %}bg-amber-500{% elif poll.status == 'DRAFT' %}bg-slate-500{% else %}bg-indigo-500{% endif %}"></div>
-    <div class="p-5 flex items-start justify-between gap-4">
+    <div class="p-5 sm:p-6 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-          <h2 class="font-bold text-white text-base">{{ poll.title }}</h2>
+        <div class="flex items-center gap-2 mb-2 flex-wrap">
+          <h2 class="font-bold text-white text-xl">{{ poll.title }}</h2>
           <span class="text-xs px-2 py-0.5 rounded-full font-medium status-{{ poll.status | lower }}">
             {{ poll.status }}
           </span>
         </div>
-        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-          <span class="flex items-center gap-1">
+        <div class="inline-pills mb-4">
+          <span class="soft-pill flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c0 .621.504 1.125 1.125 1.125h15A1.125 1.125 0 0018.375 8.25m-15.75 0h15"/></svg>
             {{ item.event_count }} movie{{ 's' if item.event_count != 1 else '' }}
           </span>
-          <span class="flex items-center gap-1">
+          <span class="soft-pill flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
             {{ item.session_count }} showtime{{ 's' if item.session_count != 1 else '' }}
           </span>
           {% if item.participation %}
-          <span class="flex items-center gap-1
-            {% if item.participation.fully_voted_count == item.participation.total %}text-green-400{% endif %}">
+          <span class="soft-pill flex items-center gap-1 {% if item.participation.fully_voted_count == item.participation.total %}text-green-400{% endif %}">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
             {{ item.participation.fully_voted_count }}/{{ item.participation.total }} voted
           </span>
           {% endif %}
         </div>
+
+        <div class="surface-grid three-up">
+          <div class="surface-muted p-4">
+            <div class="text-xs uppercase tracking-wider text-slate-500">Status</div>
+            <div class="text-white font-semibold mt-2">{{ poll.status }}</div>
+            <div class="text-sm text-slate-400 mt-1">Current lifecycle stage</div>
+          </div>
+          <div class="surface-muted p-4">
+            <div class="text-xs uppercase tracking-wider text-slate-500">Movies</div>
+            <div class="text-white font-semibold mt-2">{{ item.event_count }}</div>
+            <div class="text-sm text-slate-400 mt-1">Curated options in the poll</div>
+          </div>
+          <div class="surface-muted p-4">
+            <div class="text-xs uppercase tracking-wider text-slate-500">Showtimes</div>
+            <div class="text-white font-semibold mt-2">{{ item.session_count }}</div>
+            <div class="text-sm text-slate-400 mt-1">Available session combinations</div>
+          </div>
+        </div>
       </div>
 
       <!-- Actions -->
-      <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+      <div class="flex items-center gap-2 flex-shrink-0 flex-wrap xl:max-w-xs xl:justify-end">
         {% if poll.status == 'DRAFT' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Edit</a>
-          <button onclick="publishPoll({{ poll.id }})" class="btn-primary text-xs">Publish</button>
-          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="publishPollFromButton(this)" class="btn-primary text-xs">Publish</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'OPEN' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Movies</a>
           <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-xs">Times</a>
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
-          <button onclick="closePoll({{ poll.id }})" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
-          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showInviteLinkFromButton(this)" class="btn-ghost text-xs">Invite Link</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="closePollFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'CLOSED' %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Declare Winner</a>
-          <button onclick="reopenPoll({{ poll.id }})" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
-          <button onclick="archivePoll({{ poll.id }})" class="btn-ghost text-xs">Archive</button>
-          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="archivePollFromButton(this)" class="btn-ghost text-xs">Archive</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% else %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-ghost text-xs">View</a>
-          <button onclick="reopenPoll({{ poll.id }})" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
-          <button onclick="deletePoll({{ poll.id }})" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% endif %}
       </div>
     </div>
@@ -86,6 +133,36 @@
   {% endfor %}
 </div>
 {% endif %}
+
+<div id="invite-link-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-xl">
+    <div class="flex items-center justify-between mb-4 gap-4">
+      <div>
+        <h2 class="text-lg font-bold text-white">Secure voter invite</h2>
+        <p id="invite-link-subtitle" class="text-sm text-slate-400 mt-1">Generate a poll-specific link for members.</p>
+      </div>
+      <button type="button" onclick="closeInviteModal()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div id="invite-link-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg"></div>
+      <div>
+        <label class="text-xs text-slate-400 mb-2 block font-medium">Share this URL with voters</label>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <input id="invite-link-field" type="text" readonly
+            class="input-base flex-1 text-xs sm:text-sm"/>
+          <button type="button" onclick="copyInviteLink()" class="btn-primary text-sm whitespace-nowrap">Copy Link</button>
+        </div>
+      </div>
+      <div class="surface-muted p-4 text-xs text-slate-400 rounded-2xl">
+        Members who open this link will be asked for their unique 4-digit member PIN and then taken directly into their own ballot.
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- New Poll Modal -->
 <div id="new-poll-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -222,12 +299,20 @@ function publishPoll(id) {
   }, 'Publish', false);
 }
 
+function publishPollFromButton(button) {
+  publishPoll(Number(button.dataset.pollId));
+}
+
 function closePoll(id) {
   showConfirm('Close this poll? No new votes will be accepted.', async () => {
     const r = await fetch(`/api/admin/polls/${id}/close`, {method:'POST'});
     if (r.ok) window.location.reload();
     else { const d = await r.json(); showToast(d.detail || 'Error closing.', 'error'); }
   }, 'Close Poll');
+}
+
+function closePollFromButton(button) {
+  closePoll(Number(button.dataset.pollId));
 }
 
 function archivePoll(id) {
@@ -238,6 +323,10 @@ function archivePoll(id) {
   }, 'Archive');
 }
 
+function archivePollFromButton(button) {
+  archivePoll(Number(button.dataset.pollId));
+}
+
 function reopenPoll(id) {
   showConfirm('Reopen this poll? This will reset any declared winner and allow new votes.', async () => {
     const r = await fetch(`/api/admin/polls/${id}/reopen`, {method:'POST'});
@@ -246,12 +335,59 @@ function reopenPoll(id) {
   }, 'Reopen');
 }
 
+function reopenPollFromButton(button) {
+  reopenPoll(Number(button.dataset.pollId));
+}
+
 function deletePoll(id) {
   showConfirm('Permanently delete this poll? This cannot be undone. All votes, movies, and showtimes will be deleted.', async () => {
     const r = await fetch(`/api/admin/polls/${id}`, {method:'DELETE'});
     if (r.ok) window.location.reload();
     else { const d = await r.json(); showToast(d.detail || 'Error deleting poll.', 'error'); }
   }, 'Delete', true);
+}
+
+function deletePollFromButton(button) {
+  deletePoll(Number(button.dataset.pollId));
+}
+
+function closeInviteModal() {
+  document.getElementById('invite-link-modal').classList.add('hidden');
+}
+
+async function showInviteLink(pollId, pollTitle) {
+  const modal = document.getElementById('invite-link-modal');
+  const subtitle = document.getElementById('invite-link-subtitle');
+  const input = document.getElementById('invite-link-field');
+  const error = document.getElementById('invite-link-error');
+  subtitle.textContent = `Invite voters to ${pollTitle}.`;
+  input.value = 'Generating secure link…';
+  error.classList.add('hidden');
+  modal.classList.remove('hidden');
+
+  const resp = await fetch(`/api/admin/polls/${pollId}/invite-link`, {method: 'POST'});
+  if (!resp.ok) {
+    const data = await resp.json();
+    input.value = '';
+    error.textContent = data.detail || 'Unable to generate the invite link.';
+    error.classList.remove('hidden');
+    return;
+  }
+
+  const data = await resp.json();
+  input.value = data.invite_url;
+  input.select();
+}
+
+function showInviteLinkFromButton(button) {
+  showInviteLink(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll');
+}
+
+async function copyInviteLink() {
+  const input = document.getElementById('invite-link-field');
+  if (!input.value) return;
+  await navigator.clipboard.writeText(input.value);
+  showToast('Invite link copied.', 'info');
 }
 
 </script>

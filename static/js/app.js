@@ -5,19 +5,44 @@
 
 (function () {
   // ── Toast notifications ───────────────────────────────────────────────────
-  const toast = document.getElementById('toast');
+  const toast = document.getElementById('gg-toast') || document.getElementById('toast');
+  const toastBaseClass = toast ? toast.className : '';
+  let toastTimer;
 
-  function showToast(message) {
+  function showToast(message, type = 'success') {
     if (!toast) return;
+    const styles = {
+      success: 'bg-green-700 text-white',
+      error: 'bg-red-700 text-white',
+      info: 'bg-indigo-700 text-white',
+      warn: 'bg-amber-600 text-white',
+    };
+    toast.className = `${toastBaseClass} ${styles[type] || styles.success}`.trim();
     toast.textContent = message || '✓ Saved';
     toast.style.transform = 'translateX(-50%) translateY(0)';
     toast.style.opacity = '1';
-    clearTimeout(toast._timeout);
-    toast._timeout = setTimeout(() => {
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
       toast.style.transform = 'translateX(-50%) translateY(16px)';
       toast.style.opacity = '0';
-    }, 2000);
+    }, 3000);
   }
+
+  window.showToast = showToast;
+
+  window.confirmHtmxButton = function (button) {
+    const message = button.dataset.confirmMessage || 'Are you sure?';
+    const triggerConfirmed = function () {
+      htmx.trigger(button, 'confirmed');
+    };
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm(message, triggerConfirmed);
+      return;
+    }
+    if (confirm(message)) {
+      triggerConfirmed();
+    }
+  };
 
   // HTMX fires this event when a vote response includes HX-Trigger: voteSaved
   document.body.addEventListener('voteSaved', function () {

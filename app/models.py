@@ -21,6 +21,7 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
     token: Optional[str] = Field(default=None, unique=True, index=True)
+    member_pin: Optional[str] = Field(default=None, max_length=4, index=True)
     is_admin: bool = Field(default=False)
     email: Optional[str] = Field(default=None)
     group_id: Optional[int] = Field(default=None, foreign_key="groups.id")
@@ -33,6 +34,7 @@ class Poll(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
     status: str = Field(default="DRAFT")  # DRAFT, OPEN, CLOSED, ARCHIVED
+    access_uuid: Optional[str] = Field(default=None, index=True)
     target_dates: str = Field(default="[]")  # JSON array of YYYY-MM-DD strings
     winner_event_id: Optional[int] = Field(default=None, foreign_key="events.id")
     winner_session_id: Optional[int] = Field(default=None, foreign_key="sessions.id")

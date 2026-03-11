@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     APP_ENV: str = "development"
+    APP_BASE_URL: str = "http://localhost:8000"
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     DATABASE_URL: str = "sqlite:///./data/groupgo.db"
     ADMIN_USERNAME: str = "admin"
@@ -17,6 +18,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
+
+    @property
+    def app_base_url(self) -> str:
+        return self.APP_BASE_URL.rstrip("/")
 
     @property
     def tmdb_base_url(self) -> str:

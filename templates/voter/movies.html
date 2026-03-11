@@ -3,104 +3,168 @@
 
 {% block header_right %}
 <span class="text-slate-400 text-sm">Hey, <span class="text-white font-medium">{{ user.name }}</span></span>
+{% if secure_entry %}
+<span class="text-xs text-indigo-300">Secure link</span>
+{% else %}
 <a href="/identify" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">Switch</a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 pt-4 pb-24">
+<div class="page-shell">
+
+  <section class="page-hero mb-6">
+    <span class="page-eyebrow">Active poll</span>
+    <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h1 class="page-title text-white">{{ poll.title }}</h1>
+        <p class="page-subtitle mt-3">Start by approving the movies you’d happily see. You can reject anything that’s not a fit, then move on to showtimes in the next step.</p>
+      </div>
+      <div class="inline-pills">
+        <span class="soft-pill soft-pill-strong">{{ events | length }} movie option{{ 's' if events|length != 1 else '' }}</span>
+        <span class="soft-pill">{{ participation.fully_voted_count }}/{{ participation.total }} fully voted</span>
+      </div>
+    </div>
+    <div class="step-strip mt-6">
+      <a href="/vote/movies" class="step-chip is-active">
+        <span class="step-index">1</span>
+        <span class="step-copy">
+          <span class="step-label">Movies</span>
+          <span class="step-meta">Approve or pass</span>
+        </span>
+      </a>
+      <a href="/vote/showtimes" class="step-chip">
+        <span class="step-index">2</span>
+        <span class="step-copy">
+          <span class="step-label">Showtimes</span>
+          <span class="step-meta">Pick times that work</span>
+        </span>
+      </a>
+      <a href="/results" class="step-chip">
+        <span class="step-index">3</span>
+        <span class="step-copy">
+          <span class="step-label">Results</span>
+          <span class="step-meta">Track the best plan</span>
+        </span>
+      </a>
+    </div>
+  </section>
 
   <!-- Participation bar -->
-  <div class="mb-4 flex items-center gap-2 text-sm">
-    <div class="flex gap-1">
+  <div class="card p-4 mb-5">
+    <div class="section-heading">
+      <div>
+        <h2 class="section-title">Group progress</h2>
+        <p class="section-description">See who has finished both movie and showtime voting.</p>
+      </div>
+      <span class="soft-pill soft-pill-strong">{{ participation.fully_voted_count }}/{{ participation.total }} done</span>
+    </div>
+    <div class="flex gap-2 flex-wrap mt-4">
       {% for p in participation.participants %}
       <div title="{{ p.user.name }}{% if p.fully_voted %}{% if p.is_flexible %} ✓ Flexible (auto-complete){% else %} ✓ Voted on movies & times{% endif %}{% else %} • Needs to vote on {% if p.user.id == user.id %}movies & times{% else %}everything{% endif %}{% endif %}"
-        class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-        {% if p.fully_voted %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-400{% endif %}">
-        {{ p.user.name[0] }}
+        class="inline-flex items-center gap-2 rounded-full px-3 py-2 border border-slate-700 bg-slate-700/30 {% if p.fully_voted %}text-white{% else %}text-slate-400{% endif %}">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold {% if p.fully_voted %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-400{% endif %}">
+          {{ p.user.name[0] }}
+        </div>
+        <span class="text-sm font-medium">{{ p.user.name }}</span>
+        {% if p.is_flexible %}<span class="text-xs text-indigo-400">Flexible</span>{% endif %}
       </div>
       {% endfor %}
     </div>
-    <span class="text-slate-400" title="Members who voted on all movies and showtimes">{{ participation.fully_voted_count }}/{{ participation.total }} done</span>
   </div>
 
   <!-- Poll title -->
-  <h1 class="text-xl font-bold text-white mb-1">{{ poll.title }}</h1>
-  <p class="text-slate-400 text-sm mb-5">Vote on each movie — Yes to approve, No to reject</p>
+  <div class="surface-muted p-4 mb-5">
+    <div class="flex flex-wrap items-center gap-3 justify-between">
+      <div>
+        <p class="text-sm font-semibold text-white">How to vote</p>
+        <p class="text-sm text-slate-400 mt-1">Tap <span class="text-green-400 font-semibold">Yes</span> for movies you want in the running or <span class="text-red-400 font-semibold">No</span> to eliminate them from your picks.</p>
+      </div>
+      <div class="inline-pills">
+        <span class="soft-pill">Live saving</span>
+        <span class="soft-pill">Change anytime</span>
+      </div>
+    </div>
+  </div>
 
   {% if not events %}
-  <div class="card p-8 text-center">
-    <div class="text-4xl mb-3">🍿</div>
-    <p class="text-slate-400">No movies in this poll yet. Check back soon!</p>
+  <div class="card empty-state">
+    <div class="empty-state-icon">🍿</div>
+    <p class="text-white font-semibold text-lg">No movies in this poll yet</p>
+    <p class="text-slate-400 mt-2 text-sm">Check back soon after the admin adds options.</p>
   </div>
   {% endif %}
 
   <!-- Movie cards -->
-  <div class="space-y-4">
+  <div class="stack-list">
     {% for event in events %}
     {% set current_vote = user_votes.get(('event', event.id), 'abstain') %}
     <div class="card overflow-hidden">
-      <div class="flex gap-3 p-4">
-        <!-- Poster -->
-        <div class="flex-shrink-0">
-          {% if event.poster_path %}
-          <img src="{{ poster_url(event.poster_path, 'w185') }}"
-               alt="{{ event.title }} poster"
-               class="w-16 h-24 object-cover rounded-lg bg-slate-700"
-               loading="lazy"/>
-          {% else %}
-          <div class="w-16 h-24 rounded-lg bg-slate-700 flex items-center justify-center text-2xl">🎬</div>
-          {% endif %}
-        </div>
-
-        <!-- Info -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-start justify-between gap-2 mb-1">
-            <h2 class="font-bold text-white text-base leading-tight">{{ event.title }}</h2>
-            {% if event.tmdb_rating and event.tmdb_rating > 0 %}
-            <span class="flex-shrink-0 text-xs bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded font-mono">
-              ★ {{ "%.1f"|format(event.tmdb_rating) }}
-            </span>
+      <div class="p-5 sm:p-6">
+        <div class="flex gap-4 items-start">
+          <!-- Poster -->
+          <div class="flex-shrink-0">
+            {% if event.poster_path %}
+            <img src="{{ poster_url(event.poster_path, 'w185') }}"
+                 alt="{{ event.title }} poster"
+                 class="w-20 h-28 object-cover rounded-2xl bg-slate-700 shadow-lg"
+                 loading="lazy"/>
+            {% else %}
+            <div class="w-20 h-28 rounded-2xl bg-slate-700 flex items-center justify-center text-3xl">🎬</div>
             {% endif %}
           </div>
 
-          <div class="flex flex-wrap gap-1.5 mb-2">
-            {% if event.year %}<span class="text-xs text-slate-400">{{ event.year }}</span>{% endif %}
-            {% if event.runtime_mins %}<span class="text-xs text-slate-500">·</span><span class="text-xs text-slate-400">{{ event.runtime_mins }} min</span>{% endif %}
+          <!-- Info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <h2 class="font-bold text-white text-xl leading-tight">{{ event.title }}</h2>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  {% if event.year %}<span class="soft-pill">{{ event.year }}</span>{% endif %}
+                  {% if event.runtime_mins %}<span class="soft-pill">{{ event.runtime_mins }} min</span>{% endif %}
+                </div>
+              </div>
+              {% if event.tmdb_rating and event.tmdb_rating > 0 %}
+              <span class="flex-shrink-0 text-sm bg-amber-900/60 text-amber-300 px-2.5 py-1 rounded-full font-semibold">
+                ★ {{ "%.1f"|format(event.tmdb_rating) }}
+              </span>
+              {% endif %}
+            </div>
+
+            {% if event.synopsis %}
+            <p class="text-slate-300 text-sm leading-relaxed line-clamp-2">{{ event.synopsis }}</p>
+            {% endif %}
+
+            {% if event.genres %}
+            <div class="inline-pills mt-3">
+              {% for g in (event.genres | fromjson) %}
+              <span class="soft-pill">{{ g }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
           </div>
+        </div>
 
-          {% if event.synopsis %}
-          <p class="text-slate-400 text-xs leading-relaxed line-clamp-2">{{ event.synopsis }}</p>
-          {% endif %}
-
-          {% if event.genres %}
-          <div class="flex flex-wrap gap-1 mt-2">
-            {% for g in (event.genres | fromjson) %}
-            <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{{ g }}</span>
-            {% endfor %}
+        <!-- Trailer button -->
+        {% if event.trailer_key %}
+        <div class="mt-4">
+          <div class="trailer-container" id="trailer-{{ event.id }}" data-trailer-key="{{ event.trailer_key }}">
+            <button onclick="loadTrailer('{{ event.id }}', '{{ event.trailer_key }}')"
+              class="w-full flex items-center justify-center gap-2 bg-slate-700/60 hover:bg-slate-600 text-slate-200 text-sm rounded-2xl py-3 transition-colors border border-slate-600">
+              <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+              Watch Trailer
+            </button>
           </div>
-          {% endif %}
         </div>
-      </div>
+        {% endif %}
 
-      <!-- Trailer button -->
-      {% if event.trailer_key %}
-      <div class="px-4 pb-3">
-        <div class="trailer-container" id="trailer-{{ event.id }}" data-trailer-key="{{ event.trailer_key }}">
-          <button onclick="loadTrailer('{{ event.id }}', '{{ event.trailer_key }}')"
-            class="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg py-2 transition-colors">
-            <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-            Watch Trailer
-          </button>
+        <!-- Vote buttons -->
+        <div class="mt-4">
+          {% set event_id = event.id %}
+          {% include "components/movie_vote_toggle.html" %}
         </div>
-      </div>
-      {% endif %}
-
-      <!-- Vote buttons -->
-      <div class="px-4 pb-4">
-        {% set event_id = event.id %}
-        {% include "components/movie_vote_toggle.html" %}
       </div>
     </div>
     {% endfor %}
@@ -108,10 +172,10 @@
 
   <!-- Continue CTA -->
   {% if events %}
-  <div class="mt-6 text-center">
-    <a href="/vote/logistics"
+  <div class="mt-8 text-center">
+    <a href="/vote/showtimes"
       class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
-      Next: Pick Times
+      Next: Pick Showtimes
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
@@ -130,14 +194,17 @@
 function loadTrailer(eventId, key) {
   const container = document.getElementById('trailer-' + eventId);
   container.innerHTML = `
-    <div class="relative">
-      <button onclick="closeTrailer('${eventId}')" class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition-colors" title="Close trailer">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-      <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-lg">
-        <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${key}?autoplay=1&rel=0" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+    <div class="space-y-3">
+      <div class="flex justify-end">
+        <button onclick="closeTrailer('${eventId}')" class="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-slate-950/90 hover:bg-slate-900 text-white px-4 py-2 text-sm font-semibold shadow-lg shadow-black/30 ring-1 ring-white/10 transition-colors" title="Close trailer" aria-label="Close trailer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Close trailer
+        </button>
+      </div>
+      <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-2xl border border-slate-600 bg-black">
+        <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${key}?autoplay=1&rel=0" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" loading="lazy"></iframe>
       </div>
     </div>`;
 }
@@ -145,7 +212,7 @@ function loadTrailer(eventId, key) {
 function closeTrailer(eventId) {
   const container = document.getElementById('trailer-' + eventId);
   container.innerHTML = `
-    <button onclick="loadTrailer('${eventId}', '${container.dataset.trailerKey}')" class="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg py-2 transition-colors">
+    <button onclick="loadTrailer('${eventId}', '${container.dataset.trailerKey}')" class="w-full flex min-h-[44px] items-center justify-center gap-2 bg-slate-700/60 hover:bg-slate-600 text-slate-200 text-sm rounded-2xl py-3 transition-colors border border-slate-600 font-medium">
       <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
         <path d="M8 5v14l11-7z"/>
       </svg>

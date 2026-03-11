@@ -118,16 +118,21 @@ def get_is_flexible(user_id: int, poll_id: int, db: Session) -> bool:
     return pref.is_flexible if pref else False
 
 
-def calculate_results(poll_id: int, db: Session) -> dict:
-    """
-    Implements the scoring algorithm from requirements §6.
+def get_showtime_event_ids(user_votes: dict) -> list[int] | None:
+    yes_event_ids = [
+        target_id
+        for (target_type, target_id), vote_value in user_votes.items()
+        if target_type == "event" and vote_value == "yes"
+    ]
+    has_event_votes = any(target_type == "event" for target_type, _ in user_votes.keys())
+    if yes_event_ids:
+        return yes_event_ids
+    if has_event_votes:
+        return []
+    return None
 
-    Returns:
-        {
-          "ranked": [{"rank": 1, "score": 8, "event": Event, "session": ShowSession}, ...],
-          "no_valid_options": bool,
-        }
-    """
+
+def _load_result_inputs(poll_id: int, db: Session) -> dict:
     users = db.exec(select(User).where(User.is_admin == False)).all()
     user_ids = [u.id for u in users]
 
@@ -135,10 +140,13 @@ def calculate_results(poll_id: int, db: Session) -> dict:
         select(PollEvent).where(PollEvent.poll_id == poll_id)
     ).all()
     event_ids = [pe.event_id for pe in poll_event_links]
-    events = db.exec(select(Event).where(Event.id.in_(event_ids))).all()
+    events = db.exec(select(Event).where(Event.id.in_(event_ids))).all() if event_ids else []
 
     sessions = db.exec(
-        select(ShowSession).where(ShowSession.poll_id == poll_id)
+        select(ShowSession).where(
+            ShowSession.poll_id == poll_id,
+            ShowSession.is_included == True,
+        )
     ).all()
 
     votes = db.exec(
@@ -152,56 +160,128 @@ def calculate_results(poll_id: int, db: Session) -> dict:
         select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
     ).all()
     flexible_user_ids = {p.user_id for p in prefs if p.is_flexible}
-    non_flexible_ids = [uid for uid in user_ids if uid not in flexible_user_ids]
 
-    # Build candidates: (event, session) pairs where session belongs to event
     candidates = []
     for event in events:
         for session in sessions:
             if session.event_id == event.id:
                 candidates.append((event, session))
 
-    # Veto elimination
-    surviving = []
-    for event, session in candidates:
-        vetoed = False
-        for uid in non_flexible_ids:
-            movie_vote = vote_lookup.get(("event", event.id, uid), "abstain")
-            if movie_vote == "no":
-                vetoed = True
-                break
-            session_vote = vote_lookup.get(("session", session.id, uid), "abstain")
-            if session_vote == "cant_do":
-                vetoed = True
-                break
-        if not vetoed:
-            surviving.append((event, session))
+    return {
+        "users": users,
+        "user_ids": user_ids,
+        "vote_lookup": vote_lookup,
+        "flexible_user_ids": flexible_user_ids,
+        "candidates": candidates,
+    }
 
-    # Score remaining combinations
+
+def _score_candidates(
+    candidates: list[tuple[Event, ShowSession]],
+    users: list[User],
+    flexible_user_ids: set[int],
+    vote_lookup: dict[tuple, str],
+    require_support: bool = False,
+) -> list[dict]:
     scored = []
-    for event, session in surviving:
+    for event, session in candidates:
         score = 0
-        for uid in user_ids:
+        compatible_user_ids = []
+        supporters = []
+        for user in users:
+            uid = user.id
             if uid in flexible_user_ids:
                 score += 2
-            else:
-                if vote_lookup.get(("event", event.id, uid), "abstain") == "yes":
-                    score += 1
-                if vote_lookup.get(("session", session.id, uid), "abstain") == "can_do":
-                    score += 1
-        scored.append((score, event, session))
+                compatible_user_ids.append(uid)
+                supporters.append({"user": user, "is_flexible": True})
+                continue
+
+            movie_vote = vote_lookup.get(("event", event.id, uid), "abstain")
+            session_vote = vote_lookup.get(("session", session.id, uid), "abstain")
+
+            if movie_vote == "yes":
+                score += 1
+            if session_vote == "can_do":
+                score += 1
+            if movie_vote != "no" and session_vote != "cant_do":
+                compatible_user_ids.append(uid)
+            if movie_vote == "yes" and session_vote == "can_do":
+                supporters.append({"user": user, "is_flexible": False})
+
+        if require_support and not supporters:
+            continue
+
+        scored.append((score, event, session, compatible_user_ids, supporters))
 
     scored.sort(key=lambda x: (-x[0], x[2].session_date, x[2].session_time))
 
-    ranked = [
-        {"rank": i + 1, "score": score, "event": event, "session": session}
-        for i, (score, event, session) in enumerate(scored)
+    return [
+        {
+            "rank": i + 1,
+            "score": score,
+            "event": event,
+            "session": session,
+            "compatible_user_ids": compatible_user_ids,
+            "compatible_count": len(compatible_user_ids),
+            "supporters": supporters,
+            "supporter_count": len(supporters),
+        }
+        for i, (score, event, session, compatible_user_ids, supporters) in enumerate(scored)
     ]
+
+
+def calculate_results(poll_id: int, db: Session) -> dict:
+    """
+    Implements the scoring algorithm from requirements §6.
+
+    Returns:
+        {
+          "ranked": [{"rank": 1, "score": 8, "event": Event, "session": ShowSession}, ...],
+          "no_valid_options": bool,
+        }
+    """
+    result_inputs = _load_result_inputs(poll_id, db)
+    ranked = _score_candidates(
+        result_inputs["candidates"],
+        result_inputs["users"],
+        result_inputs["flexible_user_ids"],
+        result_inputs["vote_lookup"],
+        require_support=True,
+    )
 
     return {
         "ranked": ranked,
         "no_valid_options": len(ranked) == 0,
-        "total_possible": len(user_ids) * 2,
+        "total_possible": len(result_inputs["user_ids"]) * 2,
+    }
+
+
+def calculate_user_results(user_id: int, poll_id: int, db: Session) -> dict:
+    result_inputs = _load_result_inputs(poll_id, db)
+    if user_id in result_inputs["flexible_user_ids"]:
+        candidates = result_inputs["candidates"]
+    else:
+        candidates = []
+        for event, session in result_inputs["candidates"]:
+            movie_vote = result_inputs["vote_lookup"].get(("event", event.id, user_id), "abstain")
+            session_vote = result_inputs["vote_lookup"].get(("session", session.id, user_id), "abstain")
+            if movie_vote != "yes" or session_vote != "can_do":
+                continue
+            candidates.append((event, session))
+
+    ranked = _score_candidates(
+        candidates,
+        result_inputs["users"],
+        result_inputs["flexible_user_ids"],
+        result_inputs["vote_lookup"],
+        require_support=True,
+    )
+
+    return {
+        "ranked": ranked,
+        "no_valid_options": len(ranked) == 0,
+        "total_possible": len(result_inputs["user_ids"]) * 2,
+        "is_flexible": user_id in result_inputs["flexible_user_ids"],
     }
 
 

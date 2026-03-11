@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 # 2. Configure environment
 Copy-Item .env.example .env
-# Edit .env with your TMDB_API_KEY, SERPAPI_KEY, ADMIN_PASSWORD
+# Edit .env with your TMDB_API_KEY, SERPAPI_KEY, ADMIN_PASSWORD, and APP_BASE_URL
 
 # 3. Run
 uvicorn app.main:app --reload --port 8000
@@ -49,10 +49,10 @@ See **[docs/dev-setup.md](docs/dev-setup.md)** for full setup, Docker deployment
 2. Search for movies → TMDB fetches poster, synopsis, trailer
 3. Select target weekend dates → backend fetches showtimes via SerpApi and caches in SQLite
 4. Review and toggle individual showtimes on/off as needed
-5. Publish poll → share one URL with the group
+5. Publish poll → generate the secure invite link and share it with the group
 
 **Family Members (vote on phone):**
-1. Tap link → select "Who are you?" → persistent identity set via cookie
+1. Tap the secure poll link → enter your unique 4-digit member PIN → GroupGo opens your ballot directly
 2. Screen 1: Approve (**Yes**) or reject (**No**) each movie
 3. Screen 2: Sessions default to **Can't Do** — tap to toggle any you **can** make to **Can Do**
 4. Optionally tap **"I'm In — Whatever You Choose!"** to skip logistics and approve everything
@@ -88,4 +88,5 @@ groupgo/
 - SerpApi free tier: 250 searches/month — all voter reads come from SQLite cache only
 - One active poll at a time
 - Admin routes protected by HTTP Basic Auth (env var credentials)
+- Public poll links are generated from `APP_BASE_URL`, so deployments behind DuckDNS, port forwarding, or tunnels can share the correct external URL
 - All data in one SQLite file — backup = copy one file

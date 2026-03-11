@@ -3,19 +3,32 @@
 {% block title %}Theaters — GroupGo Admin{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-bold text-white">Theaters</h1>
-    <p class="text-slate-400 text-sm mt-0.5">Manage theaters used in showtime searches</p>
+<section class="page-hero mb-6">
+  <span class="page-eyebrow">Admin data</span>
+  <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div>
+      <h1 class="page-title text-white">Manage theater coverage</h1>
+      <p class="page-subtitle mt-3">Maintain the list of theaters used for showtime searches, keep the active set clean, and make it easy to add or update locations.</p>
+    </div>
+    <button onclick="document.getElementById('add-theater-modal').classList.remove('hidden')"
+      class="btn-primary text-sm gap-2">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Add Theater
+    </button>
   </div>
-  <button onclick="document.getElementById('add-theater-modal').classList.remove('hidden')"
-    class="btn-primary text-sm gap-2">
-    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-    </svg>
-    Add Theater
-  </button>
-</div>
+  <div class="hero-metrics mt-6">
+    <div class="metric-card">
+      <div class="metric-value">{{ theaters | length }}</div>
+      <div class="metric-label">Total theaters on file</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">{{ theaters | selectattr('is_active') | list | length }}</div>
+      <div class="metric-label">Currently active for fetches</div>
+    </div>
+  </div>
+</section>
 
 <div class="card overflow-hidden">
   <table class="w-full text-sm">
@@ -48,7 +61,8 @@
         <td class="px-5 py-4 text-slate-400 hidden md:table-cell text-xs">{{ t.address or '—' }}</td>
         <td class="px-5 py-4 text-slate-500 hidden lg:table-cell text-xs font-mono">{{ t.serpapi_query }}</td>
         <td class="px-5 py-4 text-center">
-          <button onclick="toggleActive({{ t.id }}, {{ 'true' if t.is_active else 'false' }})"
+          <button data-theater-id="{{ t.id }}" data-current-active="{{ 'true' if t.is_active else 'false' }}"
+            onclick="toggleActive(Number(this.dataset.theaterId), this.dataset.currentActive === 'true')"
             title="{{ 'Click to deactivate' if t.is_active else 'Click to activate' }}"
             class="text-xs px-2.5 py-1 rounded-full font-medium transition-all border
               {{ 'bg-green-900/40 text-green-400 border-green-800 hover:bg-slate-700 hover:text-slate-400 hover:border-slate-600' if t.is_active else 'bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800' }}">
@@ -57,13 +71,15 @@
         </td>
         <td class="px-5 py-4">
           <div class="flex items-center gap-1 justify-end">
-            <button onclick="editTheater({{ t.id }}, '{{ t.name | replace("'", "\\'") }}', '{{ (t.address or '') | replace("'", "\\'") }}', '{{ t.serpapi_query | replace("'", "\\'") }}')"
+            <button data-theater-id="{{ t.id }}" data-name="{{ t.name }}" data-address="{{ t.address or '' }}" data-query="{{ t.serpapi_query }}"
+              onclick="editTheaterFromButton(this)"
               class="text-slate-500 hover:text-indigo-400 transition-colors p-1.5 rounded">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
               </svg>
             </button>
-            <button onclick="deleteTheater({{ t.id }}, '{{ t.name | replace("'", "\\'") }}')"
+            <button data-theater-id="{{ t.id }}" data-name="{{ t.name }}"
+              onclick="deleteTheaterFromButton(this)"
               class="text-slate-500 hover:text-red-400 transition-colors p-1.5 rounded">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916"/>
@@ -213,6 +229,14 @@ async function addTheater() {
   });
   if (r.ok) window.location.reload();
   else { const d = await r.json(); showToast(d.detail || 'Error adding.', 'error'); }
+}
+
+function editTheaterFromButton(button) {
+  editTheater(Number(button.dataset.theaterId), button.dataset.name || '', button.dataset.address || '', button.dataset.query || '');
+}
+
+function deleteTheaterFromButton(button) {
+  deleteTheater(Number(button.dataset.theaterId), button.dataset.name || '');
 }
 
 function editTheater(id, name, address, query) {

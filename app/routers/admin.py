@@ -35,6 +35,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
         })
 
     return templates.TemplateResponse(
+        request,
         "admin/dashboard.html",
         {
             "request": request,
@@ -55,6 +56,7 @@ async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get
     events = movie_service.get_poll_events(poll_id, db)
 
     return templates.TemplateResponse(
+        request,
         "admin/movies.html",
         {
             "request": request,
@@ -88,6 +90,7 @@ async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(
         grouped_sessions[key].append(s)
 
     return templates.TemplateResponse(
+        request,
         "admin/showtimes.html",
         {
             "request": request,
@@ -108,6 +111,7 @@ async def admin_theaters(request: Request, db: Session = Depends(get_db)):
     verify_admin(request)
     theaters = theater_service.get_all_theaters(db)
     return templates.TemplateResponse(
+        request,
         "admin/theaters.html",
         {"request": request, "theaters": theaters},
     )
@@ -120,6 +124,7 @@ async def admin_members(request: Request, db: Session = Depends(get_db)):
     groups = db.exec(select(Group)).all()
     group_map = {g.id: g.name for g in groups}
     return templates.TemplateResponse(
+        request,
         "admin/members.html",
         {
             "request": request,
@@ -149,6 +154,7 @@ async def admin_results(request: Request, poll_id: int, db: Session = Depends(ge
         winner_session = db.get(ShowSession, poll.winner_session_id)
 
     return templates.TemplateResponse(
+        request,
         "admin/results.html",
         {
             "request": request,

@@ -44,12 +44,16 @@ def init_db():
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as db:
+        from app.services.security_service import generate_member_pin
+
         # Enable WAL mode for better concurrency
         db.exec(text("PRAGMA journal_mode=WAL"))  # type: ignore[call-overload]
         db.exec(text("PRAGMA foreign_keys=ON"))  # type: ignore[call-overload]
 
         # Schema migrations for new columns on existing tables
         _add_column_if_missing(db, "users", "group_id", "INTEGER REFERENCES groups(id)")
+        _add_column_if_missing(db, "users", "member_pin", "TEXT")
+        _add_column_if_missing(db, "polls", "access_uuid", "TEXT")
         _add_column_if_missing(db, "sessions", "is_included", "INTEGER NOT NULL DEFAULT 1")
         _add_column_if_missing(db, "user_poll_preferences", "has_completed_voting", "INTEGER NOT NULL DEFAULT 0")
 
@@ -64,6 +68,12 @@ def init_db():
         if not existing_users:
             for u in SEED_USERS:
                 db.add(User(**u))
+        else:
+            for user in existing_users:
+                if user.is_admin or user.member_pin:
+                    continue
+                user.member_pin = generate_member_pin(db)
+                db.add(user)
 
         # Seed theaters if table is empty
         existing_theaters = db.exec(select(Theater)).all()

@@ -1,21 +1,21 @@
 <!-- Participation bar -->
-<div class="card p-4 mb-4">
-  <div class="flex items-center justify-between mb-2">
-    <span class="text-sm font-semibold text-white">{{ participation.fully_voted_count }} of {{ participation.total }} fully voted</span>
+<div class="card p-5 mb-5">
+  <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+    <span class="text-base font-semibold text-white">{{ participation.fully_voted_count }} of {{ participation.total }} fully voted</span>
     {% if participation.fully_voted_count == participation.total %}
-    <span class="text-xs bg-green-900/60 text-green-400 px-2 py-0.5 rounded-full font-medium">All in!</span>
+    <span class="soft-pill soft-pill-strong">All in!</span>
     {% else %}
-    <span class="text-xs text-slate-400">Live — updates automatically</span>
+    <span class="soft-pill">Live — updates automatically</span>
     {% endif %}
   </div>
-  <div class="flex gap-1.5 flex-wrap">
+  <div class="flex gap-2 flex-wrap">
     {% for p in participation.participants %}
-    <div class="flex items-center gap-1.5 bg-slate-700/50 rounded-full px-2.5 py-1">
-      <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold
+    <div class="flex items-center gap-2 bg-slate-700/40 rounded-full px-3 py-2 border border-slate-700">
+      <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
         {% if p.fully_voted %}bg-green-600 text-white{% else %}bg-slate-600 text-slate-400{% endif %}">
         {{ p.user.name[0] }}
       </div>
-      <span class="text-xs {% if p.fully_voted %}text-slate-200{% else %}text-slate-500{% endif %}">
+      <span class="text-sm {% if p.fully_voted %}text-slate-200{% else %}text-slate-500{% endif %}">
         {{ p.user.name }}{% if p.is_flexible %} <span class="text-indigo-400">✦</span>{% endif %}
       </span>
     </div>
@@ -23,34 +23,42 @@
   </div>
 </div>
 
+<div class="section-heading mb-4">
+  <div>
+    <h2 class="section-title">Overall results</h2>
+    <p class="section-description">These rankings show the strongest movie and showtime combinations that have received explicit support from the group.</p>
+  </div>
+  {% if results.ranked %}
+  <span class="soft-pill soft-pill-strong">{{ results.ranked | length }} ranked</span>
+  {% endif %}
+</div>
+
 {% if results.no_valid_options %}
-<!-- No valid options -->
-<div class="card p-8 text-center border-red-900/50">
-  <div class="text-4xl mb-3">😬</div>
-  <p class="text-white font-bold text-lg mb-1">No valid combinations!</p>
-  <p class="text-slate-400 text-sm">Every option has at least one veto. Time for a group chat to work this out.</p>
+<div class="card empty-state border-amber-900/50">
+  <div class="empty-state-icon">📋</div>
+  <p class="text-white font-bold text-lg mb-1">No ranked combinations yet</p>
+  <p class="text-slate-400 text-sm">Once the poll has included showtimes, the group standings will appear here.</p>
 </div>
 
 {% elif not results.ranked %}
-<!-- No data yet -->
-<div class="card p-8 text-center">
-  <div class="text-4xl mb-3">⏳</div>
+<div class="card empty-state">
+  <div class="empty-state-icon">⏳</div>
   <p class="text-white font-semibold mb-1">Waiting for votes...</p>
   <p class="text-slate-400 text-sm">Results will appear as the group votes.</p>
 </div>
 
 {% else %}
 <!-- Ranked results -->
-<div class="space-y-3">
+<div class="stack-list">
   {% for result in results.ranked[:5] %}
   {% set event = result.event %}
   {% set session = result.session %}
   {% set rank = result.rank %}
   <div class="card overflow-hidden
     {% if rank == 1 %}border-yellow-500/50{% elif rank == 2 %}border-slate-400/30{% elif rank == 3 %}border-orange-700/30{% endif %}">
-    <div class="flex items-stretch">
+    <div class="flex items-stretch min-h-[7rem]">
       <!-- Rank badge -->
-      <div class="flex-shrink-0 w-12 flex items-center justify-center
+      <div class="flex-shrink-0 w-14 flex items-center justify-center
         {% if rank == 1 %}bg-yellow-500/10{% elif rank == 2 %}bg-slate-600/20{% else %}bg-slate-700/20{% endif %}">
         <span class="font-black text-lg
           {% if rank == 1 %}text-yellow-400{% elif rank == 2 %}text-slate-300{% else %}text-slate-500{% endif %}">
@@ -69,21 +77,33 @@
       {% endif %}
 
       <!-- Info -->
-      <div class="flex-1 p-3 min-w-0">
-        <p class="font-bold text-white text-sm leading-tight truncate">{{ event.title }}</p>
-        <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+      <div class="flex-1 p-4 min-w-0">
+        <p class="font-bold text-white text-base leading-tight truncate">{{ event.title }}</p>
+        <div class="flex items-center gap-1.5 mt-2 flex-wrap">
           <span class="text-xs text-slate-400">{{ session.session_date | display_date }}</span>
         </div>
-        <div class="flex items-center gap-1.5 mt-1 flex-wrap">
-          <span class="text-xs font-semibold text-indigo-300">{{ session.session_time | display_time }}</span>
+        <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+          <span class="text-sm font-semibold text-indigo-300">{{ session.session_time | display_time }}</span>
           {% if session.format != 'Standard' %}
-          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded font-medium">{{ session.format }}</span>
+          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded-full font-medium">{{ session.format }}</span>
           {% endif %}
         </div>
+        {% if result.supporters %}
+        <div class="flex items-center gap-2 mt-3 flex-wrap">
+          <span class="text-[11px] uppercase tracking-wide text-slate-500">Votes</span>
+          {% for supporter in result.supporters %}
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border border-slate-700 bg-slate-700/40 text-slate-200">
+            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if supporter.is_flexible %}bg-indigo-500 text-white{% else %}bg-green-600 text-white{% endif %}">{{ supporter.user.name[0] }}</span>
+            <span>{{ supporter.user.name }}</span>
+            {% if supporter.is_flexible %}<span class="text-indigo-300">✦</span>{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
 
       <!-- Score -->
-      <div class="flex-shrink-0 flex flex-col items-center justify-center px-3 border-l border-slate-700"
+      <div class="flex-shrink-0 flex flex-col items-center justify-center px-4 border-l border-slate-700 min-w-[88px]"
         title="Score: 1 point per YES vote on this movie + 1 point per Can-Do vote on this showtime. Max = 2 × number of members.">
         <span class="text-2xl font-black
           {% if rank == 1 %}text-yellow-400{% else %}text-slate-300{% endif %}">
@@ -95,4 +115,95 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
+
+{% if personal_results is defined %}
+<div class="section-heading mt-8 mb-4">
+  <div>
+    <h2 class="section-title">Your choices</h2>
+    <p class="section-description">
+      {% if personal_results.is_flexible %}
+      Flexible mode is on, so every overall option still works for you.
+      {% else %}
+      These are only the movie-and-showtime combinations you explicitly selected with <span class="text-slate-200 font-semibold">Yes</span> and <span class="text-slate-200 font-semibold">Can Do</span>.
+      {% endif %}
+    </p>
+  </div>
+  {% if personal_results.is_flexible %}
+  <span class="soft-pill soft-pill-strong">Flexible</span>
+  {% elif personal_results.ranked %}
+  <span class="soft-pill">{{ personal_results.ranked | length }} selected</span>
+  {% endif %}
+</div>
+
+{% if personal_results.no_valid_options %}
+<div class="card empty-state border-red-900/50">
+  <div class="empty-state-icon">🚫</div>
+  <p class="text-white font-bold text-lg mb-1">You have not picked a full combination yet</p>
+  <p class="text-slate-400 text-sm">Choose at least one movie with <span class="text-slate-200 font-semibold">Yes</span> and one matching showtime with <span class="text-slate-200 font-semibold">Can Do</span> to populate this section.</p>
+</div>
+{% else %}
+<div class="stack-list">
+  {% for result in personal_results.ranked[:5] %}
+  {% set event = result.event %}
+  {% set session = result.session %}
+  {% set rank = result.rank %}
+  <div class="card overflow-hidden
+    {% if rank == 1 %}border-indigo-500/40{% elif rank == 2 %}border-slate-400/30{% elif rank == 3 %}border-orange-700/30{% endif %}">
+    <div class="flex items-stretch min-h-[7rem]">
+      <div class="flex-shrink-0 w-14 flex items-center justify-center
+        {% if rank == 1 %}bg-indigo-500/10{% elif rank == 2 %}bg-slate-600/20{% else %}bg-slate-700/20{% endif %}">
+        <span class="font-black text-lg
+          {% if rank == 1 %}text-indigo-300{% elif rank == 2 %}text-slate-300{% else %}text-slate-500{% endif %}">
+          #{{ rank }}
+        </span>
+      </div>
+
+      {% if event.poster_path %}
+      <img src="{{ poster_url(event.poster_path, 'w92') }}"
+           alt="{{ event.title }}"
+           class="w-12 object-cover bg-slate-700"
+           loading="lazy"/>
+      {% else %}
+      <div class="w-12 bg-slate-700 flex items-center justify-center text-xl">🎬</div>
+      {% endif %}
+
+      <div class="flex-1 p-4 min-w-0">
+        <p class="font-bold text-white text-base leading-tight truncate">{{ event.title }}</p>
+        <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+          <span class="text-xs text-slate-400">{{ session.session_date | display_date }}</span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+          <span class="text-sm font-semibold text-indigo-300">{{ session.session_time | display_time }}</span>
+          {% if session.format != 'Standard' %}
+          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded-full font-medium">{{ session.format }}</span>
+          {% endif %}
+        </div>
+        {% if result.supporters %}
+        <div class="flex items-center gap-2 mt-3 flex-wrap">
+          <span class="text-[11px] uppercase tracking-wide text-slate-500">Votes</span>
+          {% for supporter in result.supporters %}
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border border-slate-700 bg-slate-700/40 text-slate-200">
+            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if supporter.is_flexible %}bg-indigo-500 text-white{% else %}bg-green-600 text-white{% endif %}">{{ supporter.user.name[0] }}</span>
+            <span>{{ supporter.user.name }}</span>
+            {% if supporter.is_flexible %}<span class="text-indigo-300">✦</span>{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="flex-shrink-0 flex flex-col items-center justify-center px-4 border-l border-slate-700 min-w-[88px]"
+        title="Your compatible options are still ranked by the same overall group score.">
+        <span class="text-2xl font-black
+          {% if rank == 1 %}text-indigo-300{% else %}text-slate-300{% endif %}">
+          {{ result.score }}
+        </span>
+        <span class="text-xs text-slate-500">/ {{ personal_results.total_possible }} pts</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 {% endif %}

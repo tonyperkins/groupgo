@@ -1,5 +1,5 @@
 import pytest
-from app.services.vote_service import cast_vote, calculate_results, get_participation, set_flexible
+from app.services.vote_service import cast_vote, calculate_results, calculate_user_results, get_participation, get_showtime_event_ids, set_flexible
 
 
 def test_cast_movie_vote(seeded_db, poll_with_event):
@@ -28,7 +28,8 @@ def test_veto_eliminates_combination(seeded_db, poll_with_sessions):
             cast_vote(uid, poll.id, "session", s.id, "can_do", seeded_db)
 
     results = calculate_results(poll.id, seeded_db)
-    assert results["no_valid_options"] is True
+    assert results["no_valid_options"] is False
+    assert len(results["ranked"]) == len(sessions)
 
 
 def test_session_veto_eliminates_only_that_session(seeded_db, poll_with_sessions):
@@ -41,10 +42,24 @@ def test_session_veto_eliminates_only_that_session(seeded_db, poll_with_sessions
     cast_vote(2, poll.id, "session", s2.id, "can_do", seeded_db)
 
     results = calculate_results(poll.id, seeded_db)
+    personal_results = calculate_user_results(2, poll.id, seeded_db)
     assert results["no_valid_options"] is False
-    surviving_session_ids = [r["session"].id for r in results["ranked"]]
+    surviving_session_ids = [r["session"].id for r in personal_results["ranked"]]
     assert s1.id not in surviving_session_ids
     assert s2.id in surviving_session_ids
+
+
+def test_user_results_only_include_explicit_yes_and_can_do_votes(seeded_db, poll_with_sessions):
+    poll, event, sessions = poll_with_sessions
+    s1, s2 = sessions
+
+    cast_vote(2, poll.id, "event", event.id, "yes", seeded_db)
+    cast_vote(2, poll.id, "session", s1.id, "can_do", seeded_db)
+    cast_vote(2, poll.id, "session", s2.id, "abstain", seeded_db)
+
+    personal_results = calculate_user_results(2, poll.id, seeded_db)
+
+    assert [r["session"].id for r in personal_results["ranked"]] == [s1.id]
 
 
 def test_flexible_user_excluded_from_veto(seeded_db, poll_with_sessions):
@@ -73,14 +88,54 @@ def test_winner_has_highest_score(seeded_db, poll_with_sessions):
 
     results = calculate_results(poll.id, seeded_db)
     assert results["ranked"][0]["session"].id == s1.id
+    assert [r["session"].id for r in results["ranked"]] == [s1.id]
 
 
 def test_no_votes_returns_all_candidates(seeded_db, poll_with_sessions):
     poll, event, sessions = poll_with_sessions
     results = calculate_results(poll.id, seeded_db)
-    # With no votes, all combinations survive (no vetoes)
-    assert results["no_valid_options"] is False
-    assert len(results["ranked"]) == len(sessions)
+    assert results["no_valid_options"] is True
+    assert results["ranked"] == []
+
+
+def test_overall_results_only_include_combinations_with_explicit_support(seeded_db, poll_with_sessions):
+    poll, event, sessions = poll_with_sessions
+    s1, s2 = sessions
+    cast_vote(2, poll.id, "event", event.id, "yes", seeded_db)
+    cast_vote(2, poll.id, "session", s1.id, "can_do", seeded_db)
+    cast_vote(2, poll.id, "session", s2.id, "abstain", seeded_db)
+
+    results = calculate_results(poll.id, seeded_db)
+
+    assert [r["session"].id for r in results["ranked"]] == [s1.id]
+    assert results["ranked"][0]["supporter_count"] == 1
+    assert results["ranked"][0]["supporters"][0]["user"].id == 2
+
+
+def test_user_results_can_be_empty_even_when_overall_results_exist(seeded_db, poll_with_sessions):
+    poll, event, sessions = poll_with_sessions
+    cast_vote(2, poll.id, "event", event.id, "no", seeded_db)
+    cast_vote(3, poll.id, "event", event.id, "yes", seeded_db)
+    for s in sessions:
+        cast_vote(3, poll.id, "session", s.id, "can_do", seeded_db)
+
+    results = calculate_results(poll.id, seeded_db)
+    personal_results = calculate_user_results(2, poll.id, seeded_db)
+
+    assert results["ranked"]
+    assert personal_results["no_valid_options"] is True
+    assert personal_results["ranked"] == []
+
+
+def test_showtime_event_ids_returns_empty_list_when_all_movies_rejected(seeded_db, poll_with_event):
+    poll, event = poll_with_event
+    cast_vote(2, poll.id, "event", event.id, "no", seeded_db)
+
+    user_votes = {
+        ("event", event.id): "no",
+    }
+
+    assert get_showtime_event_ids(user_votes) == []
 
 
 def test_participation_fully_voted(seeded_db, poll_with_sessions):

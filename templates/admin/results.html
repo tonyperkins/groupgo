@@ -10,35 +10,73 @@
   <span class="current">Results</span>
 </nav>
 
-<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-  <div>
-    <h1 class="text-2xl font-bold text-white">Results</h1>
-    <p class="text-slate-400 text-sm mt-0.5">
-      <span class="status-{{ poll.status | lower }} text-xs px-2 py-0.5 rounded-full">{{ poll.status }}</span>
-      &nbsp;· {{ participation.fully_voted_count }}/{{ participation.total }} members fully voted
-    </p>
+<section class="page-hero mb-6">
+  <span class="page-eyebrow">Poll results</span>
+  <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div>
+      <h1 class="page-title text-white">Review the best combinations</h1>
+      <p class="page-subtitle mt-3">Track the strongest movie and showtime pairings, see who has finished voting, and declare the official plan once the poll is closed.</p>
+    </div>
+    <div class="cta-row">
+      <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
+      {% if poll.status == 'OPEN' %}
+      <button data-poll-id="{{ poll.id }}" onclick="closePoll(Number(this.dataset.pollId))" class="btn-ghost text-sm text-amber-400 border-amber-800">Close Poll</button>
+      {% elif poll.status == 'CLOSED' %}
+      <button data-poll-id="{{ poll.id }}" onclick="archivePoll(Number(this.dataset.pollId))" class="btn-ghost text-sm">Archive</button>
+      {% endif %}
+    </div>
   </div>
-  <div class="flex gap-2">
-    {% if poll.status == 'OPEN' %}
-    <button onclick="closePoll({{ poll.id }})" class="btn-ghost text-sm text-amber-400 border-amber-800">Close Poll</button>
-    {% elif poll.status == 'CLOSED' %}
-    <button onclick="archivePoll({{ poll.id }})" class="btn-ghost text-sm">Archive</button>
-    {% endif %}
+  <div class="hero-metrics mt-6">
+    <div class="metric-card">
+      <div class="metric-value">{{ participation.fully_voted_count }}/{{ participation.total }}</div>
+      <div class="metric-label">Members fully voted</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">{{ results.ranked | length if results.ranked else 0 }}</div>
+      <div class="metric-label">Ranked combinations available</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">{{ 'Declared' if poll.winner_event_id else 'Pending' }}</div>
+      <div class="metric-label">Official winner status</div>
+    </div>
   </div>
-</div>
+  <div class="step-strip mt-6">
+    <a href="/admin/polls/{{ poll.id }}/movies" class="step-chip">
+      <span class="step-index">1</span>
+      <span class="step-copy">
+        <span class="step-label">Movies</span>
+        <span class="step-meta">Curate the shortlist</span>
+      </span>
+    </a>
+    <a href="/admin/polls/{{ poll.id }}/showtimes" class="step-chip">
+      <span class="step-index">2</span>
+      <span class="step-copy">
+        <span class="step-label">Showtimes</span>
+        <span class="step-meta">Review included sessions</span>
+      </span>
+    </a>
+    <a href="/admin/polls/{{ poll.id }}/results" class="step-chip is-active">
+      <span class="step-index">3</span>
+      <span class="step-copy">
+        <span class="step-label">Results</span>
+        <span class="step-meta">Close and declare the winner</span>
+      </span>
+    </a>
+  </div>
+</section>
 
 <!-- Official winner banner (if declared) -->
 {% if poll.winner_event_id and winner_event and winner_session %}
 {% set theater = theater_map.get(winner_session.theater_id) %}
-<div class="card p-5 mb-6 border-yellow-500/50 bg-yellow-900/10">
+<div class="card p-5 sm:p-6 mb-6 border-yellow-500/50 result-highlight">
   <p class="text-yellow-400 text-xs font-bold uppercase tracking-wider mb-3">🏆 Official Winner</p>
   <div class="flex gap-4 items-center">
     {% if winner_event.poster_path %}
     <img src="{{ poster_url(winner_event.poster_path, 'w185') }}"
-         class="w-16 h-24 object-cover rounded-lg flex-shrink-0" alt="{{ winner_event.title }}"/>
+         class="w-20 h-28 object-cover rounded-2xl flex-shrink-0" alt="{{ winner_event.title }}"/>
     {% endif %}
     <div class="flex-1">
-      <p class="text-white font-bold text-lg">{{ winner_event.title }}</p>
+      <p class="text-white font-bold text-2xl">{{ winner_event.title }}</p>
       <p class="text-slate-300 mt-1">{{ winner_session.session_date | display_date }}</p>
       <p class="text-indigo-300 font-semibold">{{ winner_session.session_time | display_time }}
         {% if winner_session.format != 'Standard' %}· {{ winner_session.format }}{% endif %}
@@ -46,7 +84,7 @@
       <p class="text-slate-400 text-sm">{{ theater.name if theater else '' }}</p>
     </div>
   </div>
-  <div class="mt-4 bg-slate-800 rounded-lg p-3">
+  <div class="mt-4 bg-slate-800 rounded-2xl p-4">
     <p class="text-xs text-slate-400 mb-1">Shareable summary:</p>
     <p id="winner-summary" class="text-white text-sm font-medium">
       We're seeing {{ winner_event.title }} at {{ theater.name if theater else '' }} on {{ winner_session.session_date | display_date }} at {{ winner_session.session_time | display_time }}{% if winner_session.format != 'Standard' %} ({{ winner_session.format }}){% endif %}.
@@ -59,8 +97,13 @@
 {% endif %}
 
 <!-- Participation -->
-<div class="card p-4 mb-5">
-  <h2 class="text-sm font-semibold text-white mb-3">Participation</h2>
+<div class="card p-5 mb-5">
+  <div class="section-heading mb-4">
+    <div>
+      <h2 class="section-title">Participation</h2>
+      <p class="section-description">Track who has completed the full poll and who still needs a nudge.</p>
+    </div>
+  </div>
   <div class="flex gap-2 flex-wrap">
     {% for p in participation.participants %}
     <div class="flex items-center gap-2 bg-slate-700/50 rounded-full px-3 py-1.5">
@@ -81,50 +124,71 @@
 </div>
 
 <!-- Ranked results -->
+<div class="section-heading mb-4">
+  <div>
+    <h2 class="section-title">Overall results</h2>
+    <p class="section-description">These rankings show the strongest movie and showtime combinations that have received explicit support from the group.</p>
+  </div>
+  {% if results.ranked %}
+  <span class="soft-pill soft-pill-strong">{{ results.ranked | length }} ranked</span>
+  {% endif %}
+</div>
+
 {% if results.no_valid_options %}
-<div class="card p-8 text-center border-red-900/50">
-  <div class="text-4xl mb-3">😬</div>
-  <p class="text-white font-bold text-lg">No valid combinations</p>
-  <p class="text-slate-400 text-sm mt-1">All options have at least one veto.</p>
+<div class="card empty-state border-amber-900/50">
+  <div class="empty-state-icon">📋</div>
+  <p class="text-white font-bold text-lg">No ranked combinations yet</p>
+  <p class="text-slate-400 text-sm mt-1">Add included showtimes to the poll to generate the overall standings.</p>
 </div>
 {% elif results.ranked %}
-<h2 class="text-base font-bold text-white mb-3">Ranked Combinations</h2>
-<div class="space-y-3">
+<div class="stack-list">
   {% for result in results.ranked[:10] %}
   {% set event = result.event %}
   {% set session = result.session %}
   {% set theater = theater_map.get(session.theater_id) %}
   <div class="card overflow-hidden {% if result.rank == 1 %}border-yellow-500/50{% endif %}">
-    <div class="flex items-stretch">
+    <div class="flex items-stretch min-h-[7.5rem]">
       <div class="flex-shrink-0 w-10 flex items-center justify-center
         {% if result.rank == 1 %}bg-yellow-500/10 text-yellow-400{% else %}bg-slate-700/30 text-slate-500{% endif %}">
         <span class="font-black text-sm">#{{ result.rank }}</span>
       </div>
       {% if event.poster_path %}
-      <img src="{{ poster_url(event.poster_path, 'w92') }}" class="w-10 object-cover bg-slate-700" alt="{{ event.title }}"/>
+      <img src="{{ poster_url(event.poster_path, 'w92') }}" class="w-14 object-cover bg-slate-700" alt="{{ event.title }}"/>
       {% else %}
-      <div class="w-10 bg-slate-700 flex items-center justify-center text-lg">🎬</div>
+      <div class="w-14 bg-slate-700 flex items-center justify-center text-lg">🎬</div>
       {% endif %}
-      <div class="flex-1 p-3 min-w-0">
-        <p class="font-bold text-white text-sm truncate">{{ event.title }}</p>
-        <p class="text-xs text-slate-400">{{ session.session_date | display_date }}</p>
-        <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span class="text-xs font-semibold text-indigo-300">{{ session.session_time | display_time }}</span>
+      <div class="flex-1 p-4 min-w-0">
+        <p class="font-bold text-white text-base truncate">{{ event.title }}</p>
+        <p class="text-xs text-slate-400 mt-1">{{ session.session_date | display_date }}</p>
+        <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+          <span class="text-sm font-semibold text-indigo-300">{{ session.session_time | display_time }}</span>
           {% if session.format != 'Standard' %}
-          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-1 py-0.5 rounded">{{ session.format }}</span>
+          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded-full">{{ session.format }}</span>
           {% endif %}
           {% if theater %}
           <span class="text-xs text-slate-500">· {{ theater.name }}</span>
           {% endif %}
         </div>
+        {% if result.supporters %}
+        <div class="flex items-center gap-2 mt-3 flex-wrap">
+          <span class="text-[11px] uppercase tracking-wide text-slate-500">Votes</span>
+          {% for supporter in result.supporters %}
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border border-slate-700 bg-slate-700/40 text-slate-200">
+            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if supporter.is_flexible %}bg-indigo-500 text-white{% else %}bg-green-600 text-white{% endif %}">{{ supporter.user.name[0] }}</span>
+            <span>{{ supporter.user.name }}</span>
+            {% if supporter.is_flexible %}<span class="text-indigo-300">✦</span>{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
-      <div class="flex-shrink-0 flex flex-col items-center justify-center px-3 border-l border-slate-700 min-w-[60px]">
+      <div class="flex-shrink-0 flex flex-col items-center justify-center px-4 border-l border-slate-700 min-w-[80px]">
         <span class="text-xl font-black {% if result.rank == 1 %}text-yellow-400{% else %}text-slate-300{% endif %}">{{ result.score }}</span>
         <span class="text-xs text-slate-500">/{{ results.total_possible }}</span>
       </div>
       {% if poll.status == 'CLOSED' and not poll.winner_event_id %}
       <div class="flex items-center px-3 border-l border-slate-700">
-        <button onclick="declareWinner({{ event.id }}, {{ session.id }})"
+        <button data-event-id="{{ event.id }}" data-session-id="{{ session.id }}" onclick="declareWinner(Number(this.dataset.eventId), Number(this.dataset.sessionId))"
           class="btn-primary text-xs px-2 py-1.5">
           Pick Winner
         </button>
@@ -135,7 +199,7 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card p-8 text-center">
+<div class="card empty-state">
   <p class="text-slate-400">No votes yet — results will appear as the group votes.</p>
 </div>
 {% endif %}
@@ -143,6 +207,8 @@
 
 {% block extra_js %}
 <script>
+const adminResultsPollId = Number('{{ poll.id }}');
+
 function closePoll(id) {
   showConfirm('Close poll? No new votes will be accepted.', async () => {
     const r = await fetch(`/api/admin/polls/${id}/close`, {method: 'POST'});
@@ -161,7 +227,7 @@ function archivePoll(id) {
 
 function declareWinner(eventId, sessionId) {
   showConfirm('Declare this combination as the official winner?', async () => {
-    const resp = await fetch(`/api/admin/polls/{{ poll.id }}/declare-winner`, {
+    const resp = await fetch(`/api/admin/polls/${adminResultsPollId}/declare-winner`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({event_id: eventId, session_id: sessionId})

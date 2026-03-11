@@ -1,9 +1,22 @@
 import pytest
+from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, Session, create_engine
+from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.models import User, Theater, Poll, Event, PollEvent, Session as ShowSession
-from app.db import SEED_USERS, SEED_THEATERS
+from app.db import SEED_USERS, SEED_THEATERS, get_db
+from app.routers import voter, admin, api
+
+
+TEST_VOTERS = [
+    {"id": 2, "name": "Alex", "is_admin": False, "member_pin": "1111"},
+    {"id": 3, "name": "Blake", "is_admin": False, "member_pin": "2222"},
+    {"id": 4, "name": "Casey", "is_admin": False, "member_pin": "3333"},
+    {"id": 5, "name": "Drew", "is_admin": False, "member_pin": "4444"},
+]
 
 
 @pytest.fixture(scope="function")
@@ -11,10 +24,11 @@ def db_engine():
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     yield engine
-    SQLModel.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture(scope="function")
@@ -27,10 +41,37 @@ def db(db_engine):
 def seeded_db(db):
     for u in SEED_USERS:
         db.add(User(**u))
+    for u in TEST_VOTERS:
+        db.add(User(**u))
     for t in SEED_THEATERS:
         db.add(Theater(**t))
     db.commit()
     return db
+
+
+@pytest.fixture(scope="function")
+def test_app(seeded_db):
+    @asynccontextmanager
+    async def noop_lifespan(app):
+        yield
+
+    app = FastAPI(lifespan=noop_lifespan)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    app.include_router(voter.router)
+    app.include_router(admin.router)
+    app.include_router(api.router)
+
+    def override_get_db():
+        yield seeded_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    return app
+
+
+@pytest.fixture(scope="function")
+def client(test_app):
+    with TestClient(test_app) as test_client:
+        yield test_client
 
 
 @pytest.fixture

@@ -6,15 +6,31 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select
 
 from app.db import get_db
-from app.middleware.identity import get_current_user
+from app.middleware.identity import get_current_user, get_secure_poll_id
 from app.middleware.auth import verify_admin
 from app.models import Poll, FetchJob, User, Group, Event as EventModel, Theater as TheaterModel
 from app.models import Session as ShowSession
 from app.services import vote_service, movie_service, showtime_service, theater_service
+from app.services.security_service import (
+    build_poll_invite_url,
+    ensure_poll_access_uuid,
+    ensure_unique_member_pin,
+    generate_member_pin,
+    normalize_member_pin,
+)
 from app.tasks.fetch_tasks import run_fetch_job, create_fetch_job
 from app.templates_config import templates
 
 router = APIRouter()
+
+
+def _get_voter_poll_for_request(request: Request, statuses: list[str], db: Session) -> Poll | None:
+    secure_poll_id = get_secure_poll_id(request)
+    if secure_poll_id is not None:
+        return db.exec(
+            select(Poll).where(Poll.id == secure_poll_id, Poll.status.in_(statuses))
+        ).first()
+    return db.exec(select(Poll).where(Poll.status.in_(statuses))).first()
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -62,7 +78,7 @@ async def vote_movie(
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
-    poll = db.exec(select(Poll).where(Poll.status == "OPEN")).first()
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
     if not poll:
         raise HTTPException(status_code=403, detail="No open poll")
     if vote not in ("yes", "no", "abstain"):
@@ -73,6 +89,7 @@ async def vote_movie(
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     current = user_votes.get(("event", event_id), "abstain")
     response = templates.TemplateResponse(
+        request,
         "components/movie_vote_toggle.html",
         {"request": request, "event_id": event_id, "current_vote": current},
     )
@@ -88,7 +105,7 @@ async def vote_session(
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
-    poll = db.exec(select(Poll).where(Poll.status == "OPEN")).first()
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
     if not poll:
         raise HTTPException(status_code=403, detail="No open poll")
     if vote not in ("can_do", "cant_do", "abstain"):
@@ -99,6 +116,7 @@ async def vote_session(
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     current = user_votes.get(("session", session_id), "abstain")
     response = templates.TemplateResponse(
+        request,
         "components/session_vote_toggle.html",
         {"request": request, "session_id": session_id, "current_vote": current},
     )
@@ -113,7 +131,7 @@ async def vote_flexible(
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
-    poll = db.exec(select(Poll).where(Poll.status == "OPEN")).first()
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
     if not poll:
         raise HTTPException(status_code=403, detail="No open poll")
 
@@ -121,9 +139,10 @@ async def vote_flexible(
     vote_service.set_flexible(user.id, poll.id, flexible, db)
 
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
-    yes_event_ids = [tid for (tt, tid), val in user_votes.items() if tt == "event" and val == "yes"]
-    grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=yes_event_ids or None)
+    showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
+    grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=showtime_event_ids)
     response = templates.TemplateResponse(
+        request,
         "components/logistics_panel.html",
         {
             "request": request,
@@ -131,6 +150,7 @@ async def vote_flexible(
             "grouped": grouped,
             "user_votes": user_votes,
             "poll": poll,
+            "needs_movie_pick_first": showtime_event_ids == [],
         },
     )
     response.headers["HX-Trigger"] = "voteSaved"
@@ -144,7 +164,7 @@ async def vote_complete(
 ):
     """Mark user's voting as complete for the current poll"""
     user = get_current_user(request, db)
-    poll = db.exec(select(Poll).where(Poll.status == "OPEN")).first()
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
     if not poll:
         raise HTTPException(status_code=403, detail="No open poll")
 
@@ -161,21 +181,26 @@ async def vote_complete(
 @router.get("/api/results", response_class=HTMLResponse)
 async def results_fragment(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    poll = db.exec(select(Poll).where(Poll.status.in_(["OPEN", "CLOSED"]))).first()
+    poll = _get_voter_poll_for_request(request, ["OPEN", "CLOSED"], db)
 
     if not poll:
         return templates.TemplateResponse(
+            request,
             "components/no_poll.html", {"request": request}
         )
 
     results = vote_service.calculate_results(poll.id, db)
+    personal_results = vote_service.calculate_user_results(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
 
     return templates.TemplateResponse(
+        request,
         "components/results_panel.html",
         {
             "request": request,
+            "user": user,
             "results": results,
+            "personal_results": personal_results,
             "participation": participation,
             "poll": poll,
             "poster_url": movie_service.poster_url,
@@ -186,7 +211,7 @@ async def results_fragment(request: Request, db: Session = Depends(get_db)):
 @router.get("/api/results/json")
 async def results_json(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    poll = db.exec(select(Poll).where(Poll.status.in_(["OPEN", "CLOSED"]))).first()
+    poll = _get_voter_poll_for_request(request, ["OPEN", "CLOSED"], db)
     if not poll:
         raise HTTPException(status_code=404, detail="No active poll")
 
@@ -242,6 +267,7 @@ async def admin_search_movies(
         raise HTTPException(status_code=502, detail=f"TMDB error: {exc}")
 
     return templates.TemplateResponse(
+        request,
         "components/movie_search_results.html",
         {"request": request, "results": results, "poll_id": poll_id, "poster_url": movie_service.poster_url},
     )
@@ -271,6 +297,7 @@ async def admin_add_movie(
 
     events = movie_service.get_poll_events(poll_id, db)
     return templates.TemplateResponse(
+        request,
         "components/admin_movie_list.html",
         {
             "request": request,
@@ -299,6 +326,7 @@ async def admin_remove_movie(
     events = movie_service.get_poll_events(poll_id, db)
     poll = db.get(Poll, poll_id)
     return templates.TemplateResponse(
+        request,
         "components/admin_movie_list.html",
         {
             "request": request,
@@ -363,6 +391,7 @@ async def admin_add_manual_showtime(
     events = {e.id: e for e in movie_service.get_poll_events(poll_id, db)}
 
     return templates.TemplateResponse(
+        request,
         "components/admin_session_list.html",
         {
             "request": request,
@@ -396,6 +425,7 @@ async def admin_delete_showtime(
     events = {e.id: e for e in movie_service.get_poll_events(poll_id, db)}
 
     return templates.TemplateResponse(
+        request,
         "components/admin_session_list.html",
         {
             "request": request,
@@ -592,6 +622,7 @@ async def admin_list_users(request: Request, db: Session = Depends(get_db)):
         {
             "id": u.id, "name": u.name, "email": u.email,
             "is_admin": u.is_admin, "group_id": u.group_id,
+            "member_pin": u.member_pin,
             "group_name": groups.get(u.group_id) if u.group_id else None,
         }
         for u in users
@@ -605,16 +636,30 @@ async def admin_create_user(request: Request, db: Session = Depends(get_db)):
     name = body.get("name", "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="name required")
+    is_admin = body.get("is_admin", False)
+    raw_pin = body.get("member_pin")
+    member_pin = None
+    if not is_admin:
+        if raw_pin in (None, ""):
+            member_pin = generate_member_pin(db)
+        else:
+            try:
+                member_pin = normalize_member_pin(raw_pin)
+                ensure_unique_member_pin(db, member_pin)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+
     u = User(
         name=name,
         email=body.get("email") or None,
-        is_admin=body.get("is_admin", False),
+        is_admin=is_admin,
         group_id=body.get("group_id") or None,
+        member_pin=member_pin,
     )
     db.add(u)
     db.commit()
     db.refresh(u)
-    return JSONResponse({"id": u.id, "name": u.name}, status_code=201)
+    return JSONResponse({"id": u.id, "name": u.name, "member_pin": u.member_pin}, status_code=201)
 
 
 @router.patch("/api/admin/users/{user_id}")
@@ -630,9 +675,20 @@ async def admin_update_user(request: Request, user_id: int, db: Session = Depend
         u.email = body["email"] or None
     if "group_id" in body:
         u.group_id = body["group_id"] or None
+    if not u.is_admin and "member_pin" in body:
+        raw_pin = body.get("member_pin")
+        if raw_pin in (None, ""):
+            u.member_pin = generate_member_pin(db)
+        else:
+            try:
+                normalized = normalize_member_pin(raw_pin)
+                ensure_unique_member_pin(db, normalized, exclude_user_id=user_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            u.member_pin = normalized
     db.add(u)
     db.commit()
-    return {"id": u.id, "name": u.name, "email": u.email, "group_id": u.group_id}
+    return {"id": u.id, "name": u.name, "email": u.email, "group_id": u.group_id, "member_pin": u.member_pin}
 
 
 @router.delete("/api/admin/users/{user_id}")
@@ -701,7 +757,23 @@ async def admin_publish_poll(
     poll.updated_at = datetime.now(timezone.utc).isoformat()
     db.add(poll)
     db.commit()
+    ensure_poll_access_uuid(poll, db)
     return {"id": poll.id, "status": poll.status}
+
+
+@router.post("/api/admin/polls/{poll_id}/invite-link")
+async def admin_poll_invite_link(
+    request: Request, poll_id: int, db: Session = Depends(get_db)
+):
+    verify_admin(request)
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    if poll.status != "OPEN":
+        raise HTTPException(status_code=400, detail="Invite links are only available for OPEN polls")
+
+    invite_url = build_poll_invite_url(poll, db)
+    return {"poll_id": poll.id, "access_uuid": poll.access_uuid, "invite_url": invite_url}
 
 
 @router.post("/api/admin/polls/{poll_id}/close")
@@ -864,6 +936,7 @@ async def admin_job_status(
         raise HTTPException(status_code=404, detail="Job not found")
 
     response = templates.TemplateResponse(
+        request,
         "components/job_progress.html",
         {"request": request, "job": job},
     )
