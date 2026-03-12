@@ -1,0 +1,17 @@
+{# gg_progress_bar.html
+   Props:
+     progress_step — int 0-4 (0=none, 1=joined, 2=movie, 3=showtime, 4=submitted)
+#}
+{% set segs = ['JOINED', 'MOVIE', 'SHOWTIME', 'SUBMITTED'] %}
+<div class="gg-progress">
+  <div style="display:flex;gap:4px;margin-bottom:4px;">
+    {% for s in segs %}
+    <div class="gg-progress-track {% if loop.index <= progress_step %}filled{% endif %}" style="flex:1;"></div>
+    {% endfor %}
+  </div>
+  <div style="display:flex;gap:4px;">
+    {% for s in segs %}
+    <div class="gg-progress-label {% if loop.index <= progress_step %}filled{% endif %}" style="flex:1;">{{ s }}</div>
+    {% endfor %}
+  </div>
+</div>

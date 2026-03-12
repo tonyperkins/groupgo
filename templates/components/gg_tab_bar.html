@@ -1,0 +1,32 @@
+{# gg_tab_bar.html
+   Props:
+     active_tab         — 'movies' | 'showtimes' | 'results'
+     yes_movie_count    — int
+     voted_session_count — int
+     is_flexible        — boolean
+     showtimes_locked   — boolean (locked when 0 yes-movies)
+     poll_preferences   — dict
+#}
+{% set showtime_badge = 1 if (is_flexible | default(false)) else (voted_session_count | default(0)) %}
+{% set movie_badge = yes_movie_count | default(0) %}
+{% set st_locked = showtimes_locked | default(false) %}
+<nav class="gg-tab-bar">
+  <a href="/vote/movies" class="gg-tab {% if active_tab == 'movies' %}active{% endif %}">
+    <span class="gg-tab-icon">
+      🎬
+      <span class="gg-tab-badge {% if movie_badge > 0 %}has-count{% else %}zero{% endif %}">{{ movie_badge }}</span>
+    </span>
+    <span class="gg-tab-label">Movies</span>
+  </a>
+  <a href="/vote/showtimes" class="gg-tab {% if active_tab == 'showtimes' %}active{% endif %} {% if st_locked %}locked{% endif %}">
+    <span class="gg-tab-icon">
+      🕐
+      <span class="gg-tab-badge {% if showtime_badge > 0 %}has-count{% else %}zero{% endif %}">{{ showtime_badge }}</span>
+    </span>
+    <span class="gg-tab-label">Showtimes</span>
+  </a>
+  <a href="/results" class="gg-tab {% if active_tab == 'results' %}active{% endif %}">
+    <span class="gg-tab-icon">🏆</span>
+    <span class="gg-tab-label">Results</span>
+  </a>
+</nav>

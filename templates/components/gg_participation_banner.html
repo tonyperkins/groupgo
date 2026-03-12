@@ -1,0 +1,64 @@
+{# gg_participation_banner.html
+   Props (set before include):
+     poll_preferences   — dict with is_participating, has_completed_voting
+     is_editing         — boolean (change-vote mode)
+     yes_movie_count    — int
+     poll               — poll object
+     user               — user object
+#}
+{% set is_participating = poll_preferences.is_participating %}
+{% set submitted = poll_preferences.has_completed_voting %}
+{% set opted_out = not is_participating %}
+
+<div class="gg-banner
+  {% if not is_participating %}gg-banner-preview{% elif is_editing %}gg-banner-editing{% elif submitted %}gg-banner-submitted{% else %}gg-banner-voting{% endif %}">
+  <div class="gg-banner-inner">
+
+    {% if not is_participating %}
+      {# Preview mode #}
+      <div class="gg-banner-dot"></div>
+      <span class="gg-banner-label">Preview Mode</span>
+      <form method="post" action="/api/votes/participation" style="display:contents;">
+        <input type="hidden" name="is_participating" value="true"/>
+        <button type="submit" class="gg-banner-btn">Join</button>
+      </form>
+
+    {% elif is_editing %}
+      {# Editing / change-vote mode #}
+      <span style="font-size:12px;flex-shrink:0;">✏️</span>
+      <span class="gg-banner-label">Editing your vote</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <form method="post" action="/api/votes/complete" style="display:contents;">
+          <input type="hidden" name="is_complete" value="true"/>
+          <button type="submit" class="gg-banner-btn">Resubmit</button>
+        </form>
+        <button type="button" class="gg-banner-btn-opt-out" onclick="ggShowLeaveSheet()">Opt Out</button>
+      </div>
+
+    {% elif submitted %}
+      {# Submitted state #}
+      <span style="font-size:12px;flex-shrink:0;">✅</span>
+      <span class="gg-banner-label">Submitted</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <form method="post" action="/api/votes/complete" style="display:contents;">
+          <input type="hidden" name="is_complete" value="false"/>
+          <button type="submit" class="gg-banner-btn">Change Vote</button>
+        </form>
+        <button type="button" class="gg-banner-btn-opt-out" onclick="ggShowLeaveSheet()">Opt Out</button>
+      </div>
+
+    {% else %}
+      {# Active voting #}
+      <div class="gg-banner-dot"></div>
+      <span class="gg-banner-label">Voting</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button type="button" class="gg-banner-btn" id="gg-submit-btn"
+          onclick="ggHandleSubmit({{ yes_movie_count }}, {{ voted_session_count | default(0) }}, {{ is_flexible | default(false) | tojson }})">
+          Submit
+        </button>
+        <button type="button" class="gg-banner-btn-opt-out" onclick="ggShowLeaveSheet()">Opt Out</button>
+      </div>
+    {% endif %}
+
+  </div>
+</div>

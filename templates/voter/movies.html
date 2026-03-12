@@ -1,55 +1,250 @@
 {% extends "base.html" %}
 {% block title %}Movies — GroupGo{% endblock %}
-
-{% block header_right %}
-<span class="text-slate-400 text-sm">Hey, <span class="text-white font-medium">{{ user.name }}</span></span>
-{% if secure_entry %}
-<span class="text-xs text-indigo-300">Secure link</span>
-{% else %}
-<a href="/identify" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">Switch</a>
-{% endif %}
-{% endblock %}
+{% block page_header %}{% endblock %}
+{% block main_class %}overflow-hidden{% endblock %}
 
 {% block content %}
-<div class="page-shell">
-  {% include "components/movies_page_content.html" %}
-</div>
-{% endblock %}
+{% set is_participating = poll_preferences.is_participating %}
+{% set submitted = poll_preferences.has_completed_voting %}
+{% set yes_count = yes_movie_count | default(0) %}
+{% set session_count = voted_session_count | default(0) %}
+{% set flexible = is_flexible | default(false) %}
+{% set showtime_badge = 1 if flexible else session_count %}
+{% set progress_step = 4 if submitted else (3 if (session_count > 0 or flexible) else (2 if yes_count > 0 else (1 if is_participating else 0))) %}
 
-{% block bottom_nav %}
-{% set disable_showtimes_nav = not poll_preferences.is_participating %}
-{% include "components/bottom_nav.html" %}
+<div class="voter-shell">
+
+  {% set countdown_str = poll.voting_closes_at | countdown_str if poll.voting_closes_at is defined else none %}
+  {% set countdown_urgent = poll.voting_closes_at | countdown_urgent if poll.voting_closes_at is defined else false %}
+  {% set progress_step = progress_step %}
+  {% include "components/gg_app_header.html" %}
+  {% include "components/gg_progress_bar.html" %}
+
+  {% if is_participating and not submitted %}
+  {% set is_editing = false %}
+  {% include "components/gg_participation_banner.html" %}
+  {% elif not is_participating %}
+  {% set is_editing = false %}
+  {% include "components/gg_participation_banner.html" %}
+  {% else %}
+  {% set is_editing = false %}
+  {% include "components/gg_participation_banner.html" %}
+  {% endif %}
+
+  {% if countdown_urgent %}
+  <div class="gg-status-bar" style="background:var(--gg-surface);border-bottom:1px solid var(--gg-border);padding:0;">
+    <div class="gg-urgent-card" style="margin:8px 16px;flex:1;">
+      <span style="font-size:18px;flex-shrink:0;">⏰</span>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--gg-red);margin-bottom:2px;">Voting closes soon</div>
+        <div style="font-size:11px;color:var(--gg-text-muted);">Finish your picks and submit before the window closes.</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="gg-status-bar">
+    <span style="color:var(--gg-text-muted);flex:1;">
+      {% if submitted %}Vote submitted — read only{% elif yes_count == 0 %}Pick your movies{% else %}{{ yes_count }} of {{ events | length }} movies voted Yes{% endif %}
+    </span>
+    <span style="color:var(--gg-accent);font-weight:700;">{{ participation.total }} members</span>
+  </div>
+
+  <div class="voter-scroll">
+    <div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">
+
+      {# Inline toast #}
+      <div id="gg-inline-toast" class="gg-toast hidden">
+        <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+        <span class="gg-toast-msg"></span>
+      </div>
+
+      {# Zero-yes hint card #}
+      {% if is_participating and not submitted and yes_count == 0 %}
+      <div style="background:var(--gg-card);border:1px dashed var(--gg-border);border-radius:14px;padding:14px 16px;text-align:center;">
+        <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.5;">
+          Vote <span style="color:var(--gg-green);font-weight:700;">Yes</span> on at least one movie to unlock Showtimes
+        </div>
+      </div>
+      {% endif %}
+
+      {# Movie cards #}
+      {% for event in events %}
+      {% set current_vote = user_votes.get(('event', event.id), 'abstain') %}
+      {% set voted_yes = current_vote == 'yes' %}
+      {% set voted_no = current_vote == 'no' %}
+      <div class="gg-movie-card {% if voted_yes %}voted-yes{% elif voted_no %}voted-no{% endif %}"
+           id="movie-card-{{ event.id }}">
+
+        {# Submitted pick ribbon #}
+        {% if submitted and voted_yes %}
+        <div style="background:var(--gg-green);color:#000;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:3px 10px;display:inline-block;">✓ YOUR PICK</div>
+        {% endif %}
+
+        <div style="padding:14px;">
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            {# Poster #}
+            <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px;">
+              {% if event.poster_path %}
+              <img src="{{ poster_url(event.poster_path, 'w185') }}" alt="{{ event.title }}"
+                   style="width:64px;height:84px;object-fit:cover;border-radius:10px;border:1px solid var(--gg-border);" loading="lazy"/>
+              {% else %}
+              <div style="width:64px;height:84px;border-radius:10px;background:var(--gg-surface);display:flex;align-items:center;justify-content:center;font-size:32px;border:1px solid var(--gg-border);">🎬</div>
+              {% endif %}
+              {% if event.tmdb_rating and event.tmdb_rating > 0 %}
+              <div class="gg-rating-badge">★ {{ "%.1f"|format(event.tmdb_rating) }}</div>
+              {% endif %}
+            </div>
+
+            {# Info #}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15px;font-weight:800;color:var(--gg-text);margin-bottom:4px;line-height:1.2;">{{ event.title }}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;">
+                {% if event.year %}<span class="gg-chip">{{ event.year }}</span>{% endif %}
+                {% if event.runtime_mins %}<span class="gg-chip">{{ event.runtime_mins }} min</span>{% endif %}
+                {% if event.rating %}<span class="gg-chip">{{ event.rating }}</span>{% endif %}
+              </div>
+              {% if event.genres %}
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                {% for g in (event.genres | fromjson) %}
+                <span class="gg-genre-pill">{{ g }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if event.synopsis %}
+              <div style="font-size:11px;color:var(--gg-text-muted);line-height:1.5;">{{ event.synopsis | truncate(120) }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          {# Watch Trailer #}
+          {% if event.trailer_key %}
+          <div style="margin-top:12px;">
+            <div class="trailer-container" id="trailer-{{ event.id }}" data-trailer-key="{{ event.trailer_key }}">
+              <button onclick="loadTrailer('{{ event.id }}', '{{ event.trailer_key }}')" class="gg-watch-trailer" style="width:100%;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="color:var(--gg-red);flex-shrink:0;"><path d="M8 5v14l11-7z"/></svg>
+                Watch Trailer
+              </button>
+            </div>
+          </div>
+          {% endif %}
+
+          {# Yes / No vote buttons (only if not in submitted/readonly state) #}
+          {% if not submitted %}
+          <div style="margin-top:8px;display:flex;gap:8px;" id="vote-btns-{{ event.id }}">
+            {% set event_id = event.id %}
+            {% set movies_opted_in = is_participating %}
+            {% set is_single_movie = (events|length == 1) %}
+            {% include "components/movie_vote_toggle.html" %}
+          </div>
+          {% else %}
+          {# Readonly mode — dimmed yes/no #}
+          <div style="margin-top:8px;display:flex;gap:8px;opacity:0.5;pointer-events:none;">
+            <div class="gg-vote-btn {% if voted_yes %}yes-active{% endif %}" style="cursor:default;">
+              <span style="font-size:14px;">✓</span> Yes
+            </div>
+            <div class="gg-vote-btn {% if voted_no %}no-active{% endif %}" style="cursor:default;">
+              <span style="font-size:14px;">✕</span> No
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if not events %}
+      <div style="background:var(--gg-card);border:1px solid var(--gg-border);border-radius:14px;padding:40px 24px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:10px;">🍿</div>
+        <div style="font-size:14px;font-weight:800;color:var(--gg-text);">No movies yet</div>
+        <div style="font-size:12px;color:var(--gg-text-muted);margin-top:6px;">Check back after the host adds options.</div>
+      </div>
+      {% endif %}
+
+      {% if submitted %}
+      <a href="/results" class="gg-btn-primary" style="text-decoration:none;text-align:center;margin-top:4px;">View Live Results →</a>
+      {% endif %}
+
+    </div>
+  </div>
+
+  {# Opt-out confirmation sheet #}
+  <div id="gg-leave-sheet" class="gg-sheet-overlay hidden">
+    <div class="gg-sheet">
+      <div class="gg-sheet-handle"></div>
+      <div style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:10px;">👋</div>
+        <div style="font-size:17px;font-weight:900;color:var(--gg-text);margin-bottom:8px;">Opt out of this poll?</div>
+        <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.6;">Your votes will be saved. Rejoin anytime with the same invite link and PIN.</div>
+      </div>
+      <form method="post" action="/api/votes/participation" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" name="is_participating" value="false"/>
+        <button type="submit" style="background:var(--gg-red-dim);border:1px solid var(--gg-red);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-red);">Yes, opt out</button>
+        <button type="button" onclick="ggHideLeaveSheet()" style="background:var(--gg-surface);border:1px solid var(--gg-border);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-text-muted);">Cancel — stay in</button>
+      </form>
+    </div>
+  </div>
+
+  {% set showtimes_locked = yes_count == 0 %}
+  {% set active_tab = 'movies' %}
+  {% include "components/gg_tab_bar.html" %}
+
+</div>
+
+<div hx-get="/api/votes/state?page=movies" hx-trigger="voteSaved from:body" hx-swap="none"></div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 function loadTrailer(eventId, key) {
+  const card = document.getElementById('movie-card-' + eventId);
+  if (card) card.classList.add('trailer-open');
   const container = document.getElementById('trailer-' + eventId);
   container.innerHTML = `
-    <div class="space-y-3">
-      <div class="flex justify-end">
-        <button onclick="closeTrailer('${eventId}')" class="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-slate-950/90 hover:bg-slate-900 text-white px-4 py-2 text-sm font-semibold shadow-lg shadow-black/30 ring-1 ring-white/10 transition-colors" title="Close trailer" aria-label="Close trailer">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-          Close trailer
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button onclick="closeTrailer('${eventId}')"
+          style="display:inline-flex;align-items:center;gap:6px;background:var(--gg-surface);border:1px solid var(--gg-border);border-radius:99px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--gg-text);cursor:pointer;">
+          ✕ Close trailer
         </button>
       </div>
-      <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-2xl border border-slate-600 bg-black">
-        <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${key}?autoplay=1&rel=0" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" loading="lazy"></iframe>
+      <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:10px;background:#000;border:1px solid var(--gg-border);">
+        <iframe style="position:absolute;top:0;left:0;width:100%;height:100%;"
+          src="https://www.youtube.com/embed/${key}?autoplay=1&rel=0"
+          frameborder="0" allowfullscreen allow="autoplay; encrypted-media" loading="lazy"></iframe>
       </div>
     </div>`;
 }
-
 function closeTrailer(eventId) {
+  const card = document.getElementById('movie-card-' + eventId);
+  if (card) card.classList.remove('trailer-open');
   const container = document.getElementById('trailer-' + eventId);
-  container.innerHTML = `
-    <button onclick="loadTrailer('${eventId}', '${container.dataset.trailerKey}')" class="w-full flex min-h-[44px] items-center justify-center gap-2 bg-slate-700/60 hover:bg-slate-600 text-slate-200 text-sm rounded-2xl py-3 transition-colors border border-slate-600 font-medium">
-      <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M8 5v14l11-7z"/>
-      </svg>
-      Watch Trailer
-    </button>`;
+  const key = container.dataset.trailerKey;
+  container.innerHTML = `<button onclick="loadTrailer('${eventId}', '${key}')" class="gg-watch-trailer" style="width:100%;margin-top:12px;">
+    <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="color:var(--gg-red);flex-shrink:0;"><path d="M8 5v14l11-7z"/></svg>
+    Watch Trailer
+  </button>`;
+}
+
+function ggHandleSubmit(yesMovies, showtimeVotes, isFlexible) {
+  const hasMovies = yesMovies > 0;
+  const hasShowtimes = isFlexible || showtimeVotes > 0;
+  if (!hasMovies && !hasShowtimes) {
+    ggShowInlineToast('Pick at least one movie and one showtime before submitting.');
+    return;
+  }
+  if (!hasMovies) {
+    ggShowInlineToast('Vote Yes on at least one movie before submitting.');
+    return;
+  }
+  if (!hasShowtimes) {
+    ggShowInlineToast('Confirm at least one showtime before submitting.');
+    return;
+  }
+  document.querySelector('form[action="/api/votes/complete"] input[name="is_complete"]') &&
+    document.querySelector('form[action="/api/votes/complete"]').submit();
+  fetch('/api/votes/complete', {method:'POST', body: new URLSearchParams({is_complete:'true'}),
+    headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+    .then(() => location.reload());
 }
 </script>
 {% endblock %}

@@ -1,0 +1,33 @@
+{# gg_app_header.html
+   Props (set before include):
+     poll          — poll object (for title/subtitle)
+     user          — current user object
+     countdown_str — optional string e.g. "Voting closes in 3 days, 4 hrs"
+     countdown_urgent — boolean
+     show_back     — boolean
+#}
+<div class="gg-app-header">
+  <div style="display:flex;align-items:center;gap:10px;">
+    {% if show_back %}
+    <a href="javascript:history.back()" style="font-size:18px;color:var(--gg-accent);text-decoration:none;">←</a>
+    {% endif %}
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="gg-brand">GroupGo</span>
+        <span class="gg-vote-badge">VOTE</span>
+      </div>
+      {% if poll %}
+      <div style="font-size:12px;color:var(--gg-text-muted);margin-top:1px;">{{ poll.title }}</div>
+      {% endif %}
+      {% if countdown_str %}
+      <div style="margin-top:3px;display:flex;align-items:center;gap:4px;">
+        <span style="font-size:10px;color:{{ 'var(--gg-red)' if countdown_urgent else 'var(--gg-text-dim)' }};">⏱</span>
+        <span class="gg-countdown {% if countdown_urgent %}urgent{% endif %}">{{ countdown_str }}</span>
+      </div>
+      {% endif %}
+    </div>
+    {% if user %}
+    <span class="gg-user-chip">{{ user.name }}</span>
+    {% endif %}
+  </div>
+</div>

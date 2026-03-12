@@ -1,56 +1,12 @@
- <div id="session-toggle-{{ session_id }}">
+<div id="session-toggle-{{ session_id }}">
   {% set session_is_enabled = s.event_id in (enabled_showtime_event_ids | default([])) %}
-  {% set show_locked_state = (not poll_preferences.is_participating) or poll_preferences.has_completed_voting or (not session_is_enabled) %}
-  {% if show_locked_state %}
-  <button disabled class="w-full vote-button flex items-center justify-center gap-2 px-3 border text-xs font-semibold transition-all vote-button-locked">
-    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800/70 text-slate-500">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-      </svg>
-    </span>
-    <span class="flex flex-col items-start leading-tight opacity-70">
-      <span>Locked</span>
-      <span class="text-[10px] font-medium text-slate-500">
-        {% if not poll_preferences.is_participating %}
-        Join from Movies first
-        {% elif poll_preferences.has_completed_voting %}
-        Voting complete
-        {% else %}
-        Mark this movie Yes first
-        {% endif %}
-      </span>
-    </span>
-  </button>
-  {% else %}
+  {% set confirmed = current_vote == 'can_do' %}
   <button
+    {% if not poll_preferences.is_participating or poll_preferences.has_completed_voting or not session_is_enabled %}disabled{% endif %}
     hx-post="/api/votes/session"
-    hx-vals='{"session_id": {{ session_id }}, "vote": "{% if current_vote == "can_do" %}cant_do{% else %}can_do{% endif %}"}'
+    hx-vals='{"session_id": {{ session_id }}, "vote": "{% if confirmed %}cant_do{% else %}can_do{% endif %}"}'
     hx-target="#session-card-{{ session_id }}"
     hx-swap="outerHTML"
-    aria-pressed="{{ 'true' if current_vote == 'can_do' else 'false' }}"
-    class="w-full vote-button flex items-center justify-center gap-2 px-3 border text-xs font-semibold transition-all
-      {% if current_vote == 'can_do' %}vote-cando-active border-green-500 shadow-lg shadow-green-900/20{% else %}bg-slate-700/50 text-slate-300 border-slate-600 hover:border-green-600 hover:text-green-400{% endif %}">
-    {% if current_vote == 'can_do' %}
-    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/15">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-      </svg>
-    </span>
-    <span class="flex flex-col items-start leading-tight">
-      <span>Can Do</span>
-      <span class="text-[10px] font-medium text-white/80">Works for me</span>
-    </span>
-    {% else %}
-    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800/70 text-slate-400">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-      </svg>
-    </span>
-    <span class="flex flex-col items-start leading-tight">
-      <span>Can't Do</span>
-      <span class="text-[10px] font-medium text-slate-500">Leave off my plan</span>
-    </span>
-    {% endif %}
-  </button>
-  {% endif %}
+    aria-pressed="{{ 'true' if confirmed else 'false' }}"
+    class="gg-confirm-toggle {% if confirmed %}confirmed{% endif %}">✓</button>
 </div>

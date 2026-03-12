@@ -1,0 +1,42 @@
+{# gg_group_progress.html — new design group progress card for voter pages #}
+<details class="gg-group-progress" id="gg-group-progress-card">
+  <summary style="list-style:none;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+    <span style="font-size:13px;font-weight:800;color:var(--gg-text);flex:1;">Group progress</span>
+    {# Stacked avatars #}
+    <div style="display:flex;">
+      {% for p in participation.participants[:5] %}
+      <div style="width:24px;height:24px;border-radius:50%;
+        background:{% if not p.is_participating %}var(--gg-accent-dim){% elif p.is_flexible or p.fully_voted %}var(--gg-green-dim){% else %}var(--gg-border){% endif %};
+        border:2px solid var(--gg-card);
+        display:flex;align-items:center;justify-content:center;
+        font-size:10px;font-weight:800;
+        color:{% if not p.is_participating %}var(--gg-accent){% elif p.is_flexible or p.fully_voted %}var(--gg-green){% else %}var(--gg-text-dim){% endif %};
+        margin-left:{% if not loop.first %}-6px{% else %}0{% endif %};">{{ p.user.name[0] }}</div>
+      {% endfor %}
+    </div>
+    <span style="font-size:11px;color:var(--gg-text-muted);margin-left:6px;">▾</span>
+  </summary>
+  <div style="padding:0 14px 12px;display:flex;flex-wrap:wrap;gap:6px;">
+    {% for p in participation.participants %}
+    <div class="gg-member-pill" style="border-color:{% if p.is_flexible or p.fully_voted %}var(--gg-green-dim){% elif not p.is_participating %}var(--gg-accent-dim){% else %}var(--gg-border){% endif %};">
+      <div class="gg-member-avatar"
+           style="background:{% if not p.is_participating %}var(--gg-accent-dim){% elif p.is_flexible or p.fully_voted %}var(--gg-green-dim){% else %}var(--gg-border){% endif %};
+                  color:{% if not p.is_participating %}var(--gg-accent){% elif p.is_flexible or p.fully_voted %}var(--gg-green){% else %}var(--gg-text-dim){% endif %};">
+        {{ p.user.name[0] }}
+      </div>
+      <span style="color:{% if p.fully_voted %}var(--gg-text){% else %}var(--gg-text-muted){% endif %};">{{ p.user.name }}</span>
+      {% if not p.is_participating %}
+      <span style="font-size:9px;color:var(--gg-accent);font-weight:700;">preview</span>
+      {% elif p.is_flexible %}
+      <span style="font-size:9px;color:var(--gg-green);font-weight:700;">flexible</span>
+      {% elif p.has_completed_voting %}
+      <span style="font-size:9px;color:var(--gg-green);font-weight:700;">done</span>
+      {% elif p.fully_voted %}
+      <span style="font-size:9px;color:var(--gg-text-dim);">voted</span>
+      {% else %}
+      <span style="font-size:9px;color:var(--gg-text-dim);">pending</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</details>

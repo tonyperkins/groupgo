@@ -1,100 +1,489 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full" data-theme="dark">
+<html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="theme-color" content="#0f172a"/>
+  <meta name="theme-color" content="#0A0A0F"/>
   <title>{% block title %}GroupGo{% endblock %}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <link rel="stylesheet" href="/static/css/app.css"/>
   <style>
+    /* ── Design tokens ─────────────────────────────────────────── */
     :root {
-      --bg-page: #0f172a; --bg-card: rgba(30, 41, 59, 0.8); --border: rgba(148, 163, 184, 0.18);
-      --text-primary: #f8fafc; --text-secondary: #94a3b8; --header-bg: rgba(15, 23, 42, 0.72);
-      --accent: #818cf8; --accent-strong: #6366f1;
+      --gg-bg:           #0A0A0F;
+      --gg-surface:      #111118;
+      --gg-card:         #16161F;
+      --gg-border:       #1E1E2E;
+      --gg-border-light: #2A2A3E;
+      --gg-accent:       #E8A020;
+      --gg-accent-dim:   #7A5510;
+      --gg-accent-glow:  rgba(232,160,32,0.15);
+      --gg-green:        #22C55E;
+      --gg-green-dim:    #14532D;
+      --gg-red:          #EF4444;
+      --gg-red-dim:      #450A0A;
+      --gg-blue:         #3B82F6;
+      --gg-blue-dim:     #1E3A5F;
+      --gg-text:         #F0EEE8;
+      --gg-text-muted:   #7A7A8E;
+      --gg-text-dim:     #4A4A5E;
+      --gg-locked:       #2A2A3E;
     }
-    [data-theme="light"] {
-      --bg-page: #f1f5f9; --bg-card: rgba(255, 255, 255, 0.82); --border: rgba(148, 163, 184, 0.22);
-      --text-primary: #0f172a; --text-secondary: #475569; --header-bg: rgba(255, 255, 255, 0.78);
-      --accent: #4f46e5; --accent-strong: #4338ca;
-    }
+
+    html, body { height: 100%; }
     html { scroll-behavior: smooth; }
-    body { background-color: var(--bg-page); color: var(--text-primary); font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; transition: background-color 0.2s, color 0.2s; }
-    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; }
-    .card:hover { box-shadow: 0 16px 40px rgba(2,6,23,0.16); border-color: rgba(129,140,248,0.2); }
-    [data-theme="light"] .card:hover { box-shadow: 0 16px 36px rgba(15,23,42,0.08); }
-    .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border-radius: 999px; padding: 0.7rem 1.25rem; font-weight: 700; transition: all 0.18s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; border: 1px solid rgba(129,140,248,0.3); box-shadow: 0 14px 30px rgba(79,70,229,0.28); }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 18px 34px rgba(79,70,229,0.34); }
-    .btn-primary:active { transform: translateY(0); }
-    .btn-ghost { background-color: rgba(15,23,42,0.12); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 999px; padding: 0.7rem 1.1rem; font-weight: 600; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; }
-    .btn-ghost:hover { border-color: rgba(129,140,248,0.3); color: var(--text-primary); background-color: rgba(99,102,241,0.08); }
-    .btn-ghost:active { transform: scale(0.98); }
-    .vote-yes-active { background-color: #16a34a !important; color: white !important; border-color: #16a34a !important; }
-    .vote-no-active { background-color: #dc2626 !important; color: white !important; border-color: #dc2626 !important; }
-    .vote-cando-active { background-color: #16a34a !important; color: white !important; border-color: #16a34a !important; }
-    .vote-cantdo-active { background-color: #dc2626 !important; color: white !important; border-color: #dc2626 !important; }
+    body {
+      background-color: var(--gg-bg);
+      color: var(--gg-text);
+      font-family: 'DM Sans', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Cards & surfaces ─────────────────────────────────────── */
+    .gg-card {
+      background: var(--gg-card);
+      border: 1px solid var(--gg-border);
+      border-radius: 1rem;
+    }
+    .gg-surface {
+      background: var(--gg-surface);
+      border-bottom: 1px solid var(--gg-border);
+    }
+
+    /* ── Voter app shell ──────────────────────────────────────── */
+    .voter-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 480px;
+      margin: 0 auto;
+      overflow: hidden;
+      position: relative;
+    }
+    .voter-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .voter-scroll::-webkit-scrollbar { display: none; }
+
+    /* ── App header ───────────────────────────────────────────── */
+    .gg-app-header {
+      background: var(--gg-surface);
+      border-bottom: 1px solid var(--gg-border);
+      flex-shrink: 0;
+      padding: 12px 20px 10px;
+    }
+    .gg-brand { font-family: Georgia, 'Times New Roman', serif; font-weight: 800; font-size: 15px; color: var(--gg-text); }
+    .gg-vote-badge {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+      background: var(--gg-accent); color: #000;
+      border-radius: 4px; padding: 1px 5px;
+    }
+    .gg-user-chip {
+      font-size: 12px; font-weight: 700; color: var(--gg-text-muted);
+      background: var(--gg-card); border: 1px solid var(--gg-border);
+      border-radius: 8px; padding: 4px 10px;
+    }
+    .gg-countdown { font-size: 10px; font-weight: 600; color: var(--gg-text-dim); }
+    .gg-countdown.urgent { color: var(--gg-red); font-weight: 800; }
+
+    /* ── Progress bar ─────────────────────────────────────────── */
+    .gg-progress {
+      background: var(--gg-surface);
+      border-bottom: 1px solid var(--gg-border);
+      flex-shrink: 0;
+      padding: 8px 16px 6px;
+    }
+    .gg-progress-track {
+      height: 3px; border-radius: 99px;
+      background: var(--gg-border);
+    }
+    .gg-progress-track.filled { background: var(--gg-accent); }
+    .gg-progress-label { font-size: 8px; letter-spacing: 0.03em; color: var(--gg-text-dim); text-align: center; }
+    .gg-progress-label.filled { color: var(--gg-accent); font-weight: 700; }
+
+    /* ── Participation banner ─────────────────────────────────── */
+    .gg-banner {
+      background: var(--gg-surface);
+      border-bottom: 1px solid var(--gg-border);
+      flex-shrink: 0;
+      padding: 6px 16px;
+    }
+    .gg-banner-inner {
+      border-radius: 8px;
+      padding: 6px 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .gg-banner-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .gg-banner-label { font-size: 12px; font-weight: 700; flex: 1; }
+    .gg-banner-btn {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 6px; cursor: pointer;
+      white-space: nowrap;
+    }
+    .gg-banner-btn-opt-out {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 6px; cursor: pointer;
+      background: rgba(0,0,0,0.25); color: var(--gg-text-muted);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    /* Banner state: preview */
+    .gg-banner-preview .gg-banner-inner  { background: var(--gg-blue-dim); border: 1px solid var(--gg-blue); }
+    .gg-banner-preview .gg-banner-dot    { background: var(--gg-blue); }
+    .gg-banner-preview .gg-banner-label  { color: var(--gg-blue); }
+    .gg-banner-preview .gg-banner-btn    { background: var(--gg-blue); color: #000; }
+
+    /* Banner state: voting */
+    .gg-banner-voting .gg-banner-inner   { background: var(--gg-green-dim); border: 1px solid var(--gg-green); }
+    .gg-banner-voting .gg-banner-dot     { background: var(--gg-green); }
+    .gg-banner-voting .gg-banner-label   { color: var(--gg-green); }
+    .gg-banner-voting .gg-banner-btn     { background: var(--gg-green); color: #000; }
+
+    /* Banner state: submitted */
+    .gg-banner-submitted .gg-banner-inner { background: var(--gg-green-dim); border: 1px solid var(--gg-green); }
+    .gg-banner-submitted .gg-banner-label { color: var(--gg-green); }
+    .gg-banner-submitted .gg-banner-btn   { background: var(--gg-surface); color: var(--gg-text); border: 1px solid var(--gg-border-light); }
+
+    /* Banner state: editing */
+    .gg-banner-editing .gg-banner-inner  { background: var(--gg-accent-dim); border: 1px solid var(--gg-accent); }
+    .gg-banner-editing .gg-banner-label  { color: var(--gg-accent); }
+    .gg-banner-editing .gg-banner-btn    { background: var(--gg-accent); color: #000; }
+
+    /* Banner state: opted-out */
+    .gg-banner-opted-out .gg-banner-inner { background: rgba(42,42,62,0.6); border: 1px solid var(--gg-border-light); }
+    .gg-banner-opted-out .gg-banner-dot   { background: var(--gg-text-dim); }
+    .gg-banner-opted-out .gg-banner-label { color: var(--gg-text-muted); }
+    .gg-banner-opted-out .gg-banner-btn   { background: var(--gg-surface); color: var(--gg-text-muted); border: 1px solid var(--gg-border); }
+
+    /* ── Tab bar ──────────────────────────────────────────────── */
+    .gg-tab-bar {
+      background: var(--gg-surface);
+      border-top: 1px solid var(--gg-border);
+      flex-shrink: 0;
+      display: flex;
+    }
+    .gg-tab {
+      flex: 1; padding: 10px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      cursor: pointer; position: relative;
+      border-top: 2px solid transparent;
+      text-decoration: none;
+    }
+    .gg-tab.active { border-top-color: var(--gg-accent); }
+    .gg-tab.locked { opacity: 0.35; cursor: default; pointer-events: none; }
+    .gg-tab-icon { font-size: 18px; position: relative; display: inline-flex; }
+    .gg-tab-label { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--gg-text-muted); text-transform: uppercase; }
+    .gg-tab.active .gg-tab-label { color: var(--gg-accent); }
+    .gg-tab-badge {
+      position: absolute; top: -5px; right: -8px;
+      min-width: 16px; height: 16px; border-radius: 99px;
+      border: 2px solid var(--gg-surface);
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 3px;
+      font-size: 9px; font-weight: 900; line-height: 1;
+    }
+    .gg-tab-badge.has-count { background: var(--gg-accent); color: #000; }
+    .gg-tab-badge.zero      { background: var(--gg-border-light); color: var(--gg-text-dim); }
+
+    /* ── Movie card ───────────────────────────────────────────── */
+    .gg-movie-card {
+      background: var(--gg-card);
+      border: 1px solid var(--gg-border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .gg-movie-card.voted-yes  { border-color: var(--gg-green); box-shadow: 0 0 0 1px rgba(34,197,94,0.12), 0 4px 16px rgba(34,197,94,0.08); }
+    .gg-movie-card.voted-no   { border-color: var(--gg-red);   box-shadow: 0 0 0 1px rgba(239,68,68,0.1); opacity: 0.7; }
+    .gg-movie-card.trailer-open { border-color: var(--gg-accent); }
+    .gg-chip {
+      font-size: 10px; color: var(--gg-text-muted);
+      background: var(--gg-surface); border: 1px solid var(--gg-border);
+      border-radius: 6px; padding: 2px 7px;
+    }
+    .gg-genre-pill {
+      font-size: 10px; color: var(--gg-text-dim);
+      border: 1px solid var(--gg-border);
+      border-radius: 99px; padding: 1px 7px;
+    }
+    .gg-rating-badge {
+      background: var(--gg-accent); color: #000;
+      font-size: 9px; font-weight: 800;
+      border-radius: 6px; padding: 2px 6px;
+    }
+    .gg-watch-trailer {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--gg-surface); border: 1px solid var(--gg-border);
+      border-radius: 10px; padding: 9px; cursor: pointer;
+      font-size: 12px; font-weight: 700; color: var(--gg-text-muted);
+    }
+    .gg-vote-btn {
+      flex: 1; border-radius: 10px; padding: 12px 8px;
+      background: var(--gg-surface); border: 1px solid var(--gg-border);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      cursor: pointer; transition: all 0.12s;
+      font-size: 13px; font-weight: 800; color: var(--gg-text-muted);
+    }
+    .gg-vote-btn:disabled, .gg-vote-btn.disabled { opacity: 0.4; cursor: default; }
+    .gg-vote-btn.yes-active  { background: var(--gg-green-dim); border-color: var(--gg-green); color: var(--gg-green); }
+    .gg-vote-btn.no-active   { background: var(--gg-red-dim);   border-color: var(--gg-red);   color: var(--gg-red); }
+
+    /* ── CTAs ─────────────────────────────────────────────────── */
+    .gg-btn-primary {
+      width: 100%; background: var(--gg-accent); color: #000;
+      border: 1px solid var(--gg-accent); border-radius: 14px;
+      padding: 13px 18px; text-align: center;
+      font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
+      cursor: pointer; display: block;
+    }
+    .gg-btn-secondary {
+      width: 100%; background: transparent; color: var(--gg-accent);
+      border: 1px solid var(--gg-accent); border-radius: 14px;
+      padding: 13px 18px; text-align: center;
+      font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
+      cursor: pointer; display: block; text-decoration: none;
+    }
+    .gg-btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Toast ────────────────────────────────────────────────── */
+    .gg-toast {
+      background: #1A1A10;
+      border: 1px solid var(--gg-accent);
+      border-radius: 10px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px; color: var(--gg-text); line-height: 1.4;
+    }
+
+    /* ── Status bar / counters ────────────────────────────────── */
+    .gg-status-bar {
+      padding: 8px 16px; flex-shrink: 0;
+      background: var(--gg-surface); border-bottom: 1px solid var(--gg-border);
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px;
+    }
+
+    /* ── Showtime card ────────────────────────────────────────── */
+    .gg-showtime-card {
+      background: var(--gg-card); border-radius: 14px;
+      border: 1px solid var(--gg-border); padding: 12px 14px;
+      transition: border-color 0.12s, opacity 0.12s;
+    }
+    .gg-showtime-card.confirmed { border-color: var(--gg-green); }
+    .gg-showtime-card.unavailable { opacity: 0.5; }
+    .gg-confirm-toggle {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: var(--gg-surface); border: 1px solid var(--gg-border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 16px; color: var(--gg-text-dim);
+    }
+    .gg-confirm-toggle.confirmed { background: var(--gg-green-dim); border-color: var(--gg-green); color: var(--gg-green); }
+    .gg-flexible-toggle {
+      width: 44px; height: 26px; border-radius: 99px; background: var(--gg-border);
+      display: flex; align-items: center; padding: 0 3px; flex-shrink: 0; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .gg-flexible-toggle .knob { width: 20px; height: 20px; border-radius: 50%; background: var(--gg-text-dim); transition: transform 0.2s; }
+    .gg-flexible-toggle.on { background: var(--gg-accent); }
+    .gg-flexible-toggle.on .knob { background: #000; transform: translateX(18px); }
+
+    /* ── Results card ─────────────────────────────────────────── */
+    .gg-result-card {
+      background: var(--gg-card); border: 1px solid var(--gg-border);
+      border-radius: 14px; padding: 12px 14px;
+      position: relative; overflow: hidden;
+    }
+    .gg-result-card.rank-1 {
+      background: linear-gradient(135deg, rgba(232,160,32,0.08), var(--gg-card));
+      border-color: var(--gg-accent);
+    }
+    .gg-result-card.my-pick { border-color: var(--gg-green); }
+    .gg-my-pick-ribbon {
+      position: absolute; top: 0; right: 0;
+      background: var(--gg-green); color: #000;
+      font-size: 9px; font-weight: 800; letter-spacing: 0.05em;
+      padding: 3px 8px; border-bottom-left-radius: 8px;
+    }
+    .gg-rank-badge {
+      width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+      background: var(--gg-surface);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 900; color: var(--gg-text-muted);
+    }
+    .gg-rank-badge.rank-1 { background: var(--gg-accent); color: #000; }
+    .gg-vote-bar {
+      height: 3px; background: var(--gg-border); border-radius: 99px;
+      overflow: hidden; margin-bottom: 10px;
+    }
+    .gg-vote-bar-fill { height: 100%; border-radius: 99px; background: var(--gg-border-light); }
+    .gg-vote-bar-fill.rank-1 { background: var(--gg-accent); }
+    .gg-vote-bar-fill.my-pick { background: var(--gg-green); }
+    .gg-avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--gg-card);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800;
+    }
+
+    /* ── Group progress ───────────────────────────────────────── */
+    .gg-group-progress {
+      background: var(--gg-card); border: 1px solid var(--gg-border);
+      border-radius: 14px; overflow: hidden;
+    }
+    .gg-member-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--gg-surface); border-radius: 99px; padding: 4px 10px;
+      border: 1px solid var(--gg-border);
+      font-size: 11px;
+    }
+    .gg-member-avatar {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--gg-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; color: var(--gg-text-dim);
+    }
+
+    /* ── Leave confirm sheet ──────────────────────────────────── */
+    .gg-sheet-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; flex-direction: column; justify-content: flex-end;
+      z-index: 100;
+    }
+    .gg-sheet {
+      background: var(--gg-card);
+      border-top-left-radius: 24px; border-top-right-radius: 24px;
+      border: 1px solid var(--gg-border); border-bottom: none;
+      padding: 20px 20px 36px;
+      display: flex; flex-direction: column; gap: 16px;
+      max-width: 480px; width: 100%; margin: 0 auto;
+    }
+    .gg-sheet-handle {
+      width: 36px; height: 4px; border-radius: 99px;
+      background: var(--gg-border-light); margin: 0 auto -4px;
+    }
+
+    /* ── Urgency nudge card ───────────────────────────────────── */
+    .gg-urgent-card {
+      background: var(--gg-red-dim); border: 1px solid var(--gg-red);
+      border-radius: 12px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    /* ── Poll closed banner ───────────────────────────────────── */
+    .gg-poll-closed-banner {
+      background: var(--gg-accent-dim); border: 1px solid var(--gg-accent);
+      padding: 10px 16px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 700; color: var(--gg-accent);
+    }
+
+    /* ── Official plan card ───────────────────────────────────── */
+    .gg-official-plan {
+      background: var(--gg-card); border: 1px solid var(--gg-accent);
+      border-radius: 16px; padding: 16px;
+    }
+    .gg-official-plan-header {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      color: var(--gg-accent); margin-bottom: 12px;
+    }
+
+    /* ── Secure entry ─────────────────────────────────────────── */
+    .gg-pin-box {
+      width: 64px; height: 72px; border-radius: 14px;
+      background: var(--gg-surface); border: 2px solid var(--gg-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 900; color: var(--gg-text);
+      transition: border-color 0.12s;
+    }
+    .gg-pin-box.active { border-color: var(--gg-accent); box-shadow: 0 0 0 3px var(--gg-accent-glow); }
+    .gg-pin-box.filled { border-color: var(--gg-border-light); }
+    .gg-pin-box.error  { background: var(--gg-red-dim); border-color: var(--gg-red); color: var(--gg-red); }
+    .gg-keypad-btn {
+      height: 52px; border-radius: 12px;
+      background: var(--gg-surface); border: 1px solid var(--gg-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: var(--gg-text);
+      cursor: pointer; transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .gg-keypad-btn:active { background: var(--gg-border-light); }
+    .gg-keypad-btn.empty  { background: transparent; border-color: transparent; cursor: default; }
+
+    /* ── Admin overrides (keep existing admin styles working) ─── */
+    .card { background-color: var(--gg-card); border: 1px solid var(--gg-border); border-radius: 1rem; }
+    .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.3); border-color: var(--gg-border-light); }
+    .btn-primary { background: var(--gg-accent); color: #000; border-radius: 999px; padding: 0.7rem 1.25rem; font-weight: 700; transition: all 0.18s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; border: 1px solid var(--gg-accent); }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-primary-disabled { opacity: 0.4; pointer-events: none; }
+    .btn-ghost { background-color: transparent; color: var(--gg-text-muted); border: 1px solid var(--gg-border); border-radius: 999px; padding: 0.7rem 1.1rem; font-weight: 600; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; }
+    .btn-ghost:hover { border-color: var(--gg-border-light); color: var(--gg-text); }
+    .vote-yes-active   { background-color: var(--gg-green-dim) !important; color: var(--gg-green) !important; border-color: var(--gg-green) !important; }
+    .vote-no-active    { background-color: var(--gg-red-dim)   !important; color: var(--gg-red) !important;   border-color: var(--gg-red) !important; }
+    .vote-cando-active   { background-color: var(--gg-green-dim) !important; color: var(--gg-green) !important; border-color: var(--gg-green) !important; }
+    .vote-cantdo-active  { background-color: var(--gg-red-dim)   !important; color: var(--gg-red) !important;   border-color: var(--gg-red) !important; }
     .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request .htmx-indicator { opacity: 1; }
     .htmx-request.htmx-indicator { opacity: 1; }
-    #gg-toast { transition: transform 0.25s ease, opacity 0.25s ease; }
-    .app-header { backdrop-filter: blur(18px); background: var(--header-bg); }
-    .brand-mark { width: 2.5rem; height: 2.5rem; border-radius: 0.95rem; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(99,102,241,0.26), rgba(14,165,233,0.24)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.14); }
-    .header-badge { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 999px; border: 1px solid var(--border); background: rgba(15,23,42,0.14); padding: 0.45rem 0.75rem; }
+
+    /* keep admin page-shell working */
+    .page-shell { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem; }
+    .app-header { background: var(--gg-surface); border-bottom: 1px solid var(--gg-border); }
+    .brand-mark { width: 2.5rem; height: 2.5rem; border-radius: 0.95rem; display: inline-flex; align-items: center; justify-content: center; background: rgba(232,160,32,0.15); }
+    .header-badge { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 999px; border: 1px solid var(--gg-border); background: rgba(15,23,42,0.14); padding: 0.45rem 0.75rem; }
     .header-badge:empty { display: none; }
-    [data-theme="light"] .header-badge { background: rgba(255,255,255,0.6); }
-    [data-theme="light"] .text-slate-400 { color: #475569; }
-    [data-theme="light"] .text-slate-500 { color: #64748b; }
-    [data-theme="light"] .text-slate-300 { color: #475569; }
-    [data-theme="light"] .text-white { color: #0f172a; }
-    [data-theme="light"] .bg-slate-900 { background-color: #ffffff; }
-    [data-theme="light"] .bg-slate-700 { background-color: #cbd5e1; }
-    [data-theme="light"] .bg-slate-600 { background-color: #94a3b8; }
-    [data-theme="light"] .border-slate-700 { border-color: #e2e8f0; }
-    [data-theme="light"] .border-slate-600 { border-color: #cbd5e1; }
-    [data-theme="light"] .divide-slate-700 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
-    [data-theme="light"] .bg-slate-800 { background-color: #f1f5f9; }
-    [data-theme="light"] [class~="bg-slate-700/50"] { background-color: rgba(148,163,184,0.18); }
-    [data-theme="light"] [class~="bg-slate-700/30"] { background-color: rgba(148,163,184,0.1); }
-    [data-theme="light"] .text-indigo-400 { color: #4338ca; }
-    [data-theme="light"] .text-indigo-300 { color: #4f46e5; }
-    [data-theme="light"] [class~="bg-amber-900/60"] { background-color: rgba(217,119,6,0.15); }
-    [data-theme="light"] .text-amber-300 { color: #d97706; }
-    [data-theme="light"] [class~="bg-green-900/40"] { background-color: rgba(22,163,74,0.12); }
-    [data-theme="light"] .text-green-400 { color: #16a34a; }
-    [data-theme="light"] .hover\:bg-slate-600:hover { background-color: #94a3b8; }
-    [data-theme="light"] .text-red-400 { color: #dc2626; }
+    .soft-pill { font-size: 10px; background: var(--gg-surface); border: 1px solid var(--gg-border); border-radius: 6px; padding: 2px 7px; color: var(--gg-text-muted); display: inline-flex; align-items: center; }
+    .soft-pill-strong { background: rgba(232,160,32,0.12); border-color: rgba(232,160,32,0.3); color: var(--gg-accent); }
+    .inline-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+    .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .section-title { font-size: 1.125rem; font-weight: 800; color: var(--gg-text); }
+    .section-description { font-size: 0.875rem; color: var(--gg-text-muted); margin-top: 2px; line-height: 1.5; }
+    .stack-list { display: flex; flex-direction: column; gap: 12px; }
+    .stack-list-locked { opacity: 0.6; pointer-events: none; }
+    .surface-muted { background: var(--gg-surface); border: 1px solid var(--gg-border); border-radius: 12px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 3rem 1.5rem; gap: 8px; }
+    .empty-state-icon { font-size: 2.5rem; margin-bottom: 4px; }
+    .floating-nav { background: var(--gg-surface); border-radius: 20px; }
+    .result-highlight { background: linear-gradient(135deg, rgba(232,160,32,0.08), var(--gg-card)); border-color: var(--gg-accent) !important; }
+    .movie-rating-pill { font-size: 11px; }
+    .movie-card-layout { display: flex; }
+    .page-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gg-accent); }
+    .page-title { font-size: 2rem; font-weight: 900; color: var(--gg-text); line-height: 1.1; }
+    .page-subtitle { color: var(--gg-text-muted); font-size: 1rem; line-height: 1.6; }
+    .page-hero { display: flex; flex-direction: column; }
+    .hero-metrics { display: flex; gap: 12px; flex-wrap: wrap; }
+    .metric-card { background: var(--gg-card); border: 1px solid var(--gg-border); border-radius: 12px; padding: 12px 16px; flex: 1; min-width: 100px; }
+    .metric-value { font-size: 1.5rem; font-weight: 900; color: var(--gg-accent); }
+    .metric-label { font-size: 11px; color: var(--gg-text-muted); margin-top: 2px; line-height: 1.4; }
   </style>
 </head>
-<body class="h-full flex flex-col min-h-screen overflow-x-hidden">
+<body class="flex flex-col min-h-screen overflow-x-hidden" style="background:var(--gg-bg);color:var(--gg-text)">
 
-  <!-- Header -->
-  <header class="app-header border-b sticky top-0 z-40" style="border-color:var(--border);">
+  <!-- Admin/desktop header (hidden on voter pages that use voter-shell) -->
+  {% block page_header %}
+  <header class="app-header border-b sticky top-0 z-40" style="border-color:var(--gg-border);">
     <div class="w-full max-w-[72rem] mx-auto px-4 py-3 flex items-center justify-between gap-3">
       <a href="/" class="flex items-center gap-3 no-min-size">
         <span class="brand-mark text-xl no-min-size">🎬</span>
         <div class="min-w-0 flex flex-col justify-center">
-          <div class="font-bold text-lg tracking-tight leading-tight" style="color:var(--text-primary)">GroupGo</div>
-          <div class="text-xs hidden sm:block leading-tight" style="color:var(--text-secondary)">Movie night planning without the group chat spiral</div>
+          <div class="font-bold text-lg tracking-tight leading-tight" style="color:var(--gg-text)">GroupGo</div>
+          <div class="text-xs hidden sm:block leading-tight" style="color:var(--gg-text-muted)">Movie night, coordinated.</div>
         </div>
       </a>
       <div class="flex items-center gap-2 flex-wrap justify-end">
         <div class="header-badge text-sm">
           {% block header_right %}{% endblock %}
         </div>
-        <button onclick="toggleTheme()" title="Toggle theme"
-          class="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors border" style="border-color:var(--border);background:rgba(15,23,42,0.12);">
-          <svg id="theme-icon-dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
-          </svg>
-          <svg id="theme-icon-light" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
-          </svg>
-        </button>
       </div>
     </div>
   </header>
+  {% endblock %}
 
   <!-- Main content -->
   <main class="flex-1 {% block main_class %}overflow-y-auto{% endblock %}">
@@ -104,22 +493,60 @@
   <!-- Bottom navigation (voter) -->
   {% block bottom_nav %}{% endblock %}
 
-  <!-- Toast -->
-  <div id="gg-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-full shadow-2xl text-sm font-medium pointer-events-none translate-y-4 opacity-0"></div>
+  <!-- Toast (legacy floating) -->
+  <div id="gg-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-full shadow-2xl text-sm font-medium pointer-events-none translate-y-4 opacity-0" style="transition:transform 0.25s ease,opacity 0.25s ease;"></div>
 
   <script src="/static/js/app.js"></script>
   <script>
-    function applyTheme(t) {
-      document.documentElement.setAttribute('data-theme', t);
-      document.getElementById('theme-icon-dark').classList.toggle('hidden', t === 'light');
-      document.getElementById('theme-icon-light').classList.toggle('hidden', t === 'dark');
+    /* PIN keypad logic for secure entry */
+    let ggPin = '';
+    function ggPinPress(key) {
+      if (key === '⌫') {
+        ggPin = ggPin.slice(0, -1);
+      } else if (ggPin.length < 4) {
+        ggPin += key;
+      }
+      ggPinRender();
     }
-    function toggleTheme() {
-      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('gg-theme', next);
-      applyTheme(next);
+    function ggPinRender() {
+      const boxes = document.querySelectorAll('.gg-pin-box');
+      boxes.forEach((b, i) => {
+        b.classList.remove('active', 'filled', 'error');
+        if (i < ggPin.length) { b.textContent = '●'; b.classList.add('filled'); }
+        else if (i === ggPin.length) { b.textContent = ''; b.classList.add('active'); }
+        else { b.textContent = ''; }
+      });
+      const inp = document.getElementById('gg-pin-input');
+      if (inp) inp.value = ggPin;
+      const btn = document.getElementById('gg-join-btn');
+      if (btn) btn.disabled = ggPin.length < 4;
     }
-    applyTheme(localStorage.getItem('gg-theme') || 'dark');
+    function ggPinShowError() {
+      document.querySelectorAll('.gg-pin-box').forEach(b => {
+        b.classList.remove('active', 'filled');
+        b.classList.add('error');
+        b.textContent = '●';
+      });
+    }
+
+    /* Opt-out sheet toggle */
+    function ggShowLeaveSheet() {
+      const sheet = document.getElementById('gg-leave-sheet');
+      if (sheet) sheet.classList.remove('hidden');
+    }
+    function ggHideLeaveSheet() {
+      const sheet = document.getElementById('gg-leave-sheet');
+      if (sheet) sheet.classList.add('hidden');
+    }
+
+    /* Inline toast show */
+    function ggShowInlineToast(msg) {
+      const el = document.getElementById('gg-inline-toast');
+      if (!el) return;
+      el.querySelector('.gg-toast-msg').textContent = msg;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3500);
+    }
   </script>
   {% block extra_js %}{% endblock %}
 </body>

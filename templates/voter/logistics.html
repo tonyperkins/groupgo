@@ -1,50 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Showtimes — GroupGo{% endblock %}
-
-{% block header_right %}
-<span class="text-slate-400 text-sm">Hey, <span class="text-white font-medium">{{ user.name }}</span></span>
-{% if secure_entry %}
-<span class="text-xs text-indigo-300">Secure link</span>
-{% else %}
-<a href="/identify" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">Switch</a>
-{% endif %}
-{% endblock %}
+{% block page_header %}{% endblock %}
+{% block main_class %}overflow-hidden{% endblock %}
 
 {% block content %}
-<div class="page-shell" id="showtimes-page-content">
+{% set is_participating = poll_preferences.is_participating %}
+{% set submitted = poll_preferences.has_completed_voting %}
+{% set yes_count = yes_movie_count | default(0) %}
+{% set session_count = voted_session_count | default(0) %}
+{% set flexible = is_flexible | default(false) %}
+{% set showtime_badge = 1 if flexible else session_count %}
+{% set progress_step = 4 if submitted else (3 if (session_count > 0 or flexible) else (2 if yes_count > 0 else (1 if is_participating else 0))) %}
 
-  {% set hero_eyebrow = 'Step 2 of 3' %}
-  {% set hero_pills = [
-    {'label': 'Showtime step', 'strong': true},
-    {'label': participation.fully_voted_count ~ '/' ~ participation.total ~ ' finished', 'strong': false}
-  ] %}
-  {% set hero_body_partial = 'components/logistics_hero_body.html' %}
-  {% include 'components/voter_page_hero.html' %}
+<div class="voter-shell">
 
-  <!-- Participation bar -->
-  {% set group_progress_title = 'Group progress' %}
-  {% set group_progress_description = 'Flexible voters count as complete automatically.' %}
-  {% set group_progress_status = participation.fully_voted_count ~ '/' ~ participation.total ~ ' done' %}
-  {% include "components/group_progress.html" %}
+  {% include "components/gg_app_header.html" %}
+  {% include "components/gg_progress_bar.html" %}
+  {% set is_editing = false %}
+  {% include "components/gg_participation_banner.html" %}
 
-  <div class="surface-muted p-4 mb-5">
-    <div class="flex flex-wrap items-center gap-3 justify-between">
-      <div>
-        <p class="text-sm font-semibold text-white">How showtime voting works</p>
-        <p class="text-sm text-slate-400 mt-1">Mark the showtimes you can make. Anything left as <span class="text-slate-300 font-semibold">Can't Do</span> won’t count as available for you.</p>
-      </div>
+  <div class="gg-status-bar">
+    <span style="color:var(--gg-text-muted);">Pick your showtimes</span>
+  </div>
+
+  <div class="voter-scroll">
+    <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px;" id="logistics-panel">
+      {% include "components/logistics_panel.html" %}
     </div>
   </div>
 
-  <!-- Logistics panel (swapped by HTMX when flexible toggle changes) -->
-  <div id="logistics-panel">
-    {% include "components/logistics_panel.html" %}
+  {# Opt-out confirmation sheet #}
+  <div id="gg-leave-sheet" class="gg-sheet-overlay hidden">
+    <div class="gg-sheet">
+      <div class="gg-sheet-handle"></div>
+      <div style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:10px;">👋</div>
+        <div style="font-size:17px;font-weight:900;color:var(--gg-text);margin-bottom:8px;">Opt out of this poll?</div>
+        <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.6;">Your votes will be saved. Rejoin anytime with the same invite link and PIN.</div>
+      </div>
+      <form method="post" action="/api/votes/participation" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" name="is_participating" value="false"/>
+        <button type="submit" style="background:var(--gg-red-dim);border:1px solid var(--gg-red);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-red);">Yes, opt out</button>
+        <button type="button" onclick="ggHideLeaveSheet()" style="background:var(--gg-surface);border:1px solid var(--gg-border);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-text-muted);">Cancel — stay in</button>
+      </form>
+    </div>
   </div>
 
-  <div hx-get="/api/votes/state?page=showtimes" hx-trigger="voteSaved from:body" hx-swap="none"></div>
-</div>
-{% endblock %}
+  {% set showtimes_locked = yes_count == 0 %}
+  {% set active_tab = 'showtimes' %}
+  {% include "components/gg_tab_bar.html" %}
 
-{% block bottom_nav %}
-{% include "components/bottom_nav.html" %}
+</div>
+
+<div hx-get="/api/votes/state?page=showtimes" hx-trigger="voteSaved from:body" hx-swap="none"></div>
 {% endblock %}
