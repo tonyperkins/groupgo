@@ -176,11 +176,14 @@
         <div style="font-size:17px;font-weight:900;color:var(--gg-text);margin-bottom:8px;">Opt out of this poll?</div>
         <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.6;">Your votes will be saved. Rejoin anytime with the same invite link and PIN.</div>
       </div>
-      <form method="post" action="/api/votes/participation" style="display:flex;flex-direction:column;gap:10px;">
-        <input type="hidden" name="is_participating" value="false"/>
-        <button type="submit" style="background:var(--gg-red-dim);border:1px solid var(--gg-red);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-red);">Yes, opt out</button>
-        <button type="button" onclick="ggHideLeaveSheet()" style="background:var(--gg-surface);border:1px solid var(--gg-border);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-text-muted);">Cancel — stay in</button>
-      </form>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button type="button" class="no-min-size"
+          hx-post="/api/votes/participation"
+          hx-vals='{"is_participating": "false"}'
+          hx-swap="none"
+          style="background:var(--gg-red-dim);border:1px solid var(--gg-red);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-red);">Yes, opt out</button>
+        <button type="button" onclick="ggHideLeaveSheet()" class="no-min-size" style="background:var(--gg-surface);border:1px solid var(--gg-border);border-radius:14px;padding:13px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--gg-text-muted);">Cancel — stay in</button>
+      </div>
     </div>
   </div>
 

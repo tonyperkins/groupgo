@@ -8,12 +8,9 @@
       hx-swap="outerHTML"
       hx-indicator="#movie-toggle-{{ event_id }}"
       aria-pressed="{{ 'true' if current_vote == 'yes' else 'false' }}"
-      class="gg-vote-btn {% if current_vote == 'yes' %}yes-active{% endif %} {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}disabled{% endif %}">
+      class="gg-vote-btn no-min-size {% if current_vote == 'yes' %}yes-active{% endif %} {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}disabled{% endif %}">
       <span style="font-size:14px;">✓</span>
-      <span style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-        <span>Yes</span>
-        {% if current_vote == 'yes' %}<span style="font-size:9px;font-weight:500;opacity:0.7;">Keep it in</span>{% endif %}
-      </span>
+      <span>Yes</span>
     </button>
     <button
       {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}disabled{% endif %}
@@ -23,12 +20,9 @@
       hx-swap="outerHTML"
       hx-indicator="#movie-toggle-{{ event_id }}"
       aria-pressed="{{ 'true' if current_vote == 'no' else 'false' }}"
-      class="gg-vote-btn {% if current_vote == 'no' %}no-active{% endif %} {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}disabled{% endif %}">
+      class="gg-vote-btn no-min-size {% if current_vote == 'no' %}no-active{% endif %} {% if not (movies_opted_in | default(false)) or poll_preferences.has_completed_voting %}disabled{% endif %}">
       <span style="font-size:14px;">✕</span>
-      <span style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-        <span>No</span>
-        {% if current_vote == 'no' %}<span style="font-size:9px;font-weight:500;opacity:0.7;">Rule it out</span>{% endif %}
-      </span>
+      <span>No</span>
     </button>
   </div>
 

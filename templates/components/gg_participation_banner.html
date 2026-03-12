@@ -18,20 +18,20 @@
       {# Preview mode #}
       <div class="gg-banner-dot"></div>
       <span class="gg-banner-label">Preview Mode</span>
-      <form method="post" action="/api/votes/participation" style="display:contents;">
-        <input type="hidden" name="is_participating" value="true"/>
-        <button type="submit" class="gg-banner-btn">Join</button>
-      </form>
+      <button type="button" class="gg-banner-btn no-min-size"
+        hx-post="/api/votes/participation"
+        hx-vals='{"is_participating": "true"}'
+        hx-swap="none">Join</button>
 
     {% elif is_editing %}
       {# Editing / change-vote mode #}
       <span style="font-size:12px;flex-shrink:0;">✏️</span>
       <span class="gg-banner-label">Editing your vote</span>
       <div style="display:flex;gap:6px;align-items:center;">
-        <form method="post" action="/api/votes/complete" style="display:contents;">
-          <input type="hidden" name="is_complete" value="true"/>
-          <button type="submit" class="gg-banner-btn">Resubmit</button>
-        </form>
+        <button type="button" class="gg-banner-btn no-min-size"
+          hx-post="/api/votes/complete"
+          hx-vals='{"is_complete": "true"}'
+          hx-swap="none">Resubmit</button>
         <button type="button" class="gg-banner-btn-opt-out" onclick="ggShowLeaveSheet()">Opt Out</button>
       </div>
 
@@ -40,11 +40,11 @@
       <span style="font-size:12px;flex-shrink:0;">✅</span>
       <span class="gg-banner-label">Submitted</span>
       <div style="display:flex;gap:6px;align-items:center;">
-        <form method="post" action="/api/votes/complete" style="display:contents;">
-          <input type="hidden" name="is_complete" value="false"/>
-          <button type="submit" class="gg-banner-btn">Change Vote</button>
-        </form>
-        <button type="button" class="gg-banner-btn-opt-out" onclick="ggShowLeaveSheet()">Opt Out</button>
+        <button type="button" class="gg-banner-btn no-min-size"
+          hx-post="/api/votes/complete"
+          hx-vals='{"is_complete": "false"}'
+          hx-swap="none">Change Vote</button>
+        <button type="button" class="gg-banner-btn-opt-out no-min-size" onclick="ggShowLeaveSheet()">Opt Out</button>
       </div>
 
     {% else %}
@@ -52,11 +52,9 @@
       <div class="gg-banner-dot"></div>
       <span class="gg-banner-label">Voting</span>
       <div style="display:flex;gap:6px;align-items:center;">
-        <button type="button" class="gg-banner-btn" id="gg-submit-btn"
-          onclick="ggHandleSubmit({{ yes_movie_count }}, {{ voted_session_count | default(0) }}, {{ is_flexible | default(false) | tojson }})">
-          Submit
-        </button>
-        <button type="button" class="gg-banner-btn-opt-out" onclick="ggShowLeaveSheet()">Opt Out</button>
+        <button type="button" class="gg-banner-btn no-min-size" id="gg-submit-btn"
+          onclick="ggHandleSubmit({{ yes_movie_count }}, {{ voted_session_count | default(0) }}, {{ is_flexible | default(false) | tojson }})">Submit</button>
+        <button type="button" class="gg-banner-btn-opt-out no-min-size" onclick="ggShowLeaveSheet()">Opt Out</button>
       </div>
     {% endif %}
 
