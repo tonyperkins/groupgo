@@ -121,6 +121,7 @@ class UserPollPreference(SQLModel, table=True):
     is_flexible: bool = Field(default=False)
     has_completed_voting: bool = Field(default=False)
     is_participating: bool = Field(default=False)
+    opt_out_reason: Optional[str] = Field(default=None)
     updated_at: str = Field(default_factory=_now)
 
 

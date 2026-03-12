@@ -1,0 +1,76 @@
+{% if not is_joined and has_saved_votes %}
+{% set hero_panel_title = 'You’re marked unavailable' %}
+{% set opt_out_msg = (' (Reason: ' ~ poll_preferences.opt_out_reason ~ ')') if poll_preferences.opt_out_reason else '' %}
+{% set hero_panel_description = 'Your existing votes are saved, but they’re not affecting the group plan while you’re out.' ~ opt_out_msg %}
+{% elif not is_joined %}
+{% set hero_panel_title = 'Joining this plan?' %}
+{% set hero_panel_description = 'Join to start voting. You can browse the movies below first, then opt in when you’re ready.' %}
+{% elif poll_preferences.has_completed_voting %}
+{% set hero_panel_title = 'You’re all set' %}
+{% set hero_panel_description = 'Your movie picks are in. You can head to showtimes or view the live group results.' %}
+{% elif events|length > 0 and voted_movie_count == events|length and yes_movie_count == 0 %}
+{% set hero_panel_title = 'Review complete' %}
+{% set hero_panel_description = 'You’ve reviewed every option but haven’t selected any movies. Vote "Yes" on at least one to continue to showtimes.' %}
+{% elif events|length > 0 and voted_movie_count == events|length %}
+{% set hero_panel_title = 'Almost there' %}
+{% set hero_panel_description = 'You’ve reviewed every movie option. Head to showtimes to complete your plan.' %}
+{% elif voted_movie_count > 0 %}
+{% set hero_panel_title = 'Almost there' %}
+{% set hero_panel_description = voted_movie_count ~ ' of ' ~ events|length ~ ' movie option' ~ ('s' if events|length != 1 else '') ~ ' reviewed.' %}
+{% else %}
+{% set hero_panel_title = 'Getting started' %}
+{% set hero_panel_description = '0 of ' ~ events|length ~ ' movie option' ~ ('s' if events|length != 1 else '') ~ ' reviewed. Select at least one movie to continue' %}
+{% endif %}
+{% set hero_panel_classes = 'status-card-complete' if (poll_preferences.has_completed_voting and is_joined) else 'status-card-unavailable' if not is_joined else '' %}
+{% set hero_actions_partial = 'components/movies_hero_actions.html' %}
+<div class="mt-4{% if hero_panel_classes %} {{ hero_panel_classes }}{% endif %}">
+  <div class="flex flex-col gap-4">
+    <div class="min-w-0">
+      <p class="page-subtitle">{{ hero_panel_description }}</p>
+    </div>
+    <div class="flex flex-col items-start gap-3">
+      {% include hero_actions_partial %}
+      {% if is_joined %}
+      <div class="mt-1">
+        <button
+          onclick="document.getElementById('opt-out-reasons-movies').classList.remove('hidden'); this.style.display='none'"
+          class="hero-tertiary-link" type="button">
+          Actually, I can’t make it
+        </button>
+        <div id="opt-out-reasons-movies" class="hidden mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <p class="text-[11px] text-slate-400 mb-2 font-medium">Care to share why? (Optional)</p>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Not feeling well"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">🤒 Not feeling well</button>
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Busy"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">📅 Busy</button>
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Other"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">❓ Other</button>
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">Skip</button>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="step-strip mt-6 hidden md:grid">
+  <a href="/vote/movies" class="step-chip is-active">
+    <span class="step-index">1</span>
+    <span class="step-copy">
+      <span class="step-label">Movies</span>
+      <span class="step-meta">Approve or pass</span>
+    </span>
+  </a>
+  <a href="/vote/showtimes" class="step-chip">
+    <span class="step-index">2</span>
+    <span class="step-copy">
+      <span class="step-label">Showtimes</span>
+      <span class="step-meta">Pick times that work</span>
+    </span>
+  </a>
+  <a href="/results" class="step-chip">
+    <span class="step-index">3</span>
+    <span class="step-copy">
+      <span class="step-label">Results</span>
+      <span class="step-meta">Track the best plan</span>
+    </span>
+  </a>
+</div>

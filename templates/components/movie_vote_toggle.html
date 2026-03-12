@@ -89,17 +89,6 @@
       <button 
         {% if poll_preferences.has_completed_voting %}disabled{% endif %}
         hx-post="/api/votes/movie"
-        hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Not feeling well"}'
-        hx-target="#movie-toggle-{{ event_id }}"
-        hx-swap="outerHTML"
-        class="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors 
-        {% if current_reason == 'Not feeling well' %}bg-slate-700 border-slate-500 text-white{% else %}bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300{% endif %}">
-        🤒 Not feeling well
-      </button>
-
-      <button 
-        {% if poll_preferences.has_completed_voting %}disabled{% endif %}
-        hx-post="/api/votes/movie"
         hx-vals='{"event_id": {{ event_id }}, "vote": "no", "veto_reason": "Other..."}'
         hx-target="#movie-toggle-{{ event_id }}"
         hx-swap="outerHTML"

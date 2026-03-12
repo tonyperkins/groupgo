@@ -239,16 +239,19 @@ async def voter_logistics(
     if not poll:
         return RedirectResponse("/", status_code=302)
 
+    events = movie_service.get_poll_events(poll.id, db)
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
-    
-    # If they are browsing all, pass None to event_ids so it returns everything
-    fetch_event_ids = None if view_all else showtime_event_ids
-    grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=fetch_event_ids)
-    
+
+    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    grouped = showtime_service.get_sessions_grouped(
+        poll.id,
+        db,
+        include_all_when_none_included=True,
+    )
+
     is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
-    poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
 
     return templates.TemplateResponse(
@@ -258,12 +261,15 @@ async def voter_logistics(
             "request": request,
             "user": user,
             "poll": poll,
+            "events": events,
+            "poster_url": movie_service.poster_url,
             "grouped": grouped,
             "user_votes": user_votes,
             "is_flexible": is_flexible,
             "voted_session_count": voted_session_count,
-            "needs_movie_pick_first": showtime_event_ids == [] and not view_all,
-            "view_all_mode": view_all,
+            "needs_movie_pick_first": showtime_event_ids == [] and poll_preferences["is_participating"] and not view_all,
+            "view_all_mode": view_all or not poll_preferences["is_participating"] or showtime_event_ids == [],
+            "enabled_showtime_event_ids": showtime_event_ids or [],
             "participation": participation,
             "poll_preferences": poll_preferences,
             "active_tab": "logistics",

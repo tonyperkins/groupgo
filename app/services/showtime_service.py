@@ -223,12 +223,16 @@ def get_sessions_grouped(
     poll_id: int,
     db: Session,
     event_ids: list[int] | None = None,
+    include_all_when_none_included: bool = False,
 ) -> dict:
-    """Returns only is_included sessions grouped by date → theater for the voter logistics view.
+    """Returns only is_included sessions grouped by date for the unified timeline view.
+    Also returns a unique dictionary of theaters involved.
     If event_ids is provided, only sessions for those events are included.
     """
     all_sessions = get_sessions_for_poll(poll_id, db)
     sessions = [s for s in all_sessions if s.is_included]
+    if include_all_when_none_included and not sessions:
+        sessions = list(all_sessions)
     if event_ids is not None:
         sessions = [s for s in sessions if s.event_id in event_ids]
     theaters = {t.id: t for t in db.exec(select(Theater)).all()}
@@ -240,28 +244,36 @@ def get_sessions_grouped(
         if ev:
             events[ev.id] = ev
 
-    grouped: dict = {}
+    grouped: dict = {"dates": {}, "theaters": {}}
+    
+    # Sort sessions strictly by time
+    sessions.sort(key=lambda s: s.session_time)
+
     for s in sessions:
         date = s.session_date
         theater = theaters.get(s.theater_id)
         theater_name = theater.name if theater else "Unknown Theater"
         theater_id = s.theater_id
 
-        if date not in grouped:
-            grouped[date] = {}
-        if theater_id not in grouped[date]:
-            grouped[date][theater_id] = {
-                "theater_name": theater_name,
+        if date not in grouped["dates"]:
+            grouped["dates"][date] = []
+            
+        if theater_id not in grouped["theaters"] and theater:
+            grouped["theaters"][theater_id] = {
                 "theater_id": theater_id,
-                "address": theater.address if theater else None,
-                "website_url": theater.website_url if theater else None,
-                "sessions": [],
+                "theater_name": theater_name,
+                "address": theater.address,
+                "website_url": theater.website_url,
             }
+            
         event = events.get(s.event_id)
-        grouped[date][theater_id]["sessions"].append({
+        grouped["dates"][date].append({
             "session": s,
             "event_title": event.title if event else "Unknown Movie",
+            "theater_name": theater_name,
+            "theater_id": theater_id,
         })
+        
     return grouped
 
 

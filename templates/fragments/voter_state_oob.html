@@ -1,0 +1,77 @@
+{% if page == 'movies' %}
+  {% set hero_eyebrow = 'Active poll' %}
+  {% set hero_pills = [
+    {'label': (events | length) ~ ' movie option' ~ ('s' if events|length != 1 else ''), 'strong': true},
+    {'label': participation.fully_voted_count ~ '/' ~ participation.total ~ ' fully voted', 'strong': false}
+  ] %}
+  {% set hero_body_partial = 'components/movies_hero_body.html' %}
+
+  <div hx-swap-oob="outerHTML:#voter-page-hero">
+    {% include "components/voter_page_hero.html" %}
+  </div>
+
+  <div hx-swap-oob="outerHTML:#group-progress-card">
+    {% set group_progress_title = 'Group progress' %}
+    {% set group_progress_description = 'See who has finished both movie and showtime voting.' %}
+    {% set group_progress_status = participation.fully_voted_count ~ '/' ~ participation.total ~ ' done' %}
+    {% include "components/group_progress.html" %}
+  </div>
+
+  <div hx-swap-oob="outerHTML:#movies-bottom-action">
+    {% if events %}
+      <div class="mt-8 text-center" id="movies-bottom-action" hx-swap-oob="true">
+        {% if not is_joined %}
+        <a href="/vote/showtimes?view_all=true"
+          class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
+          Preview Showtimes
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+        {% elif yes_movie_count == 0 %}
+        <a href="/vote/showtimes?view_all=true"
+          class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
+          Preview Showtimes
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+        {% elif events|length > 0 and voted_movie_count < events|length %}
+        <span class="inline-flex items-center gap-2 btn-primary btn-primary-disabled px-6 py-3 text-base" aria-disabled="true">
+          Next: Pick Showtimes
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </span>
+        {% else %}
+        <a href="/vote/showtimes"
+          class="inline-flex items-center gap-2 btn-primary px-6 py-3 text-base">
+          Next: Pick Showtimes
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+  </div>
+
+{% elif page == 'showtimes' %}
+  {% set hero_eyebrow = 'Step 2 of 3' %}
+  {% set hero_pills = [
+    {'label': 'Showtime step', 'strong': true},
+    {'label': participation.fully_voted_count ~ '/' ~ participation.total ~ ' finished', 'strong': false}
+  ] %}
+  {% set hero_body_partial = 'components/logistics_hero_body.html' %}
+
+  <div hx-swap-oob="outerHTML:#voter-page-hero">
+    {% include "components/voter_page_hero.html" %}
+  </div>
+
+  <div hx-swap-oob="outerHTML:#group-progress-card">
+    {% set group_progress_title = 'Group progress' %}
+    {% set group_progress_description = 'Flexible voters count as complete automatically.' %}
+    {% set group_progress_status = participation.fully_voted_count ~ '/' ~ participation.total ~ ' done' %}
+    {% include "components/group_progress.html" %}
+  </div>
+{% endif %}

@@ -1,0 +1,31 @@
+<div id="session-card-{{ session_id }}" class="surface-muted {% if current_vote == 'can_do' and poll_preferences.is_participating %}surface-selected{% endif %} px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-2.5 sm:gap-3 {% if not poll_preferences.is_participating %}stack-list-locked{% endif %}">
+  <div class="flex items-start justify-between gap-3">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-slate-200 text-sm font-medium truncate">{{ item.event_title }}</p>
+        <div class="flex-shrink-0 text-right">
+          <div class="text-white font-bold text-base leading-none">{{ s.session_time | display_time }}</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+        <span class="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-700/50 text-slate-300 border border-slate-600/50">
+          📍 {{ item.theater_name }}
+        </span>
+        {% if s.format != 'Standard' %}
+        <span class="text-[11px] px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-medium">{{ s.format }}</span>
+        {% endif %}
+      </div>
+      {% set session_is_enabled = s.event_id in (enabled_showtime_event_ids | default([])) %}
+      {% if not poll_preferences.is_participating %}
+      <p class="text-slate-500 text-xs mt-2">Choose <span class="text-slate-300 font-semibold">I’m back in!</span> on Movies to start selecting showtimes.</p>
+      {% elif poll_preferences.has_completed_voting %}
+      <p class="text-slate-500 text-xs mt-2">Your showtime vote is complete. Edit your votes to make changes.</p>
+      {% elif not session_is_enabled %}
+      <p class="text-slate-500 text-xs mt-2">Mark <span class="text-slate-300 font-semibold">{{ item.event_title }}</span> as <span class="text-slate-300 font-semibold">Yes</span> on Movies to vote on this showtime.</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="w-full sm:w-48 sm:self-end">
+    {% include "components/session_vote_toggle.html" %}
+  </div>
+</div>

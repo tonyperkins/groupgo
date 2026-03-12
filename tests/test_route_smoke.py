@@ -3,7 +3,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.models import User
-from app.services.vote_service import cast_vote
+from app.services.vote_service import cast_vote, set_participating
 
 
 def _display_time(value: str) -> str:
@@ -44,13 +44,52 @@ def test_voter_movies_page_renders(client, seeded_db, poll_with_event):
     assert "Test Movie" in response.text
 
 
+def test_voter_movies_page_shows_preview_showtimes_cta_when_all_movies_reviewed_without_yes_votes(client, seeded_db, poll_with_event):
+    poll, event = poll_with_event
+    token = _set_user_token(seeded_db, 2)
+    client.cookies.set("token", token)
+    set_participating(2, poll.id, True, seeded_db)
+    cast_vote(2, poll.id, "event", event.id, "no", seeded_db)
+
+    response = client.get("/vote/movies")
+    assert response.status_code == 200
+    assert "Preview Showtimes" in response.text
+    assert '/vote/showtimes?view_all=true' in response.text
+
+
 def test_voter_logistics_page_renders(client, seeded_db, poll_with_sessions):
+    token = _set_user_token(seeded_db, 2)
+    client.cookies.set("token", token)
+
+    response = client.get("/vote/logistics?view_all=true")
+    assert response.status_code == 200
+    assert "19:00" in response.text or "7:00 PM" in response.text
+
+
+def test_voter_logistics_page_shows_preview_showtimes_when_not_participating(client, seeded_db, poll_with_sessions):
     token = _set_user_token(seeded_db, 2)
     client.cookies.set("token", token)
 
     response = client.get("/vote/logistics")
     assert response.status_code == 200
+    assert "Showtimes are preview-only right now" in response.text
     assert "19:00" in response.text or "7:00 PM" in response.text
+    assert "Locked" in response.text
+
+
+def test_voter_logistics_page_shows_preview_showtimes_after_opting_back_out(client, seeded_db, poll_with_sessions):
+    poll, event, _ = poll_with_sessions
+    token = _set_user_token(seeded_db, 2)
+    client.cookies.set("token", token)
+    set_participating(2, poll.id, True, seeded_db)
+    cast_vote(2, poll.id, "event", event.id, "yes", seeded_db)
+    set_participating(2, poll.id, False, seeded_db, opt_out_reason="Busy")
+
+    response = client.get("/vote/logistics")
+    assert response.status_code == 200
+    assert "Showtimes are preview-only right now" in response.text
+    assert "19:00" in response.text or "7:00 PM" in response.text
+    assert "Locked" in response.text
 
 
 def test_admin_dashboard_renders(client):
@@ -103,17 +142,18 @@ def test_secure_join_uses_member_pin_and_ignores_other_token_cookie(client, seed
     assert identify_response.headers["location"] == "/vote/movies"
 
 
-def test_voter_showtimes_page_hides_sessions_when_user_rejects_movies(client, seeded_db, poll_with_sessions):
+def test_voter_showtimes_page_shows_sessions_but_locks_them_when_user_rejects_movies(client, seeded_db, poll_with_sessions):
     poll, event, _ = poll_with_sessions
     token = _set_user_token(seeded_db, 2)
     client.cookies.set("token", token)
-    from app.services.vote_service import set_participating
     set_participating(2, poll.id, True, seeded_db)
     cast_vote(2, poll.id, "event", event.id, "no", seeded_db)
 
     response = client.get("/vote/showtimes")
     assert response.status_code == 200
-    assert "No showtimes in your list yet" in response.text
+    assert "19:00" in response.text or "7:00 PM" in response.text
+    assert "Locked" in response.text
+    assert "Mark this movie Yes first" in response.text
 
 
 def test_voter_results_page_shows_overall_results_and_your_choices(client, seeded_db, poll_with_sessions):

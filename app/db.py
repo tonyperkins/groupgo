@@ -58,6 +58,7 @@ def init_db():
         _add_column_if_missing(db, "sessions", "is_included", "INTEGER NOT NULL DEFAULT 1")
         _add_column_if_missing(db, "user_poll_preferences", "has_completed_voting", "INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(db, "user_poll_preferences", "is_participating", "INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(db, "user_poll_preferences", "opt_out_reason", "TEXT")
         _add_column_if_missing(db, "theaters", "website_url", "TEXT")
         _add_column_if_missing(db, "votes", "veto_reason", "TEXT")
 

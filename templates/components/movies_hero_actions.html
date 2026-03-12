@@ -1,0 +1,71 @@
+{% if not is_joined and has_saved_votes %}
+<button
+  hx-post="/api/votes/participation"
+  hx-vals='{"is_participating": "true"}'
+  hx-swap="none"
+  class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">
+  I’m back in!
+</button>
+{% elif not is_joined %}
+<div class="flex flex-col gap-3">
+  <div class="flex flex-wrap items-center gap-3">
+    <button
+      hx-post="/api/votes/participation"
+      hx-vals='{"is_participating": "true"}'
+      hx-swap="none"
+      class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">
+      Count Me In
+    </button>
+    <button
+      onclick="document.getElementById('opt-out-reasons-movies').classList.remove('hidden'); this.style.display='none'"
+      class="hero-secondary-link text-sm" type="button">
+      Can't make it
+    </button>
+  </div>
+  <div id="opt-out-reasons-movies" class="hidden mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+    <p class="text-[11px] text-slate-400 mb-2 font-medium">Care to share why? (Optional)</p>
+    <div class="flex flex-wrap items-center gap-1.5">
+      <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Not feeling well"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">🤒 Not feeling well</button>
+      <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Busy"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">📅 Busy</button>
+      <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Other"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">❓ Other</button>
+      <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">Skip</button>
+    </div>
+  </div>
+</div>
+{% elif poll_preferences.has_completed_voting %}
+<div class="flex flex-wrap items-center gap-3">
+  <a href="/results" class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">View Group Results</a>
+  <button
+    hx-post="/api/votes/complete"
+    hx-vals='{"is_complete": "false"}'
+    hx-swap="none"
+    class="hero-secondary-link text-sm">
+    Edit my votes
+  </button>
+</div>
+{% else %}
+{% if yes_movie_count == 0 %}
+<a href="/vote/showtimes?view_all=true"
+  class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">
+  Preview Showtimes
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+  </svg>
+</a>
+{% elif events|length > 0 and voted_movie_count < events|length %}
+<span class="inline-flex items-center gap-2 btn-primary btn-primary-disabled px-5 py-3 text-sm" aria-disabled="true">
+  Next: Pick Showtimes
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+  </svg>
+</span>
+{% else %}
+<a href="/vote/showtimes"
+  class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">
+  Next: Pick Showtimes
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+  </svg>
+</a>
+{% endif %}
+{% endif %}

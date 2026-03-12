@@ -1,0 +1,71 @@
+{% if not poll_preferences.is_participating %}
+  {% if poll_preferences.opt_out_reason %}
+    {% set hero_panel_title = 'You’re marked unavailable' %}
+    {% set hero_panel_description = 'Your saved movie and showtime choices are still here, but they’re not affecting the group plan while you’re out. (Reason: ' ~ poll_preferences.opt_out_reason ~ ')' %}
+  {% else %}
+    {% set hero_panel_title = 'Preview showtimes' %}
+    {% set hero_panel_description = 'You can browse the available times now, but your showtime choices will unlock after you choose Count Me In on Movies.' %}
+  {% endif %}
+{% elif poll_preferences.has_completed_voting %}
+  {% set hero_panel_title = 'You’re all set' %}
+  {% set hero_panel_description = 'Your availability is locked in. You can head to results or come back and adjust anytime.' %}
+{% elif is_flexible or (voted_session_count | default(0)) > 0 %}
+  {% set hero_panel_title = 'Almost there' %}
+  {% set hero_panel_description = 'You can submit your vote when you’re ready without having to go through every single showtime.' %}
+{% else %}
+  {% set hero_panel_title = 'Pick times that work' %}
+  {% set hero_panel_description = 'Select at least one showtime you can make, or turn on flexible mode, to submit your vote.' %}
+{% endif %}
+{% set hero_panel_classes = 'status-card-complete' if poll_preferences.has_completed_voting else 'status-card-unavailable' if not poll_preferences.is_participating else '' %}
+{% set hero_actions_partial = 'components/logistics_hero_actions.html' %}
+<div class="mt-4{% if hero_panel_classes %} {{ hero_panel_classes }}{% endif %}">
+  <div class="flex flex-col gap-4">
+    <div class="min-w-0">
+      <p class="page-subtitle">{{ hero_panel_description }}</p>
+    </div>
+    <div class="flex flex-col items-start gap-3">
+      {% include hero_actions_partial %}
+      {% if poll_preferences.is_participating %}
+      <div class="mt-1">
+        <button
+          onclick="document.getElementById('opt-out-reasons-logistics').classList.remove('hidden'); this.style.display='none'"
+          class="hero-tertiary-link" type="button">
+          Actually, I can’t make it
+        </button>
+        <div id="opt-out-reasons-logistics" class="hidden mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <p class="text-[11px] text-slate-400 mb-2 font-medium">Care to share why? (Optional)</p>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Not feeling well"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">🤒 Not feeling well</button>
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Busy"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">📅 Busy</button>
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false", "opt_out_reason": "Other"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">❓ Other</button>
+            <button hx-post="/api/votes/participation" hx-vals='{"is_participating": "false"}' hx-swap="none" class="text-[10px] font-medium px-2 py-1 rounded-full border bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 transition-colors">Skip</button>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="step-strip mt-6 hidden md:grid">
+  <a href="/vote/movies" class="step-chip">
+    <span class="step-index">1</span>
+    <span class="step-copy">
+      <span class="step-label">Movies</span>
+      <span class="step-meta">Preference shortlist</span>
+    </span>
+  </a>
+  <a href="/vote/showtimes" class="step-chip is-active">
+    <span class="step-index">2</span>
+    <span class="step-copy">
+      <span class="step-label">Showtimes</span>
+      <span class="step-meta">Choose what works</span>
+    </span>
+  </a>
+  <a href="/results" class="step-chip">
+    <span class="step-index">3</span>
+    <span class="step-copy">
+      <span class="step-label">Results</span>
+      <span class="step-meta">Track the best option</span>
+    </span>
+  </a>
+</div>

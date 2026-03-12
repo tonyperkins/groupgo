@@ -1,0 +1,59 @@
+{% if not poll_preferences.is_participating %}
+{% set hero_panel_title = 'You’re marked unavailable' %}
+{% set hero_panel_description = 'Your saved choices are still here, but they’re excluded from these group standings while you’re out.' %}
+{% elif poll.status == 'CLOSED' %}
+{% set hero_panel_title = 'Poll closed' %}
+{% set hero_panel_description = 'This poll is closed, so these standings reflect the final locked outcome.' %}
+{% elif poll_preferences.has_completed_voting %}
+{% set hero_panel_title = 'You’re all set' %}
+{% set hero_panel_description = 'Your availability is locked in. You can head to results or come back and adjust anytime.' %}
+{% else %}
+{% set hero_panel_title = 'Live standings' %}
+{% set hero_panel_description = 'The group standings refresh automatically as everyone votes, so you can keep checking the strongest plan.' %}
+{% endif %}
+{% set hero_panel_classes = 'status-card-unavailable' if not poll_preferences.is_participating else '' %}
+{% set hero_actions_partial = 'components/results_hero_actions.html' %}
+<div class="mt-4{% if hero_panel_classes %} {{ hero_panel_classes }}{% endif %}">
+  <div class="flex flex-col gap-4">
+    <div class="min-w-0">
+      <p class="page-subtitle">{{ hero_panel_description }}</p>
+    </div>
+    <div class="flex flex-col items-start gap-3">
+      {% include hero_actions_partial %}
+      {% if poll_preferences.is_participating and poll.status == 'OPEN' %}
+      <div class="mt-1">
+        <button
+          hx-post="/api/votes/participation"
+          hx-vals='{"is_participating": "false"}'
+          hx-swap="none"
+          class="hero-tertiary-link" type="button">
+          Actually, I can’t make it
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="step-strip mt-6 hidden md:grid">
+  <a href="/vote/movies" class="step-chip">
+    <span class="step-index">1</span>
+    <span class="step-copy">
+      <span class="step-label">Movies</span>
+      <span class="step-meta">Approve your shortlist</span>
+    </span>
+  </a>
+  <a href="/vote/showtimes" class="step-chip">
+    <span class="step-index">2</span>
+    <span class="step-copy">
+      <span class="step-label">Showtimes</span>
+      <span class="step-meta">Choose what works</span>
+    </span>
+  </a>
+  <a href="/results" class="step-chip is-active">
+    <span class="step-index">3</span>
+    <span class="step-copy">
+      <span class="step-label">Results</span>
+      <span class="step-meta">Compare group standings</span>
+    </span>
+  </a>
+</div>

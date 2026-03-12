@@ -1,0 +1,29 @@
+{% if not poll_preferences.is_participating %}
+<button
+  hx-post="/api/votes/participation"
+  hx-vals='{"is_participating": "true"}'
+  hx-swap="none"
+  class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">
+  I’m back in!
+</button>
+{% elif poll_preferences.has_completed_voting %}
+<div class="flex flex-wrap items-center gap-3">
+  <a href="/results" class="inline-flex items-center gap-2 btn-primary px-5 py-3 text-sm">View Group Results</a>
+  <button
+    hx-post="/api/votes/complete"
+    hx-vals='{"is_complete": "false"}'
+    hx-swap="none"
+    class="hero-secondary-link text-sm">
+    Edit my votes
+  </button>
+</div>
+{% else %}
+<button
+  hx-post="/api/votes/complete"
+  hx-vals='{"is_complete": "true"}'
+  hx-swap="none"
+  {% if (voted_session_count | default(0)) == 0 and not is_flexible %}disabled{% endif %}
+  class="status-action-button {% if (voted_session_count | default(0)) == 0 and not is_flexible %}status-action-button-disabled{% endif %}">
+  Submit Vote
+</button>
+{% endif %}

@@ -108,7 +108,7 @@ def mark_voting_complete(user_id: int, poll_id: int, is_complete: bool, db: Sess
     db.commit()
 
 
-def set_participating(user_id: int, poll_id: int, is_participating: bool, db: Session):
+def set_participating(user_id: int, poll_id: int, is_participating: bool, db: Session, opt_out_reason: str = None):
     pref = db.exec(
         select(UserPollPreference).where(
             UserPollPreference.user_id == user_id,
@@ -120,6 +120,9 @@ def set_participating(user_id: int, poll_id: int, is_participating: bool, db: Se
         if not is_participating:
             pref.has_completed_voting = False
             pref.is_flexible = False
+            pref.opt_out_reason = opt_out_reason
+        else:
+            pref.opt_out_reason = None
         pref.updated_at = _now()
         db.add(pref)
     else:
@@ -127,6 +130,7 @@ def set_participating(user_id: int, poll_id: int, is_participating: bool, db: Se
             user_id=user_id,
             poll_id=poll_id,
             is_participating=is_participating,
+            opt_out_reason=opt_out_reason if not is_participating else None,
             updated_at=_now(),
         )
         db.add(pref)
@@ -178,6 +182,7 @@ def get_user_poll_preferences(user_id: int, poll_id: int, db: Session) -> dict:
         "is_flexible": pref.is_flexible if pref else False,
         "has_completed_voting": pref.has_completed_voting if pref else False,
         "is_participating": pref.is_participating if pref else False,
+        "opt_out_reason": pref.opt_out_reason if pref else None,
     }
 
 

@@ -91,10 +91,13 @@ async def vote_movie(
     veto_reasons = vote_service.get_user_veto_reasons(user.id, poll.id, db)
     poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
     current = user_votes.get(("event", event_id), "abstain")
+    events = movie_service.get_poll_events(poll.id, db)
+    is_single_movie = len(events) == 1
+    
     response = templates.TemplateResponse(
         request,
         "components/movie_vote_toggle.html",
-        {"request": request, "event_id": event_id, "current_vote": current, "veto_reasons": veto_reasons, "poll_preferences": poll_preferences, "movies_opted_in": poll_preferences["is_participating"]},
+        {"request": request, "event_id": event_id, "current_vote": current, "veto_reasons": veto_reasons, "poll_preferences": poll_preferences, "movies_opted_in": poll_preferences["is_participating"], "is_single_movie": is_single_movie},
     )
     response.headers["HX-Trigger"] = "voteSaved"
     return response
@@ -122,6 +125,7 @@ async def vote_session(
     session_obj = db.get(ShowSession, session_id)
     if not session_obj or session_obj.poll_id != poll.id:
         raise HTTPException(status_code=404, detail="Session not found")
+    enabled_showtime_event_ids = vote_service.get_showtime_event_ids(user_votes) or []
     event = db.get(EventModel, session_obj.event_id)
     item = {"event_title": event.title if event else "Unknown title", "session": session_obj}
     response = templates.TemplateResponse(
@@ -134,6 +138,8 @@ async def vote_session(
             "s": session_obj,
             "item": item,
             "poll_preferences": poll_preferences,
+            "enabled_showtime_event_ids": enabled_showtime_event_ids,
+            "view_all_mode": (not poll_preferences["is_participating"]) or (not enabled_showtime_event_ids),
         },
     )
     response.headers["HX-Trigger"] = "voteSaved"
@@ -156,8 +162,13 @@ async def vote_flexible(
 
     user_votes = vote_service.get_user_votes(user.id, poll.id, db)
     showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
-    grouped = showtime_service.get_sessions_grouped(poll.id, db, event_ids=showtime_event_ids)
     poll_preferences = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    should_preview_all = not poll_preferences["is_participating"] or showtime_event_ids == []
+    grouped = showtime_service.get_sessions_grouped(
+        poll.id,
+        db,
+        include_all_when_none_included=True,
+    )
     response = templates.TemplateResponse(
         request,
         "components/logistics_panel.html",
@@ -168,7 +179,9 @@ async def vote_flexible(
             "user_votes": user_votes,
             "poll": poll,
             "poll_preferences": poll_preferences,
-            "needs_movie_pick_first": showtime_event_ids == [],
+            "needs_movie_pick_first": showtime_event_ids == [] and poll_preferences["is_participating"],
+            "view_all_mode": should_preview_all,
+            "enabled_showtime_event_ids": showtime_event_ids or [],
         },
     )
     response.headers["HX-Trigger"] = "voteSaved"
@@ -197,6 +210,7 @@ async def vote_complete(
 async def vote_participation(
     request: Request,
     is_participating: str = Form(...),
+    opt_out_reason: str = Form(default=None),
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
@@ -205,7 +219,7 @@ async def vote_participation(
         raise HTTPException(status_code=403, detail="No open poll")
 
     participating = is_participating.lower() in ("true", "1", "yes")
-    vote_service.set_participating(user.id, poll.id, participating, db)
+    vote_service.set_participating(user.id, poll.id, participating, db, opt_out_reason=opt_out_reason)
     response = JSONResponse({"status": "ok", "is_participating": participating})
     response.headers["HX-Refresh"] = "true"
     return response
@@ -228,7 +242,6 @@ async def get_vote_state(
     events = movie_service.get_poll_events(poll.id, db)
     is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
     showtime_event_ids = vote_service.get_showtime_event_ids(user_votes)
-    needs_movie_pick_first = showtime_event_ids == []
     voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
     voted_movie_count = vote_service.get_voted_movie_count(user.id, poll.id, db)
     yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
@@ -236,6 +249,8 @@ async def get_vote_state(
     movies_opted_in = poll_preferences["is_participating"]
     has_saved_votes = any(v != "abstain" for v in user_votes.values())
     is_joined = movies_opted_in
+    needs_movie_pick_first = showtime_event_ids == [] and movies_opted_in
+    view_all_mode = (not movies_opted_in) or showtime_event_ids == []
 
     return templates.TemplateResponse(
         request,
@@ -250,6 +265,7 @@ async def get_vote_state(
             "voted_session_count": voted_session_count,
             "is_flexible": is_flexible,
             "needs_movie_pick_first": needs_movie_pick_first,
+            "view_all_mode": view_all_mode,
             "is_joined": is_joined,
             "has_saved_votes": has_saved_votes,
             "poll_preferences": poll_preferences,
