@@ -10,7 +10,7 @@
 {% set session_count = voted_session_count | default(0) %}
 {% set flexible = is_flexible | default(false) %}
 {% set showtime_badge = 1 if flexible else session_count %}
-{% set progress_step = 4 if submitted else (3 if (session_count > 0 or flexible) else (2 if yes_count > 0 else (1 if is_participating else 0))) %}
+{% set progress_step = 0 if not is_participating else (4 if submitted else (3 if (session_count > 0 or flexible) else (2 if yes_count > 0 else 1))) %}
 
 <div class="voter-shell">
 

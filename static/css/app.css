@@ -22,8 +22,10 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Touch target minimum */
-button, a, [role="button"] {
+/* Touch target minimum — excludes compact GG voter buttons */
+button:not(.gg-vote-btn):not(.gg-banner-btn):not(.gg-banner-btn-opt-out):not(.gg-confirm-toggle):not(.gg-keypad-btn):not(.gg-flexible-toggle),
+a:not(.gg-tab):not(.gg-btn-primary):not(.gg-btn-secondary),
+[role="button"]:not(.gg-vote-btn) {
   min-height: 44px;
   min-width: 44px;
 }
