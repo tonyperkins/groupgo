@@ -45,7 +45,7 @@
 
   <div class="gg-status-bar">
     <span style="color:var(--gg-text-muted);flex:1;">
-      {% if submitted %}Vote submitted — read only{% elif yes_count == 0 %}Pick your movies{% else %}{{ yes_count }} of {{ events | length }} movies voted Yes{% endif %}
+      {% if not is_participating %}Previewing movies{% elif submitted %}Vote submitted — read only{% elif yes_count == 0 %}Pick your movies{% else %}{{ yes_count }} of {{ events | length }} movies voted Yes{% endif %}
     </span>
     <span style="color:var(--gg-accent);font-weight:700;">{{ participation.total }} members</span>
   </div>
