@@ -1,60 +1,65 @@
 {% extends "base.html" %}
- {% block title %}Who are you? — GroupGo{% endblock %}
- 
- {% block content %}
-<div class="page-shell min-h-[calc(100vh-5rem)] flex items-center">
-  <div class="w-full grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-    <section class="page-hero">
-      <span class="page-eyebrow">Welcome to GroupGo</span>
-      <h1 class="page-title mt-4 text-white">Pick the movie plan without the endless group chat spiral.</h1>
-      <p class="page-subtitle mt-4">Choose your name once and GroupGo remembers you on this device, keeps your votes synced, and guides you from movie picks to showtimes to live results.</p>
-      <div class="hero-metrics mt-6">
-        <div class="metric-card">
-          <div class="metric-value">3</div>
-          <div class="metric-label">Simple steps from identity to final plan</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value">Live</div>
-          <div class="metric-label">Results update as everyone votes</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value">Easy</div>
-          <div class="metric-label">You can switch identity anytime on shared devices</div>
-        </div>
-      </div>
-    </section>
+{% block title %}Who are you? — GroupGo{% endblock %}
+{% block page_header %}{% endblock %}
+{% block main_class %}overflow-hidden{% endblock %}
 
-    <section class="card p-6 sm:p-8">
-      <div class="text-center mb-6">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/15 text-3xl mb-4">🎬</div>
-        <h2 class="text-2xl font-bold text-white">Who are you?</h2>
-        <p class="text-slate-400 mt-2 text-sm">Select your name to load your saved progress and start voting.</p>
+{% block content %}
+<div class="voter-shell">
+
+  <div class="gg-app-header">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span class="gg-brand">GroupGo</span>
+      <span class="gg-vote-badge">VOTE</span>
+    </div>
+  </div>
+
+  <div class="voter-scroll">
+    <div style="padding:24px 20px;display:flex;flex-direction:column;gap:20px;">
+
+      <div style="text-align:center;padding:12px 0 4px;">
+        <div style="font-size:40px;margin-bottom:10px;">🎬</div>
+        <div style="font-size:21px;font-weight:900;color:var(--gg-text);font-family:Georgia,serif;margin-bottom:6px;">Who are you?</div>
+        <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.5;">Select your name to load your saved progress and start voting.</div>
       </div>
 
       {% if error %}
-      <div class="bg-red-900/50 border border-red-700 text-red-300 text-sm px-4 py-3 rounded-2xl mb-4">
+      <div style="background:var(--gg-red-dim);border:1px solid var(--gg-red);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--gg-red);font-weight:600;">
         {{ error }}
       </div>
       {% endif %}
 
-      <form method="post" action="/identify" class="space-y-3">
+      <form method="post" action="/identify" style="display:flex;flex-direction:column;gap:8px;">
         {% for user in users %}
         <button type="submit" name="user_id" value="{{ user.id }}"
-          class="w-full flex items-center gap-3 border border-slate-600 bg-slate-700/50 hover:bg-indigo-600/20 hover:border-indigo-500 text-white rounded-2xl px-4 py-4 text-left transition-all duration-150 group shadow-sm hover:-translate-y-0.5">
-          <div class="w-11 h-11 rounded-2xl bg-indigo-900/70 flex items-center justify-center text-base font-bold text-indigo-200 group-hover:bg-indigo-500 transition-colors">
+          style="display:flex;align-items:center;gap:12px;background:var(--gg-card);border:1px solid var(--gg-border);border-radius:14px;padding:14px 16px;text-align:left;cursor:pointer;transition:border-color 0.12s;width:100%;">
+          <div style="width:42px;height:42px;border-radius:12px;background:var(--gg-accent-dim);border:1px solid var(--gg-accent);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:var(--gg-accent);flex-shrink:0;">
             {{ user.name[0].upper() }}
           </div>
-          <div class="min-w-0 flex-1">
-            <div class="font-semibold text-base">{{ user.name }}</div>
-            <div class="text-xs text-slate-400 mt-0.5">Continue as {{ user.name }}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:15px;font-weight:700;color:var(--gg-text);">{{ user.name }}</div>
+            <div style="font-size:11px;color:var(--gg-text-muted);margin-top:1px;">Continue as {{ user.name }}</div>
           </div>
-          <svg class="ml-auto w-5 h-5 text-slate-500 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
+          <span style="font-size:16px;color:var(--gg-text-dim);">›</span>
         </button>
         {% endfor %}
       </form>
-    </section>
+
+      {% if not users %}
+      <div style="background:var(--gg-card);border:1px solid var(--gg-border);border-radius:14px;padding:40px 24px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:10px;">👥</div>
+        <div style="font-size:14px;font-weight:800;color:var(--gg-text);">No members set up yet</div>
+        <div style="font-size:12px;color:var(--gg-text-muted);margin-top:6px;line-height:1.5;">Ask the host to add members from the admin portal, then use a fresh invite link.</div>
+      </div>
+      {% endif %}
+
+      <div style="text-align:center;padding-bottom:12px;">
+        <div style="font-size:11px;color:var(--gg-text-dim);line-height:1.6;">
+          Have an invite link? Use it to skip this screen and enter your PIN directly.
+        </div>
+      </div>
+
+    </div>
   </div>
+
 </div>
- {% endblock %}
+{% endblock %}
