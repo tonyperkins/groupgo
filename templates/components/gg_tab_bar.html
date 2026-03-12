@@ -10,18 +10,18 @@
 {% set showtime_badge = 1 if (is_flexible | default(false)) else (voted_session_count | default(0)) %}
 {% set movie_badge = yes_movie_count | default(0) %}
 {% set st_locked = showtimes_locked | default(false) %}
-<nav class="gg-tab-bar">
+<nav class="gg-tab-bar" id="gg-tab-bar">
   <a href="/vote/movies" class="gg-tab {% if active_tab == 'movies' %}active{% endif %}">
     <span class="gg-tab-icon">
       🎬
-      <span class="gg-tab-badge {% if movie_badge > 0 %}has-count{% else %}zero{% endif %}">{{ movie_badge }}</span>
+      <span id="gg-badge-movies" class="gg-tab-badge {% if movie_badge > 0 %}has-count{% else %}zero{% endif %}">{{ movie_badge }}</span>
     </span>
     <span class="gg-tab-label">Movies</span>
   </a>
-  <a href="/vote/showtimes" class="gg-tab {% if active_tab == 'showtimes' %}active{% endif %} {% if st_locked %}locked{% endif %}">
+  <a href="/vote/showtimes" class="gg-tab {% if active_tab == 'showtimes' %}active{% endif %} {% if st_locked %}locked{% endif %}" id="gg-tab-showtimes">
     <span class="gg-tab-icon">
       🕐
-      <span class="gg-tab-badge {% if showtime_badge > 0 %}has-count{% else %}zero{% endif %}">{{ showtime_badge }}</span>
+      <span id="gg-badge-showtimes" class="gg-tab-badge {% if showtime_badge > 0 %}has-count{% else %}zero{% endif %}">{{ showtime_badge }}</span>
     </span>
     <span class="gg-tab-label">Showtimes</span>
   </a>
@@ -30,3 +30,9 @@
     <span class="gg-tab-label">Results</span>
   </a>
 </nav>
+{# On voteSaved, refresh the tab bar to update badge counts #}
+<div hx-get="/api/votes/tab-bar"
+     hx-trigger="voteSaved from:body"
+     hx-target="#gg-tab-bar"
+     hx-swap="outerHTML"
+     style="display:none;"></div>

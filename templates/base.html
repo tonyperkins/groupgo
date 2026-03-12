@@ -225,11 +225,12 @@
       font-size: 12px; font-weight: 700; color: var(--gg-text-muted);
     }
     .gg-vote-btn {
-      flex: 1; border-radius: 10px; padding: 12px 8px;
+      flex: 1; border-radius: 10px; padding: 8px 8px;
       background: var(--gg-surface); border: 1px solid var(--gg-border);
       display: flex; align-items: center; justify-content: center; gap: 6px;
       cursor: pointer; transition: all 0.12s;
       font-size: 13px; font-weight: 800; color: var(--gg-text-muted);
+      min-height: unset;
     }
     .gg-vote-btn:disabled, .gg-vote-btn.disabled { opacity: 0.4; cursor: default; }
     .gg-vote-btn.yes-active  { background: var(--gg-green-dim); border-color: var(--gg-green); color: var(--gg-green); }
@@ -537,6 +538,28 @@
     function ggHideLeaveSheet() {
       const sheet = document.getElementById('gg-leave-sheet');
       if (sheet) sheet.classList.add('hidden');
+    }
+
+    /* Submit handler — validates then posts via HTMX so HX-Refresh is honoured */
+    function ggHandleSubmit(yesMovies, showtimeVotes, isFlexible) {
+      const hasMovies = yesMovies > 0;
+      const hasShowtimes = isFlexible || showtimeVotes > 0;
+      if (!hasMovies && !hasShowtimes) {
+        ggShowInlineToast('Pick at least one movie and one showtime before submitting.');
+        return;
+      }
+      if (!hasMovies) {
+        ggShowInlineToast('Vote Yes on at least one movie before submitting.');
+        return;
+      }
+      if (!hasShowtimes) {
+        ggShowInlineToast('Confirm at least one showtime (or turn on Flexible mode) before submitting.');
+        return;
+      }
+      htmx.ajax('POST', '/api/votes/complete', {
+        values: { is_complete: 'true' },
+        swap: 'none'
+      });
     }
 
     /* Inline toast show */

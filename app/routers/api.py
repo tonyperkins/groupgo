@@ -225,6 +225,37 @@ async def vote_participation(
     return response
 
 
+@router.get("/api/votes/tab-bar", response_class=HTMLResponse)
+async def get_tab_bar(
+    request: Request,
+    page: str = "movies",
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        return HTMLResponse("")
+
+    user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
+    yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
+    voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
+
+    return templates.TemplateResponse(
+        request,
+        "components/gg_tab_bar.html",
+        {
+            "request": request,
+            "active_tab": page,
+            "yes_movie_count": yes_movie_count,
+            "voted_session_count": voted_session_count,
+            "is_flexible": is_flexible,
+            "showtimes_locked": yes_movie_count == 0,
+            "poll_preferences": vote_service.get_user_poll_preferences(user.id, poll.id, db),
+        },
+    )
+
+
 @router.get("/api/votes/state", response_class=HTMLResponse)
 async def get_vote_state(
     request: Request,

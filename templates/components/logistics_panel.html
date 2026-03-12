@@ -34,15 +34,7 @@
 </div>
 
 {% else %}
-{# ─── Not participating notice ───────────────────────────────────── #}
-{% if not poll_preferences.is_participating %}
-<div style="background:var(--gg-card);border:1px solid var(--gg-border);border-radius:14px;padding:40px 24px;text-align:center;">
-  <div style="font-size:36px;margin-bottom:10px;">🗓️</div>
-  <div style="font-size:14px;font-weight:800;color:var(--gg-text);">Preview only</div>
-  <div style="font-size:12px;color:var(--gg-text-muted);margin-top:6px;line-height:1.5;">Join the poll from Movies to start voting on showtimes.</div>
-</div>
-
-{% elif not grouped.dates %}
+{% if not grouped.dates %}
 <div style="background:var(--gg-card);border:1px solid var(--gg-border);border-radius:14px;padding:40px 24px;text-align:center;">
   <div style="font-size:36px;margin-bottom:10px;">📅</div>
   <div style="font-size:14px;font-weight:800;color:var(--gg-text);">No showtimes yet</div>
