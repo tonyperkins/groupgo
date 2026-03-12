@@ -94,6 +94,39 @@ async def secure_join_page(request: Request, access_uuid: str, db: Session = Dep
     )
 
 
+@router.get("/join/{access_uuid}/preview", response_class=HTMLResponse)
+async def secure_join_preview(
+    request: Request,
+    access_uuid: str,
+    db: Session = Depends(get_db),
+):
+    """Preview Without Voting: set the secure poll context then go to identify.
+    After identifying, the user lands on /vote/movies in non-participating state.
+    """
+    poll = db.exec(select(Poll).where(Poll.access_uuid == access_uuid)).first()
+    if not poll or poll.status != "OPEN":
+        return RedirectResponse(f"/join/{access_uuid}", status_code=302)
+
+    current_user = get_current_user_optional(request, db)
+    if current_user:
+        from app.services.security_service import ensure_user_token, set_voter_identity_cookies
+        user_token = ensure_user_token(current_user, db)
+        response = RedirectResponse("/vote/movies", status_code=302)
+        set_voter_identity_cookies(response, user_token=user_token, poll_id=poll.id, user_id=current_user.id)
+        return response
+
+    response = RedirectResponse("/identify", status_code=302)
+    from app.services.security_service import POLL_SESSION_COOKIE_NAME, create_poll_session_token
+    response.set_cookie(
+        "gg_preview_poll_id",
+        str(poll.id),
+        httponly=True,
+        samesite="lax",
+        max_age=3600,
+    )
+    return response
+
+
 @router.post("/join/{access_uuid}", response_class=HTMLResponse)
 async def secure_join_submit(
     request: Request,
@@ -176,8 +209,24 @@ async def identify_submit(
             {"request": request, "users": users, "error": "Invalid selection", "secure_entry": False},
         )
 
-    response = RedirectResponse("/", status_code=302)
-    set_voter_identity_cookies(response, user_token=ensure_user_token(user, db))
+    user_token = ensure_user_token(user, db)
+    preview_poll_id_str = request.cookies.get("gg_preview_poll_id")
+    if preview_poll_id_str:
+        try:
+            preview_poll_id = int(preview_poll_id_str)
+            preview_poll = db.get(Poll, preview_poll_id)
+        except (ValueError, Exception):
+            preview_poll = None
+    else:
+        preview_poll = None
+
+    if preview_poll and preview_poll.status == "OPEN":
+        response = RedirectResponse("/vote/movies", status_code=302)
+        set_voter_identity_cookies(response, user_token=user_token, poll_id=preview_poll.id, user_id=user.id)
+        response.delete_cookie("gg_preview_poll_id")
+    else:
+        response = RedirectResponse("/", status_code=302)
+        set_voter_identity_cookies(response, user_token=user_token)
     return response
 
 
@@ -253,6 +302,7 @@ async def voter_logistics(
     is_flexible = vote_service.get_is_flexible(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
     voted_session_count = sum(1 for k, v in user_votes.items() if k[0] == "session" and v == "can_do")
+    yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
 
     return templates.TemplateResponse(
         request,
@@ -267,6 +317,7 @@ async def voter_logistics(
             "user_votes": user_votes,
             "is_flexible": is_flexible,
             "voted_session_count": voted_session_count,
+            "yes_movie_count": yes_movie_count,
             "needs_movie_pick_first": showtime_event_ids == [] and poll_preferences["is_participating"] and not view_all,
             "view_all_mode": view_all or not poll_preferences["is_participating"] or showtime_event_ids == [],
             "enabled_showtime_event_ids": showtime_event_ids or [],

@@ -229,25 +229,11 @@ function closeTrailer(eventId) {
 }
 
 function ggHandleSubmit(yesMovies, showtimeVotes, isFlexible) {
-  const hasMovies = yesMovies > 0;
-  const hasShowtimes = isFlexible || showtimeVotes > 0;
-  if (!hasMovies && !hasShowtimes) {
-    ggShowInlineToast('Pick at least one movie and one showtime before submitting.');
+  if (yesMovies === 0) {
+    ggShowInlineToast('Vote Yes on at least one movie first.');
     return;
   }
-  if (!hasMovies) {
-    ggShowInlineToast('Vote Yes on at least one movie before submitting.');
-    return;
-  }
-  if (!hasShowtimes) {
-    ggShowInlineToast('Confirm at least one showtime before submitting.');
-    return;
-  }
-  document.querySelector('form[action="/api/votes/complete"] input[name="is_complete"]') &&
-    document.querySelector('form[action="/api/votes/complete"]').submit();
-  fetch('/api/votes/complete', {method:'POST', body: new URLSearchParams({is_complete:'true'}),
-    headers:{'Content-Type':'application/x-www-form-urlencoded'}})
-    .then(() => location.reload());
+  window.location.href = '/vote/showtimes';
 }
 </script>
 {% endblock %}
