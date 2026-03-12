@@ -68,8 +68,27 @@ def healthz(db: Session = Depends(get_db)):
     return JSONResponse({"status": status, "db": db_status, "version": 1}, status_code=code)
 
 
-# ─── Vote endpoints ────────────────────────────────────────────────────────────
+# ─── Vote endpoints (HTMX — DEPRECATED) ──────────────────────────────────────
+#
+# These endpoints return HTML fragments for HTMX consumption by the old
+# Jinja2 voter templates. They are KEPT ALIVE during the React SPA transition
+# so the existing voter flow doesn't break while the SPA is being built.
+#
+# DO NOT extend or refactor these endpoints. DO NOT add new features here.
+#
+# Replacement plan (Session 1 of React migration):
+#   - Add GET  /api/voter/me           → JSON bootstrap endpoint
+#   - Add POST /api/voter/votes/movie  → JSON vote endpoint
+#   - Add POST /api/voter/votes/session → JSON vote endpoint
+#   - Add POST /api/voter/votes/flexible → JSON endpoint
+#   - Add POST /api/voter/votes/complete → JSON endpoint
+#   - Add POST /api/voter/votes/participation → JSON endpoint
+#
+# Once the React SPA is fully wired and the old voter templates are removed,
+# delete all endpoints in this section.
+# ─────────────────────────────────────────────────────────────────────────────
 
+# TODO: deprecate — replaced by POST /api/voter/votes/movie (JSON)
 @router.post("/api/votes/movie", response_class=HTMLResponse)
 async def vote_movie(
     request: Request,
@@ -93,7 +112,7 @@ async def vote_movie(
     current = user_votes.get(("event", event_id), "abstain")
     events = movie_service.get_poll_events(poll.id, db)
     is_single_movie = len(events) == 1
-    
+
     response = templates.TemplateResponse(
         request,
         "components/movie_vote_toggle.html",
@@ -103,6 +122,7 @@ async def vote_movie(
     return response
 
 
+# TODO: deprecate — replaced by POST /api/voter/votes/session (JSON)
 @router.post("/api/votes/session", response_class=HTMLResponse)
 async def vote_session(
     request: Request,
@@ -146,6 +166,7 @@ async def vote_session(
     return response
 
 
+# TODO: deprecate — replaced by POST /api/voter/votes/flexible (JSON)
 @router.post("/api/votes/flexible", response_class=HTMLResponse)
 async def vote_flexible(
     request: Request,
@@ -188,6 +209,10 @@ async def vote_flexible(
     return response
 
 
+# TODO: deprecate — replaced by POST /api/voter/votes/complete (JSON)
+# NOTE: current impl uses HX-Refresh (full page reload) as a workaround for
+# missing React state management. The React replacement should return
+# {status, is_complete, yes_movie_count} and let the client handle navigation.
 @router.post("/api/votes/complete", response_class=JSONResponse)
 async def vote_complete(
     request: Request,
@@ -206,6 +231,8 @@ async def vote_complete(
     return response
 
 
+# TODO: deprecate — replaced by POST /api/voter/votes/participation (JSON)
+# NOTE: same HX-Refresh workaround as vote_complete above.
 @router.post("/api/votes/participation", response_class=JSONResponse)
 async def vote_participation(
     request: Request,
@@ -225,6 +252,7 @@ async def vote_participation(
     return response
 
 
+# TODO: deprecate — HTMX tab bar fragment, not needed by React SPA
 @router.get("/api/votes/tab-bar", response_class=HTMLResponse)
 async def get_tab_bar(
     request: Request,
@@ -256,6 +284,7 @@ async def get_tab_bar(
     )
 
 
+# TODO: deprecate — HTMX OOB state fragment, not needed by React SPA
 @router.get("/api/votes/state", response_class=HTMLResponse)
 async def get_vote_state(
     request: Request,
@@ -305,8 +334,10 @@ async def get_vote_state(
         },
     )
 
+
 # ─── Results ──────────────────────────────────────────────────────────────────
 
+# TODO: deprecate — HTMX results fragment, not needed by React SPA
 @router.get("/api/results", response_class=HTMLResponse)
 async def results_fragment(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -340,6 +371,7 @@ async def results_fragment(request: Request, db: Session = Depends(get_db)):
     )
 
 
+# KEEP — used by React SPA for live results polling
 @router.get("/api/results/json")
 async def results_json(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -993,15 +1025,14 @@ async def admin_archive_poll(
 async def admin_reopen_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    """Reopen a closed poll - resets winner and changes status back to OPEN"""
+    """Reopen a closed poll — resets winner and changes status back to OPEN."""
     verify_admin(request)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
     if poll.status not in ["CLOSED", "ARCHIVED"]:
         raise HTTPException(status_code=400, detail="Can only reopen CLOSED or ARCHIVED polls")
-    
-    # Reset winner
+
     poll.winner_event_id = None
     poll.winner_session_id = None
     poll.status = "OPEN"
@@ -1015,44 +1046,37 @@ async def admin_reopen_poll(
 async def admin_delete_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    """Permanently delete a poll and all related data (votes, sessions, etc.)"""
+    """Permanently delete a poll and all related data (votes, sessions, etc.)."""
     verify_admin(request)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
-    
-    # Import models needed for cascade delete
+
     from app.models import Vote, PollEvent, UserPollPreference
-    
-    # Delete all fetch jobs for this poll
+
     fetch_jobs = db.exec(select(FetchJob).where(FetchJob.poll_id == poll_id)).all()
     for job in fetch_jobs:
         db.delete(job)
-    
-    # Delete all votes for this poll
+
     votes = db.exec(select(Vote).where(Vote.poll_id == poll_id)).all()
     for vote in votes:
         db.delete(vote)
-    
-    # Delete all poll events
+
     poll_events = db.exec(select(PollEvent).where(PollEvent.poll_id == poll_id)).all()
     for pe in poll_events:
         db.delete(pe)
-    
-    # Delete all sessions for this poll
+
     sessions = db.exec(select(ShowSession).where(ShowSession.poll_id == poll_id)).all()
     for session in sessions:
         db.delete(session)
-    
-    # Delete user preferences for this poll
+
     prefs = db.exec(select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)).all()
     for pref in prefs:
         db.delete(pref)
-    
-    # Finally delete the poll itself
+
     db.delete(poll)
     db.commit()
-    
+
     return {"success": True, "deleted_poll_id": poll_id}
 
 
@@ -1068,38 +1092,6 @@ async def admin_job_status(
     job = db.get(FetchJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    response = templates.TemplateResponse(
-        request,
-        "components/job_progress.html",
-        {"request": request, "job": job},
-    )
-    if job.status in ("complete", "failed"):
-        response.headers["HX-Trigger"] = "jobComplete"
-    return response
-
-
-@router.get("/api/admin/jobs/{job_id}/json")
-async def admin_job_status_json(
-    request: Request,
-    job_id: str,
-    db: Session = Depends(get_db),
-):
-    verify_admin(request)
-    job = db.get(FetchJob, job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    pct = int((job.completed_tasks / job.total_tasks * 100)) if job.total_tasks else 0
-    return {
-        "job_id": job.id,
-        "status": job.status,
-        "total_tasks": job.total_tasks,
-        "completed_tasks": job.completed_tasks,
-        "failed_tasks": job.failed_tasks,
-        "percent": pct,
-        "started_at": job.started_at,
-        "finished_at": job.finished_at,
-    }
 
     response = templates.TemplateResponse(
         request,

@@ -90,6 +90,8 @@ No partial fill — each segment is either amber (complete) or dim (not yet). La
 ### Participation Banner
 Between ProgressBar and content on all screens except `secure-entry`, `no-active-poll`, and `results-poll-closed`.
 
+is_editing — local React state only, set to true when "Change Vote" is clicked, reset to false on Resubmit. Never persisted to the server.
+
 | State | Color | Left content | Right actions |
 |-------|-------|--------------|---------------|
 | Not joined | Blue | `● Preview Mode` | `[Join]` |
