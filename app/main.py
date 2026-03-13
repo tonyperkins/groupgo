@@ -1,4 +1,5 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +9,9 @@ from app.config import settings
 from app.db import init_db, engine
 from app.routers import api, voter, admin
 import app.templates_config  # registers Jinja2 filters
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("app").setLevel(logging.INFO)
 
 
 @asynccontextmanager
