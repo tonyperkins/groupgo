@@ -52,10 +52,12 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
               position: "relative",
               cursor: "pointer",
               borderTop: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
+              background: isActive ? C.accentGlow : "transparent",
+              transition: "background 0.15s",
             }}
           >
             <div style={{ position: "relative", display: "inline-flex" }}>
-              <span style={{ fontSize: 18 }}>{tab.icon}</span>
+              <span style={{ fontSize: isActive ? 22 : 18, transition: "font-size 0.15s" }}>{tab.icon}</span>
               {badge !== null && (
                 <div style={{
                   position: "absolute", top: -8, right: -10,
