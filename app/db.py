@@ -46,16 +46,28 @@ def init_db():
         # Seed admin user if no users exist
         existing_users = db.exec(select(User)).all()
         if not existing_users:
+            import logging
+            admin_email = settings.ADMIN_EMAIL or "admin@groupgo.local"
+            admin_name = settings.ADMIN_NAME or "Admin"
             admin_pin = generate_member_pin(db)
             db.add(User(
                 id=1,
-                name="Admin",
-                email="admin@groupgo.local",
+                name=admin_name,
+                email=admin_email,
                 role="admin",
                 member_pin=admin_pin,
                 group_id=1,
             ))
             db.commit()
+            logging.getLogger(__name__).warning(
+                "\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "  FIRST BOOT — admin user seeded\n"
+                "  Email : %s\n"
+                "  Login : %s/admin/login\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                admin_email, settings.app_base_url,
+            )
         else:
             # Ensure every non-admin voter has a PIN
             for user in existing_users:
