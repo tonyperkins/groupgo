@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 
 from app.models import (
     User, Vote, UserPollPreference, Poll, PollEvent,
-    Showtime, Event, Group,
+    Showtime, Event, Group, UserGroup, PollGroup,
 )
 
 
@@ -276,10 +276,29 @@ def _synthesize_movie_votes(
 
 
 def _get_poll_group_users(poll_id: int, db: Session) -> list[User]:
-    """Return users eligible for this poll — filtered by poll.group_id if set."""
+    """Return users eligible for this poll.
+
+    Prefers the new poll_groups/user_groups many-to-many join tables.
+    Falls back to the legacy poll.group_id / user.group_id columns so the
+    app continues to work before the migration has been run.
+    """
+    # New path: poll_groups join table exists and has rows for this poll
+    poll_group_rows = db.exec(
+        select(PollGroup).where(PollGroup.poll_id == poll_id)
+    ).all()
+    if poll_group_rows:
+        group_ids = [pg.group_id for pg in poll_group_rows]
+        user_ids = db.exec(
+            select(UserGroup.user_id).where(UserGroup.group_id.in_(group_ids))
+        ).all()
+        if user_ids:
+            return db.exec(select(User).where(User.id.in_(user_ids))).all()
+
+    # Legacy fallback: use poll.group_id single FK
     poll = db.get(Poll, poll_id)
     if poll and poll.group_id is not None:
         return db.exec(select(User).where(User.group_id == poll.group_id)).all()
+
     return db.exec(select(User)).all()
 
 

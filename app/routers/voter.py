@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.db import get_db
 from app.middleware.identity import get_current_user_optional, get_secure_poll_id, is_secure_entry
-from app.models import Poll, PollDate, Venue, User
+from app.models import Poll, PollDate, Venue, User, UserGroup, PollGroup
 from app.services import movie_service, showtime_service, vote_service
 from app.services.security_service import ensure_user_token, normalize_member_pin, set_voter_identity_cookies
 from app.config import settings
@@ -235,8 +235,20 @@ async def secure_join_submit(
             status_code=401,
         )
 
-    # Enforce group membership
-    if poll.group_id is not None and user.group_id != poll.group_id:
+    # Enforce group membership — check new join table first, fall back to legacy FK
+    poll_groups = db.exec(select(PollGroup).where(PollGroup.poll_id == poll.id)).all()
+    if poll_groups:
+        allowed_group_ids = {pg.group_id for pg in poll_groups}
+        user_group_ids = {ug.group_id for ug in db.exec(select(UserGroup).where(UserGroup.user_id == user.id)).all()}
+        if not (allowed_group_ids & user_group_ids):
+            return templates.TemplateResponse(
+                request,
+                "voter/join_poll.html",
+                {"request": request, "poll": poll, "poll_dates": _get_poll_dates(poll.id, db), "error": "You are not in the group for this poll."},
+                status_code=403,
+            )
+    elif poll.group_id is not None and user.group_id != poll.group_id:
+        # Legacy fallback
         return templates.TemplateResponse(
             request,
             "voter/join_poll.html",
