@@ -28,6 +28,10 @@ class Settings(BaseSettings):
         return self.APP_ENV == "production"
 
     @property
+    def use_https_cookies(self) -> bool:
+        return self.APP_BASE_URL.startswith("https://")
+
+    @property
     def app_base_url(self) -> str:
         return self.APP_BASE_URL.rstrip("/")
 
