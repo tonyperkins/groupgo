@@ -237,6 +237,18 @@ export default function App() {
     navigate("/vote/vote");
   };
 
+  const handleClearSelections = async () => {
+    const confirmed = Object.entries(state.votes)
+      .filter(([k, v]) => k.startsWith("session:") && v === "can_do")
+      .map(([k]) => parseInt(k.replace("session:", ""), 10));
+    const cleared = { ...state.votes };
+    for (const id of confirmed) {
+      cleared[`session:${id}`] = "cant_do";
+    }
+    setState((prev) => ({ ...prev, votes: cleared, votedSessionCount: 0 }));
+    await Promise.all(confirmed.map((id) => votesApi.castSessionVote(id, "cant_do")));
+  };
+
   const handleCancelEdit = async () => {
     await votesApi.setComplete(true);
     setState((prev) => ({
@@ -373,6 +385,7 @@ export default function App() {
       onChangeVote={handleChangeVote}
       onOptOut={handleRequestOptOut}
       onCancelEdit={handleCancelEdit}
+      onClearSelections={handleClearSelections}
     />
   );
 

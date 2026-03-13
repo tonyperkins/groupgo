@@ -37,9 +37,10 @@ interface PopoverProps {
   onChangeVote: () => void;
   onOptOut: () => void;
   onCancelEdit: () => void;
+  onClearSelections: () => void;
 }
 
-function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCancelEdit }: PopoverProps) {
+function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCancelEdit, onClearSelections }: PopoverProps) {
   const navigate = useNavigate();
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
@@ -69,6 +70,7 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
       : chipState === "editing"
       ? [
           { label: "Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
+          { label: "Clear selections", action: () => { onClearSelections(); onClose(); } },
           { label: "Cancel edit", action: () => { onCancelEdit(); onClose(); } },
         ]
       : [];
@@ -130,6 +132,7 @@ interface StatusChipProps {
   onChangeVote: () => void;
   onOptOut: () => void;
   onCancelEdit: () => void;
+  onClearSelections: () => void;
 }
 
 export function StatusChip({
@@ -139,6 +142,7 @@ export function StatusChip({
   onChangeVote,
   onOptOut,
   onCancelEdit,
+  onClearSelections,
 }: StatusChipProps) {
   const chipState = deriveChipState(prefs, isEditing);
   const style = CHIP_STYLES[chipState];
@@ -183,6 +187,7 @@ export function StatusChip({
           onChangeVote={onChangeVote}
           onOptOut={onOptOut}
           onCancelEdit={onCancelEdit}
+          onClearSelections={onClearSelections}
         />
       )}
     </>
