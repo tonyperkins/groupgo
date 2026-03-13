@@ -780,6 +780,7 @@ async def admin_fetch_showtimes(
     poll_id = body.get("poll_id")
     theater_ids = body.get("theater_ids", [])
     dates = body.get("dates", [])
+    event_ids = body.get("event_ids", None)  # None means all movies
 
     if not poll_id or not theater_ids or not dates:
         raise HTTPException(status_code=400, detail="poll_id, theater_ids, and dates required")
@@ -788,8 +789,8 @@ async def admin_fetch_showtimes(
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
 
-    job_id = create_fetch_job(poll_id, theater_ids, dates, db)
-    asyncio.create_task(run_fetch_job(job_id, poll_id, theater_ids, dates))
+    job_id = create_fetch_job(poll_id, theater_ids, dates, db, event_ids)
+    asyncio.create_task(run_fetch_job(job_id, poll_id, theater_ids, dates, event_ids))
 
     return JSONResponse(
         {"job_id": job_id, "total_tasks": len(theater_ids) * len(dates)},

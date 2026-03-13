@@ -75,6 +75,24 @@
   {% else %}
 
   <div class="mb-4">
+    <p class="text-sm text-slate-300 mb-3 font-medium">Select movies:</p>
+    <div class="flex flex-wrap gap-2" id="movie-checkboxes">
+      <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500 transition-colors" id="movie-all-label">
+        <input type="checkbox" id="movie-all" checked
+          class="w-4 h-4 rounded accent-indigo-500" onchange="onMovieAllToggle(this)"/>
+        <span class="text-sm text-white font-medium">All movies</span>
+      </label>
+      {% for e in events %}
+      <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500 transition-colors">
+        <input type="checkbox" name="movie" value="{{ e.id }}" checked
+          class="w-4 h-4 rounded accent-indigo-500" onchange="onMovieCheckboxChange()"/>
+        <span class="text-sm text-white font-medium">{{ e.title }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mb-4">
     <p class="text-sm text-slate-300 mb-3 font-medium">Select theaters:</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="theater-checkboxes">
       {% for t in theaters %}
@@ -253,21 +271,41 @@
 <script>
 const adminShowtimesPollId = Number('{{ poll.id }}');
 
+function onMovieAllToggle(cb) {
+  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[name=movie]');
+  movieBoxes.forEach(b => b.checked = cb.checked);
+}
+
+function onMovieCheckboxChange() {
+  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[name=movie]');
+  const allChecked = Array.from(movieBoxes).every(b => b.checked);
+  const allCb = document.getElementById('movie-all');
+  if (allCb) allCb.checked = allChecked;
+}
+
 async function triggerFetch() {
   const theaterBoxes = document.querySelectorAll('#theater-checkboxes input[type=checkbox]:checked');
   const dateBoxes = document.querySelectorAll('#date-checkboxes input[type=checkbox]:checked');
+  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[name=movie]:checked');
+  const allMovies = document.getElementById('movie-all')?.checked;
+
   const theater_ids = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
   const dates = Array.from(dateBoxes).map(cb => cb.value);
+  const event_ids = allMovies ? null : Array.from(movieBoxes).map(cb => parseInt(cb.value));
 
   if (!theater_ids.length || !dates.length) {
     showToast('Select at least one theater and one date.', 'warn');
+    return;
+  }
+  if (!allMovies && !event_ids.length) {
+    showToast('Select at least one movie.', 'warn');
     return;
   }
 
   const resp = await fetch('/api/admin/showtimes/fetch', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({poll_id: adminShowtimesPollId, theater_ids, dates})
+    body: JSON.stringify({poll_id: adminShowtimesPollId, theater_ids, dates, event_ids})
   });
 
   if (!resp.ok) {
