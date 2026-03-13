@@ -2,6 +2,7 @@ export { AppHeader } from "./AppHeader";
 export { ProgressBar } from "./ProgressBar";
 export { TabBar } from "./TabBar";
 export type { TabId } from "./TabBar";
+export { SideNav } from "./SideNav";
 export { StatusChip } from "./StatusChip";
 export { VoteFooter } from "./VoteFooter";
 export { Toast } from "./Toast";

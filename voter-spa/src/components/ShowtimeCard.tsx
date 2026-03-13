@@ -100,7 +100,7 @@ export function ShowtimeCard({
               display: "flex", alignItems: "center", justifyContent: "center",
               pointerEvents: "none",
               fontSize: FS.base,
-              color: isLocked ? "#52527A" : isConfirmed ? C.green : "transparent",
+              color: isConfirmed ? (isLocked ? "#52527A" : C.green) : "transparent",
               transition: "background 0.15s, border-color 0.15s",
             }}
           >✓</div>
