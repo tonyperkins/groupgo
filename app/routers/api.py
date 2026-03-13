@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from app.db import get_db
 from app.middleware.identity import get_current_user, get_current_user_optional, get_secure_poll_id, is_secure_entry
 from app.middleware.auth import verify_admin
-from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession
+from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession, UserGroup, PollGroup
 from app.services import vote_service, movie_service, showtime_service, theater_service
 from app.services.security_service import (
     build_poll_invite_url,
@@ -1082,22 +1082,24 @@ async def admin_delete_group(request: Request, group_id: int, db: Session = Depe
     g = db.get(Group, group_id)
     if not g:
         raise HTTPException(status_code=404, detail="Group not found")
-    db.delete(g)
-    db.commit()
-    return {"deleted": group_id}
-
 
 @router.get("/api/admin/users")
 async def admin_list_users(request: Request, db: Session = Depends(get_db)):
     verify_admin(request, db)
     users = db.exec(select(User).order_by(User.id)).all()
     groups = {g.id: g.name for g in db.exec(select(Group)).all()}
+    all_ug = db.exec(select(UserGroup)).all()
+    user_group_ids: dict[int, list[int]] = {}
+    for ug in all_ug:
+        user_group_ids.setdefault(ug.user_id, []).append(ug.group_id)
     return [
         {
             "id": u.id, "name": u.name, "email": u.email,
             "is_admin": u.is_admin, "group_id": u.group_id,
             "member_pin": u.member_pin,
             "group_name": groups.get(u.group_id) if u.group_id else None,
+            "group_ids": user_group_ids.get(u.id, []),
+            "group_names": [groups[gid] for gid in user_group_ids.get(u.id, []) if gid in groups],
         }
         for u in users
     ]
@@ -1124,16 +1126,21 @@ async def admin_create_user(request: Request, db: Session = Depends(get_db)):
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
+    group_ids = body.get("group_ids") or ([body["group_id"]] if body.get("group_id") else [])
+    primary_group_id = group_ids[0] if group_ids else None
     u = User(
         name=name,
         email=body.get("email") or None,
         role=role,
-        group_id=body.get("group_id") or None,
+        group_id=primary_group_id,
         member_pin=member_pin,
     )
     db.add(u)
     db.commit()
     db.refresh(u)
+    for gid in group_ids:
+        db.add(UserGroup(user_id=u.id, group_id=int(gid)))
+    db.commit()
     return JSONResponse({"id": u.id, "name": u.name, "member_pin": u.member_pin}, status_code=201)
 
 
@@ -1148,7 +1155,19 @@ async def admin_update_user(request: Request, user_id: int, db: Session = Depend
         u.name = body["name"].strip()
     if "email" in body:
         u.email = body["email"] or None
-    if "group_id" in body:
+    if "group_ids" in body:
+        new_gids = [int(x) for x in body["group_ids"]]
+        u.group_id = new_gids[0] if new_gids else None
+        existing = db.exec(select(UserGroup).where(UserGroup.user_id == user_id)).all()
+        existing_gids = {ug.group_id for ug in existing}
+        for ug in existing:
+            if ug.group_id not in new_gids:
+                db.delete(ug)
+        for gid in new_gids:
+            if gid not in existing_gids:
+                db.add(UserGroup(user_id=user_id, group_id=gid))
+        db.commit()
+    elif "group_id" in body:
         u.group_id = body["group_id"] or None
     if "role" in body:
         role = body["role"]
@@ -1168,7 +1187,30 @@ async def admin_update_user(request: Request, user_id: int, db: Session = Depend
             u.member_pin = normalized
     db.add(u)
     db.commit()
-    return {"id": u.id, "name": u.name, "email": u.email, "group_id": u.group_id, "member_pin": u.member_pin}
+    all_ug = db.exec(select(UserGroup).where(UserGroup.user_id == user_id)).all()
+    return {"id": u.id, "name": u.name, "email": u.email, "group_id": u.group_id, "member_pin": u.member_pin, "group_ids": [ug.group_id for ug in all_ug]}
+
+
+@router.put("/api/admin/users/{user_id}/groups")
+async def admin_set_user_groups(request: Request, user_id: int, db: Session = Depends(get_db)):
+    verify_admin(request, db)
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    body = await request.json()
+    new_gids = [int(x) for x in body.get("group_ids", [])]
+    existing = db.exec(select(UserGroup).where(UserGroup.user_id == user_id)).all()
+    existing_gids = {ug.group_id for ug in existing}
+    for ug in existing:
+        if ug.group_id not in new_gids:
+            db.delete(ug)
+    for gid in new_gids:
+        if gid not in existing_gids:
+            db.add(UserGroup(user_id=user_id, group_id=gid))
+    u.group_id = new_gids[0] if new_gids else None
+    db.add(u)
+    db.commit()
+    return {"user_id": user_id, "group_ids": new_gids}
 
 
 @router.delete("/api/admin/users/{user_id}")
@@ -1191,14 +1233,15 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
     body = await request.json()
     title = body.get("title", "").strip()
     target_dates = body.get("target_dates", [])
-    group_id = body.get("group_id") or None
+    group_ids = body.get("group_ids") or ([body["group_id"]] if body.get("group_id") else [])
+    primary_group_id = group_ids[0] if group_ids else None
     if not title or not target_dates:
         raise HTTPException(status_code=400, detail="title and target_dates required")
 
     poll = Poll(
         title=title,
         status="DRAFT",
-        group_id=group_id,
+        group_id=primary_group_id,
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(poll)
@@ -1206,6 +1249,8 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
     db.refresh(poll)
     for date in target_dates:
         db.add(PollDate(poll_id=poll.id, date=date))
+    for gid in group_ids:
+        db.add(PollGroup(poll_id=poll.id, group_id=int(gid)))
     db.commit()
     return JSONResponse(
         {
@@ -1225,14 +1270,49 @@ async def admin_update_poll(request: Request, poll_id: int, db: Session = Depend
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
     body = await request.json()
-    if "group_id" in body:
+    if "group_ids" in body:
+        new_gids = [int(x) for x in body["group_ids"]]
+        poll.group_id = new_gids[0] if new_gids else None
+        existing = db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()
+        existing_gids = {pg.group_id for pg in existing}
+        for pg in existing:
+            if pg.group_id not in new_gids:
+                db.delete(pg)
+        for gid in new_gids:
+            if gid not in existing_gids:
+                db.add(PollGroup(poll_id=poll_id, group_id=gid))
+        db.commit()
+    elif "group_id" in body:
         poll.group_id = body["group_id"] or None
     if "title" in body and body["title"].strip():
         poll.title = body["title"].strip()
     poll.updated_at = datetime.now(timezone.utc).isoformat()
     db.add(poll)
     db.commit()
-    return {"id": poll.id, "title": poll.title, "group_id": poll.group_id}
+    all_pg = db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()
+    return {"id": poll.id, "title": poll.title, "group_id": poll.group_id, "group_ids": [pg.group_id for pg in all_pg]}
+
+
+@router.put("/api/admin/polls/{poll_id}/groups")
+async def admin_set_poll_groups(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    verify_admin(request, db)
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    body = await request.json()
+    new_gids = [int(x) for x in body.get("group_ids", [])]
+    existing = db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()
+    existing_gids = {pg.group_id for pg in existing}
+    for pg in existing:
+        if pg.group_id not in new_gids:
+            db.delete(pg)
+    for gid in new_gids:
+        if gid not in existing_gids:
+            db.add(PollGroup(poll_id=poll_id, group_id=gid))
+    poll.group_id = new_gids[0] if new_gids else None
+    db.add(poll)
+    db.commit()
+    return {"poll_id": poll_id, "group_ids": new_gids}
 
 
 @router.post("/api/admin/polls/{poll_id}/publish")

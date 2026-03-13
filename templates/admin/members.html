@@ -47,7 +47,7 @@
     {% for g in groups %}
     <div class="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5">
       <span class="text-sm text-white">{{ g.name }}</span>
-      <span class="text-xs text-slate-500">{{ users | selectattr('group_id', 'equalto', g.id) | list | length }} members</span>
+      <span class="text-xs text-slate-500">{{ user_group_map.values() | selectattr('__contains__', 'equalto', g.id) | list | length if user_group_map else (users | selectattr('group_id', 'equalto', g.id) | list | length) }} members</span>
       {% if g.id != 1 %}
       <button data-group-id="{{ g.id }}" data-name="{{ g.name }}"
         onclick="deleteGroupFromButton(this)"
@@ -89,8 +89,15 @@
         </td>
         <td class="px-5 py-4 text-slate-400 hidden sm:table-cell text-xs">{{ u.email or '—' }}</td>
         <td class="px-5 py-4 hidden md:table-cell">
-          {% if u.group_id and u.group_id in group_map %}
-          <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{{ group_map[u.group_id] }}</span>
+          {% set ugroups = user_group_map.get(u.id, []) %}
+          {% if ugroups %}
+          <div class="flex flex-wrap gap-1">
+            {% for gid in ugroups %}
+            {% if gid in group_map %}
+            <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{{ group_map[gid] }}</span>
+            {% endif %}
+            {% endfor %}
+          </div>
           {% else %}
           <span class="text-xs text-slate-600">—</span>
           {% endif %}
@@ -111,7 +118,7 @@
         </td>
         <td class="px-5 py-4">
           <div class="flex items-center gap-1 justify-end">
-            <button data-user-id="{{ u.id }}" data-name="{{ u.name }}" data-email="{{ u.email or '' }}" data-group-id="{{ u.group_id or '' }}" data-member-pin="{{ u.member_pin or '' }}" data-role="{{ u.role }}"
+            <button data-user-id="{{ u.id }}" data-name="{{ u.name }}" data-email="{{ u.email or '' }}" data-group-ids="{{ user_group_map.get(u.id, []) | join(',') }}" data-member-pin="{{ u.member_pin or '' }}" data-role="{{ u.role }}"
               onclick="editMemberFromButton(this)"
               class="text-slate-500 hover:text-indigo-400 transition-colors p-1.5 rounded">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -163,14 +170,16 @@
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block font-medium">Group *</label>
-        <select id="new-member-group" required
-          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
-          <option value="" disabled selected>— Select a group —</option>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Groups *</label>
+        <div id="new-member-groups" class="space-y-1.5 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2">
           {% for g in groups %}
-          <option value="{{ g.id }}">{{ g.name }}</option>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" class="new-group-checkbox accent-indigo-500 w-4 h-4" value="{{ g.id }}"/>
+            <span class="text-sm text-white">{{ g.name }}</span>
+          </label>
           {% endfor %}
-        </select>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Select one or more groups.</p>
       </div>
       <div>
         <label class="text-xs text-slate-400 mb-1 block font-medium">Role</label>
@@ -219,14 +228,16 @@
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"/>
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block font-medium">Group</label>
-        <select id="edit-member-group"
-          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
-          <option value="">— No group —</option>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Groups</label>
+        <div id="edit-member-groups" class="space-y-1.5 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2">
           {% for g in groups %}
-          <option value="{{ g.id }}">{{ g.name }}</option>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" class="edit-group-checkbox accent-indigo-500 w-4 h-4" value="{{ g.id }}"/>
+            <span class="text-sm text-white">{{ g.name }}</span>
+          </label>
           {% endfor %}
-        </select>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Select one or more groups.</p>
       </div>
       <div>
         <label class="text-xs text-slate-400 mb-1 block font-medium">Role</label>
@@ -281,7 +292,7 @@
 function openAddMember() {
   document.getElementById('new-member-name').value = '';
   document.getElementById('new-member-email').value = '';
-  document.getElementById('new-member-group').value = '';
+  document.querySelectorAll('.new-group-checkbox').forEach(cb => cb.checked = false);
   document.getElementById('new-member-role').value = 'voter';
   document.getElementById('new-member-pin').value = '';
   document.getElementById('add-member-modal').classList.remove('hidden');
@@ -291,16 +302,16 @@ function openAddMember() {
 async function addMember() {
   const name = document.getElementById('new-member-name').value.trim();
   const email = document.getElementById('new-member-email').value.trim();
-  const group_id = document.getElementById('new-member-group').value || null;
+  const group_ids = [...document.querySelectorAll('.new-group-checkbox:checked')].map(cb => parseInt(cb.value));
   const role = document.getElementById('new-member-role').value;
   const member_pin = document.getElementById('new-member-pin').value.trim();
   if (!name) { showToast('Name is required.', 'error'); return; }
   if (!email) { showToast('Email is required.', 'error'); return; }
-  if (!group_id) { showToast('Group is required.', 'error'); return; }
+  if (!group_ids.length) { showToast('At least one group is required.', 'error'); return; }
   const resp = await fetch('/api/admin/users', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name, email, group_id: group_id ? parseInt(group_id) : null, role, member_pin: member_pin || null})
+    body: JSON.stringify({name, email, group_ids, role, member_pin: member_pin || null})
   });
   if (resp.ok) { window.location.reload(); }
   else {
@@ -309,31 +320,34 @@ async function addMember() {
   }
 }
 
-function editMember(id, name, email, groupId, memberPin, role) {
+function editMember(id, name, email, groupIds, memberPin, role) {
   document.getElementById('edit-member-id').value = id;
   document.getElementById('edit-member-name').value = name;
   document.getElementById('edit-member-email').value = email;
-  document.getElementById('edit-member-group').value = groupId || '';
+  const activeIds = (groupIds || '').split(',').filter(Boolean).map(Number);
+  document.querySelectorAll('.edit-group-checkbox').forEach(cb => {
+    cb.checked = activeIds.includes(parseInt(cb.value));
+  });
   document.getElementById('edit-member-role').value = role || 'voter';
   document.getElementById('edit-member-pin').value = memberPin || '';
   document.getElementById('edit-member-modal').classList.remove('hidden');
 }
 
 function editMemberFromButton(button) {
-  editMember(Number(button.dataset.userId), button.dataset.name || '', button.dataset.email || '', button.dataset.groupId || '', button.dataset.memberPin || '', button.dataset.role || 'voter');
+  editMember(Number(button.dataset.userId), button.dataset.name || '', button.dataset.email || '', button.dataset.groupIds || '', button.dataset.memberPin || '', button.dataset.role || 'voter');
 }
 
 async function saveMember() {
   const id = document.getElementById('edit-member-id').value;
   const name = document.getElementById('edit-member-name').value.trim();
   const email = document.getElementById('edit-member-email').value.trim();
-  const group_id = document.getElementById('edit-member-group').value || null;
+  const group_ids = [...document.querySelectorAll('.edit-group-checkbox:checked')].map(cb => parseInt(cb.value));
   const role = document.getElementById('edit-member-role').value;
   const member_pin = document.getElementById('edit-member-pin').value.trim();
   const resp = await fetch(`/api/admin/users/${id}`, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name, email: email || null, group_id: group_id ? parseInt(group_id) : null, role, member_pin: member_pin})
+    body: JSON.stringify({name, email: email || null, group_ids, role, member_pin: member_pin})
   });
   if (resp.ok) { window.location.reload(); }
   else { const d = await resp.json(); showToast(d.detail || 'Error saving member.', 'error'); }
