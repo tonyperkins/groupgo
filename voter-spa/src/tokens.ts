@@ -21,3 +21,18 @@ export const C = {
 } as const;
 
 export const PHONE = { width: 390, height: 844 };
+
+/**
+ * Font scale — mobile-first, based on iOS HIG & Material Design guidelines.
+ * Minimum readable body text on iPhone 15 / Pixel 7 = 16px.
+ * Adjust FS.base to rescale the whole app.
+ */
+export const FS = {
+  xs:    11,   // badge counts, tiny labels
+  sm:    13,   // secondary meta, chips, captions
+  base:  16,   // body text, synopsis, detail rows — iOS HIG minimum
+  md:    17,   // primary labels, filter pills, button text
+  lg:    19,   // card titles, section headings
+  xl:    22,   // movie title in card
+  h1:    26,   // winner name, large display
+} as const;

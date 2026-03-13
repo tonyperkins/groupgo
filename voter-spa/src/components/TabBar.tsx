@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { C } from "../tokens";
+import { C, FS } from "../tokens";
 
 export type TabId = "discover" | "vote" | "results";
 
@@ -57,7 +57,7 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
             }}
           >
             <div style={{ position: "relative", display: "inline-flex" }}>
-              <span style={{ fontSize: isActive ? 26 : 22, transition: "font-size 0.15s" }}>{tab.icon}</span>
+              <span style={{ fontSize: isActive ? 28 : 24, transition: "font-size 0.15s" }}>{tab.icon}</span>
               {badge !== null && (
                 <div style={{
                   position: "absolute", top: -8, right: -10,
@@ -76,7 +76,7 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
               )}
             </div>
             <span style={{
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
+              fontSize: FS.sm, fontWeight: 700, letterSpacing: "0.04em",
               color: isActive ? C.accent : C.textMuted,
             }}>{tab.label.toUpperCase()}</span>
           </div>

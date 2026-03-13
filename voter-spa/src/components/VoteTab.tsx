@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C } from "../tokens";
+import { C, FS } from "../tokens";
 import { VoterSession, VoterEvent } from "../api/voter";
 import { ShowtimeCard, SessionVote } from "./ShowtimeCard";
 
@@ -44,10 +44,10 @@ function FlexibleToggle({ isFlexible, disabled, onToggle }: FlexibleToggleProps)
       opacity: disabled ? 0.4 : 1,
     }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 3 }}>
+        <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, marginBottom: 3 }}>
           I'm In — Whatever You Choose!
         </div>
-        <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.4 }}>
+        <div style={{ fontSize: FS.base, color: C.textMuted, lineHeight: 1.4 }}>
           Skip showtime voting and count yourself as available for every option.
         </div>
       </div>
@@ -92,8 +92,8 @@ function FilterPill({ label, active, onClear, onClick }: FilterPillProps) {
         display: "inline-flex", alignItems: "center", gap: 4,
         background: active ? C.accentDim : C.surface,
         border: `1px solid ${active ? C.accent : C.border}`,
-        borderRadius: 99, padding: "5px 10px",
-        fontSize: 11, fontWeight: 600,
+        borderRadius: 99, padding: "7px 14px",
+        fontSize: FS.sm, fontWeight: 600,
         color: active ? C.accent : C.textMuted,
         cursor: "pointer", flexShrink: 0,
       }}
@@ -161,7 +161,7 @@ function PickerSheet({ title, options, selected, onSelect, onClose }: PickerShee
           padding: "16px 20px 12px",
           borderBottom: `1px solid ${C.border}`,
         }}>
-          <div style={{ flex: 1, fontSize: 14, fontWeight: 800, color: C.text }}>{title}</div>
+          <div style={{ flex: 1, fontSize: FS.md, fontWeight: 800, color: C.text }}>{title}</div>
           <div
             onClick={onClose}
             style={{
@@ -195,7 +195,7 @@ function PickerSheet({ title, options, selected, onSelect, onClose }: PickerShee
             >
               <span style={{
                 flex: 1,
-                fontSize: 13,
+                fontSize: FS.base,
                 fontWeight: isActive ? 700 : 400,
                 color: isActive ? C.accent : C.text,
               }}>{row.label}</span>
@@ -254,17 +254,17 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
           />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, lineHeight: 1.3 }}>
+          <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, lineHeight: 1.3 }}>
             {event.title}
           </div>
           {event.year && (
-            <div style={{ fontSize: 11, color: C.textMuted }}>{event.year}</div>
+            <div style={{ fontSize: FS.sm, color: C.textMuted }}>{event.year}</div>
           )}
           {!event.year && event.venue_name && (
-            <div style={{ fontSize: 11, color: C.textMuted }}>📍 {event.venue_name}</div>
+            <div style={{ fontSize: FS.sm, color: C.textMuted }}>📍 {event.venue_name}</div>
           )}
           {collapsed && (
-            <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+            <div style={{ fontSize: FS.sm, color: C.textMuted, marginTop: 2 }}>
               {sessions.length} option{sessions.length !== 1 ? "s" : ""} · tap to vote
             </div>
           )}
@@ -372,18 +372,18 @@ export function VoteTab({
         }}>
           <span style={{ fontSize: 18, flexShrink: 0 }}>👋</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 2 }}>
+            <div style={{ fontSize: FS.md, fontWeight: 800, color: C.accent, marginBottom: 2 }}>
               You're not in the vote yet
             </div>
-            <div style={{ fontSize: 11, color: C.textMuted }}>
+            <div style={{ fontSize: FS.base, color: C.textMuted }}>
               Join to influence these standings.
             </div>
           </div>
           <div
             onClick={onJoin}
             style={{
-              background: C.accent, color: "#000", fontSize: 12, fontWeight: 700,
-              padding: "6px 14px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
+              background: C.accent, color: "#000", fontSize: FS.base, fontWeight: 700,
+              padding: "10px 18px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
             }}
           >Join</div>
         </div>
@@ -400,10 +400,10 @@ export function VoteTab({
         }}>
           <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔒</span>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#9A9AAE", lineHeight: 1.4 }}>
+            <div style={{ fontSize: FS.base, fontWeight: 700, color: "#9A9AAE", lineHeight: 1.4 }}>
               Your vote is locked in
             </div>
-            <div style={{ fontSize: 11, color: "#5A5A6E", marginTop: 3, lineHeight: 1.4 }}>
+            <div style={{ fontSize: FS.sm, color: "#5A5A6E", marginTop: 3, lineHeight: 1.4 }}>
               Tap ✓ DONE above to change your selections or opt out.
             </div>
           </div>
@@ -416,11 +416,11 @@ export function VoteTab({
         borderBottom: `1px solid ${C.border}`,
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
+        <span style={{ fontSize: FS.base, color: C.textMuted, flex: 1 }}>
           {isFlexible ? "Flexible mode — all options" : "Mark what works for you"}
         </span>
         {votedSessionCount > 0 && !isFlexible && (
-          <span style={{ fontSize: 11, color: C.green, fontWeight: 700 }}>
+          <span style={{ fontSize: FS.base, color: C.green, fontWeight: 700 }}>
             {votedSessionCount} confirmed
           </span>
         )}
@@ -451,7 +451,7 @@ export function VoteTab({
             <div
               onClick={() => { setEventFilter(null); setLocationFilter(null); setDateFilter(null); }}
               style={{
-                fontSize: 11, color: C.textMuted, padding: "5px 8px",
+                fontSize: FS.sm, color: C.textMuted, padding: "7px 10px",
                 cursor: "pointer", alignSelf: "center",
               }}
             >Clear all</div>
@@ -469,7 +469,7 @@ export function VoteTab({
           display: "flex", alignItems: "center", gap: 8,
         }}>
           <span style={{ fontSize: 14 }}>✏️</span>
-          <span style={{ fontSize: 12, color: "#E8A020", fontWeight: 700 }}>
+          <span style={{ fontSize: FS.base, color: "#E8A020", fontWeight: 700 }}>
             Editing — hit Resubmit when done
           </span>
         </div>

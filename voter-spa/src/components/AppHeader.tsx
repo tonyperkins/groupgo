@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { C } from "../tokens";
+import { C, FS } from "../tokens";
 
 interface AppHeaderProps {
   userName: string;
@@ -33,11 +33,11 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 17, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif" }}>GroupGo</span>
-            <span style={{ fontSize: 10, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em" }}>VOTE</span>
+            <span style={{ fontSize: FS.lg, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif" }}>GroupGo</span>
+            <span style={{ fontSize: FS.xs, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em" }}>VOTE</span>
           </div>
           {pollTitle && (
-            <div style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>{pollTitle}</div>
+            <div style={{ fontSize: FS.sm, color: C.textMuted, marginTop: 1 }}>{pollTitle}</div>
           )}
           {countdown && (
             <div style={{ marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
@@ -52,7 +52,7 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
         </div>
         {statusChip}
         <div style={{
-          fontSize: 13, fontWeight: 700, color: C.textMuted,
+          fontSize: FS.sm, fontWeight: 700, color: C.textMuted,
           background: C.card, border: `1px solid ${C.border}`,
           borderRadius: 8, padding: "5px 12px",
           flexShrink: 0,
