@@ -1244,10 +1244,6 @@ async def admin_publish_poll(
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
 
-    other_open = db.exec(select(Poll).where(Poll.status == "OPEN")).first()
-    if other_open and other_open.id != poll_id:
-        raise HTTPException(status_code=409, detail="Another poll is already OPEN")
-
     events = movie_service.get_poll_events(poll_id, db)
     sessions = showtime_service.get_sessions_for_poll(poll_id, db)
     if not events or not sessions:

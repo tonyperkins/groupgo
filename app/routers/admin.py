@@ -91,7 +91,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     polls = db.exec(
         select(Poll).order_by(Poll.id.desc())
     ).all()
-    active_poll = db.exec(select(Poll).where(Poll.status == "OPEN")).first()
+    open_polls = db.exec(select(Poll).where(Poll.status == "OPEN")).all()
     draft_poll = db.exec(select(Poll).where(Poll.status == "DRAFT")).first()
 
     poll_summaries = []
@@ -112,7 +112,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
         {
             "request": request,
             "polls": poll_summaries,
-            "active_poll": active_poll,
+            "open_poll_count": len(open_polls),
             "draft_poll": draft_poll,
         },
     )
