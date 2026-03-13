@@ -120,4 +120,6 @@ export const voterApi = {
 
   getEventReviews: (eventId: number) =>
     api.get<{ reviews: EventReview[] }>(`/api/voter/events/${eventId}/reviews`),
+
+  logout: () => api.post<{ ok: boolean }>("/api/voter/logout", {}),
 };

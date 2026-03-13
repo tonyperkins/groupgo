@@ -359,6 +359,18 @@ async def voter_logistics(
     return _serve_spa()
 
 
+@router.post("/api/voter/logout")
+async def voter_logout(request: Request):
+    from app.services.security_service import TOKEN_COOKIE_NAME, POLL_SESSION_COOKIE_NAME
+    from fastapi.responses import JSONResponse
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(TOKEN_COOKIE_NAME, samesite="lax")
+    response.delete_cookie(POLL_SESSION_COOKIE_NAME, samesite="lax")
+    response.delete_cookie("gg_browse_poll_id", samesite="lax")
+    response.delete_cookie("gg_preview_poll_id", samesite="lax")
+    return response
+
+
 @router.get("/results", response_class=HTMLResponse)
 async def voter_results(request: Request, db: Session = Depends(get_db)):
     user = get_current_user_optional(request, db)

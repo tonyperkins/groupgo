@@ -1,5 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { C, FS } from "../tokens";
+import { voterApi } from "../api/voter";
 
 interface AppHeaderProps {
   userName: string;
@@ -22,6 +23,13 @@ function formatCountdown(closesAt: string | null): { label: string; urgent: bool
 
 export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: AppHeaderProps) {
   const countdown = formatCountdown(votingClosesAt);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleLogout = async () => {
+    if (!confirming) { setConfirming(true); return; }
+    try { await voterApi.logout(); } catch { /* best effort */ }
+    window.location.href = "/";
+  };
 
   return (
     <div style={{
@@ -30,7 +38,7 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
       background: C.surface,
       flexShrink: 0,
     }}>
-      {/* Row 1: branding + status chip + username */}
+      {/* Row 1: branding + status chip + username + logout */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
           <span style={{ fontSize: FS.lg, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif", whiteSpace: "nowrap" }}>GroupGo</span>
@@ -44,13 +52,40 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
           )}
         </div>
         {statusChip}
-        <div style={{
-          fontSize: FS.sm, fontWeight: 700, color: C.textMuted,
-          background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 8, padding: "5px 10px",
-          flexShrink: 0, whiteSpace: "nowrap",
-          maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis",
-        }}>{userName}</div>
+        {/* User name chip + exit button */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <div style={{
+            fontSize: FS.sm, fontWeight: 700, color: C.textMuted,
+            background: C.card, border: `1px solid ${C.border}`,
+            borderRadius: 8, padding: "5px 10px",
+            whiteSpace: "nowrap",
+            maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis",
+          }}>{userName}</div>
+          <button
+            onClick={handleLogout}
+            onBlur={() => setConfirming(false)}
+            title={confirming ? "Tap again to confirm sign out" : "Sign out"}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: confirming ? "#7f1d1d" : C.card,
+              border: `1px solid ${confirming ? "#ef4444" : C.border}`,
+              borderRadius: 8, padding: "5px 8px",
+              cursor: "pointer", flexShrink: 0,
+              transition: "background 0.15s, border-color 0.15s",
+              color: confirming ? "#fca5a5" : C.textDim,
+            }}
+          >
+            {confirming ? (
+              <span style={{ fontSize: FS.xs, fontWeight: 700, whiteSpace: "nowrap" }}>Sign out?</span>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
       {/* Row 2: poll title */}
       {pollTitle && (
