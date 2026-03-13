@@ -288,18 +288,32 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
         const dates = Array.from(byDate.keys()).sort();
         return (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {dates.map((date) => (
+            {dates.map((date) => {
+              const dateSessions = byDate.get(date) ?? [];
+              const selectedCount = dateSessions.filter(
+                (s) => votes[`session:${s.id}`] === "can_do"
+              ).length;
+              return (
               <div key={date}>
                 <div style={{
-                  padding: "6px 12px 4px",
-                  fontSize: FS.sm, fontWeight: 700,
-                  color: C.textDim,
-                  letterSpacing: "0.04em",
+                  padding: "7px 12px 6px",
                   background: C.surface,
                   borderTop: `1px solid ${C.border}`,
-                  textTransform: "uppercase",
+                  display: "flex", alignItems: "center", gap: 8,
                 }}>
-                  {formatDate(date)}
+                  <span style={{
+                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                    background: selectedCount > 0 ? C.accent : C.textDim,
+                    display: "inline-block",
+                  }} />
+                  <span style={{
+                    flex: 1,
+                    fontSize: FS.sm, fontWeight: 700, color: C.text,
+                  }}>{formatDate(date)}</span>
+                  <span style={{
+                    fontSize: FS.xs, color: C.textDim, fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}>{selectedCount} of {dateSessions.length} selected</span>
                 </div>
                 {(byDate.get(date) ?? []).map((session) => {
                   const rawVote = votes[`session:${session.id}`] as SessionVote | undefined;
@@ -318,7 +332,7 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
                   );
                 })}
               </div>
-            ))}
+            );})}
           </div>
         );
       })()}
