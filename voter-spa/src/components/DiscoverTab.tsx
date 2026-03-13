@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C } from "../tokens";
-import { VoterEvent, EventReview, voterApi } from "../api/voter";
+import { VoterEvent, VoterSession, EventReview, voterApi } from "../api/voter";
 
 interface DiscoverTabProps {
   events: VoterEvent[];
+  sessions?: VoterSession[];
   isParticipating: boolean;
   hasCompletedVoting: boolean;
+  joinUrl?: string | null;
 }
 
 // ─── Event Info Panel ─────────────────────────────────────────────────────────
@@ -26,11 +28,36 @@ function EventTypebadge({ type }: { type: string }) {
   );
 }
 
-interface EventCardProps {
-  event: VoterEvent;
+function fmt12h(time24: string): string {
+  const [hStr, mStr] = time24.split(":");
+  const h = parseInt(hStr, 10);
+  const m = mStr ?? "00";
+  return `${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}`;
 }
 
-function EventCard({ event }: EventCardProps) {
+function fmtDate(dateStr: string): string {
+  try {
+    return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric",
+    });
+  } catch { return dateStr; }
+}
+
+interface EventCardProps {
+  event: VoterEvent;
+  sessions?: VoterSession[];
+  joinUrl?: string | null;
+}
+
+function EventCard({ event, sessions, joinUrl }: EventCardProps) {
+  const eventSessions = (sessions ?? []).filter(s => s.event_id === event.id);
+
+  // Group sessions by date
+  const byDate = eventSessions.reduce<Record<string, VoterSession[]>>((acc, s) => {
+    (acc[s.session_date] = acc[s.session_date] ?? []).push(s);
+    return acc;
+  }, {});
+  const sortedDates = Object.keys(byDate).sort();
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [reviews, setReviews] = useState<EventReview[] | null>(null);
@@ -155,6 +182,64 @@ function EventCard({ event }: EventCardProps) {
           >More Info →</a>
         )}
 
+        {/* Showtimes panel — shown in browse mode when sessions are available */}
+        {eventSessions.length > 0 && (
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 10, overflow: "hidden",
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: "0.1em",
+              color: C.textMuted, padding: "8px 12px 6px",
+              borderBottom: `1px solid ${C.border}`,
+            }}>SHOWTIMES</div>
+            {sortedDates.map(date => (
+              <div key={date} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 6 }}>
+                  {fmtDate(date)}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {byDate[date].map(s => (
+                    <div key={s.id} style={{
+                      display: "flex", alignItems: "center",
+                      gap: 8, flexWrap: "wrap",
+                    }}>
+                      <span style={{
+                        fontSize: 12, fontWeight: 700, color: C.accent,
+                        minWidth: 64,
+                      }}>{fmt12h(s.session_time)}</span>
+                      <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
+                        {s.theater_name}
+                      </span>
+                      {s.format !== "Standard" && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                          color: C.accent, background: C.accentDim,
+                          borderRadius: 4, padding: "1px 5px",
+                        }}>{s.format}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {joinUrl && (
+              <a
+                href={joinUrl}
+                style={{
+                  display: "block", textAlign: "center",
+                  padding: "10px 12px",
+                  fontSize: 12, fontWeight: 700,
+                  color: C.accent, textDecoration: "none",
+                  background: C.accentGlow,
+                }}
+              >
+                🎟️ Enter PIN to pick your showtimes →
+              </a>
+            )}
+          </div>
+        )}
+
         {/* Trailer + Reviews buttons (movies) */}
         {isMovie && (
           <div style={{ display: "flex", gap: 8 }}>
@@ -226,8 +311,9 @@ function EventCard({ event }: EventCardProps) {
 
 // ─── DiscoverTab ──────────────────────────────────────────────────────────────
 
-export function DiscoverTab({ events, isParticipating: _isParticipating, hasCompletedVoting: _hasCompletedVoting }: DiscoverTabProps) {
+export function DiscoverTab({ events, sessions, isParticipating: _isParticipating, hasCompletedVoting: _hasCompletedVoting, joinUrl }: DiscoverTabProps) {
   const navigate = useNavigate();
+  const isBrowse = !!joinUrl;
 
   if (events.length === 0) {
     return (
@@ -246,18 +332,19 @@ export function DiscoverTab({ events, isParticipating: _isParticipating, hasComp
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
-          {events.length} event{events.length !== 1 ? "s" : ""} · browse, then vote on the Vote tab
+          {events.length} event{events.length !== 1 ? "s" : ""}
+          {isBrowse ? " · browse showtimes, then join to vote" : " · browse, then vote on the Vote tab"}
         </span>
-        <div
-          onClick={() => navigate("/vote/vote")}
-          style={{
-            fontSize: 11, fontWeight: 700, color: C.accent, cursor: "pointer",
-          }}
-        >Vote →</div>
+        {!isBrowse && (
+          <div
+            onClick={() => navigate("/vote/vote")}
+            style={{ fontSize: 11, fontWeight: 700, color: C.accent, cursor: "pointer" }}
+          >Vote →</div>
+        )}
       </div>
 
       {events.map((event) => (
-        <EventCard key={event.id} event={event} />
+        <EventCard key={event.id} event={event} sessions={sessions} joinUrl={joinUrl} />
       ))}
     </div>
   );
