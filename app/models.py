@@ -68,6 +68,24 @@ class Poll(SQLModel, table=True):
     updated_at: str = Field(default_factory=_now)
 
 
+class UserGroup(SQLModel, table=True):
+    """Many-to-many: a user can belong to multiple groups."""
+    __tablename__ = "user_groups"
+
+    user_id: int = Field(foreign_key="users.id", primary_key=True)
+    group_id: int = Field(foreign_key="groups.id", primary_key=True)
+    added_at: str = Field(default_factory=_now)
+
+
+class PollGroup(SQLModel, table=True):
+    """Many-to-many: a poll can be scoped to multiple groups."""
+    __tablename__ = "poll_groups"
+
+    poll_id: int = Field(foreign_key="polls.id", primary_key=True)
+    group_id: int = Field(foreign_key="groups.id", primary_key=True)
+    added_at: str = Field(default_factory=_now)
+
+
 class PollDate(SQLModel, table=True):
     """Replaces Poll.target_dates JSON string — queryable poll dates."""
     __tablename__ = "poll_dates"
