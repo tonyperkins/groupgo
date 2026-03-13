@@ -38,11 +38,14 @@ def _get_poll_for_request(request: Request, statuses: list[str], db: Session) ->
 
 
 def _identity_redirect(request: Request, db: Session) -> RedirectResponse:
+    from app.config import settings
     secure_poll_id = get_secure_poll_id(request)
     if secure_poll_id is not None:
         secure_poll = db.get(Poll, secure_poll_id)
         if secure_poll and secure_poll.access_uuid:
             return RedirectResponse(f"/join/{secure_poll.access_uuid}", status_code=302)
+    if settings.is_production:
+        return RedirectResponse("/no-poll", status_code=302)
     return RedirectResponse("/identify", status_code=302)
 
 
@@ -79,6 +82,24 @@ async def voter_home(request: Request, db: Session = Depends(get_db)):
         )
 
     return RedirectResponse("/vote/movies", status_code=302)
+
+
+@router.get("/no-poll", response_class=HTMLResponse)
+async def no_poll_page(request: Request, db: Session = Depends(get_db)):
+    from app.config import settings
+    user = get_current_user_optional(request, db)
+    closed_poll = _get_poll_for_request(request, ["CLOSED"], db)
+    return templates.TemplateResponse(
+        request,
+        "voter/no_poll.html",
+        {
+            "request": request,
+            "user": user,
+            "closed_poll": closed_poll,
+            "secure_entry": is_secure_entry(request),
+            "invite_only": settings.is_production,
+        },
+    )
 
 
 @router.get("/join/{access_uuid}", response_class=HTMLResponse)
@@ -195,6 +216,10 @@ async def secure_join_submit(
 
 @router.get("/identify", response_class=HTMLResponse)
 async def identify_page(request: Request, db: Session = Depends(get_db)):
+    from app.config import settings
+    if settings.is_production:
+        return RedirectResponse("/no-poll", status_code=302)
+
     secure_redirect = _redirect_if_secure_session_exists(request, db)
     if secure_redirect:
         return secure_redirect
