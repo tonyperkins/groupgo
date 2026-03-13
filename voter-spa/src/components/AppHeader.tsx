@@ -33,11 +33,11 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 15, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif" }}>GroupGo</span>
-            <span style={{ fontSize: 9, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 5px", fontWeight: 700, letterSpacing: "0.05em" }}>VOTE</span>
+            <span style={{ fontSize: 17, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif" }}>GroupGo</span>
+            <span style={{ fontSize: 10, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em" }}>VOTE</span>
           </div>
           {pollTitle && (
-            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 1 }}>{pollTitle}</div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>{pollTitle}</div>
           )}
           {countdown && (
             <div style={{ marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
@@ -52,9 +52,9 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
         </div>
         {statusChip}
         <div style={{
-          fontSize: 12, fontWeight: 700, color: C.textMuted,
+          fontSize: 13, fontWeight: 700, color: C.textMuted,
           background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 8, padding: "4px 10px",
+          borderRadius: 8, padding: "5px 12px",
           flexShrink: 0,
         }}>{userName}</div>
       </div>
