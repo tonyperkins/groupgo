@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { C } from "../tokens";
+import { C, FS } from "../tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,8 +104,8 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
             key={i}
             onClick={item.action}
             style={{
-              padding: "10px 16px",
-              fontSize: 13,
+              padding: "14px 18px",
+              fontSize: FS.base,
               fontWeight: 700,
               color: C.text,
               cursor: "pointer",
@@ -162,8 +162,8 @@ export function StatusChip({
           background: style.bg,
           border: `1px solid ${style.border}`,
           borderRadius: 8,
-          padding: "5px 10px",
-          fontSize: 11,
+          padding: "7px 13px",
+          fontSize: FS.sm,
           fontWeight: 800,
           color: style.color,
           cursor: "pointer",

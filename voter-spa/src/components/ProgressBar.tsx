@@ -1,4 +1,4 @@
-import { C } from "../tokens";
+import { C, FS } from "../tokens";
 
 const SEGMENTS = ["Joined", "Voted", "Submitted"] as const;
 
@@ -23,7 +23,7 @@ export function ProgressBar({ step }: ProgressBarProps) {
         {SEGMENTS.map((label, i) => (
           <div key={i} style={{
             flex: 1, textAlign: "center",
-            fontSize: 8, fontWeight: i < step ? 700 : 400,
+            fontSize: FS.xs, fontWeight: i < step ? 700 : 400,
             color: i < step ? C.accent : C.textDim,
             letterSpacing: "0.03em",
           }}>{label.toUpperCase()}</div>
