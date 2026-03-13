@@ -135,6 +135,8 @@ async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get
         return RedirectResponse("/admin", status_code=302)
 
     events = movie_service.get_poll_events(poll_id, db)
+    sessions = showtime_service.get_sessions_for_poll(poll_id, db)
+    event_ids_with_sessions = {s.event_id for s in sessions}
 
     return templates.TemplateResponse(
         request,
@@ -144,6 +146,7 @@ async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get
             "poll": poll,
             "events": events,
             "poster_url": movie_service.poster_url,
+            "event_ids_with_sessions": event_ids_with_sessions,
         },
     )
 
