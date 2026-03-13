@@ -113,7 +113,7 @@ def set_voter_identity_cookies(response: Response, *, user_token: str, poll_id: 
         user_token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=settings.is_production,
+        secure=settings.use_https_cookies,
         samesite="lax",
     )
     if poll_id is not None and user_id is not None:
@@ -122,7 +122,7 @@ def set_voter_identity_cookies(response: Response, *, user_token: str, poll_id: 
             create_poll_session_token(poll_id=poll_id, user_id=user_id),
             max_age=COOKIE_MAX_AGE,
             httponly=True,
-            secure=settings.is_production,
+            secure=settings.use_https_cookies,
             samesite="lax",
         )
     else:
@@ -130,4 +130,4 @@ def set_voter_identity_cookies(response: Response, *, user_token: str, poll_id: 
 
 
 def clear_poll_session_cookie(response: Response) -> None:
-    response.delete_cookie(POLL_SESSION_COOKIE_NAME, secure=settings.is_production, samesite="lax")
+    response.delete_cookie(POLL_SESSION_COOKIE_NAME, secure=settings.use_https_cookies, samesite="lax")
