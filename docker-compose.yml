@@ -9,6 +9,8 @@ services:
       - "8001:8000"
     env_file:
       - .env
+    environment:
+      DATABASE_URL: sqlite:////data/groupgo.db
     volumes:
       - db_data:/data
     healthcheck:
