@@ -119,6 +119,7 @@ function progressStep(state: VoterState): number {
 export default function App() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const isDesktop = useIsDesktop();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<VoterState>({
@@ -322,7 +323,6 @@ export default function App() {
 
   const prefs = meData.preferences;
   const step = progressStep(state);
-  const isDesktop = useIsDesktop();
 
   // ── Shared route content ────────────────────────────────────────────────────
 
