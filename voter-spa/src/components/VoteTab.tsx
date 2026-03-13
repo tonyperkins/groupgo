@@ -248,8 +248,8 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
             src={thumbnailUrl}
             alt={event.title}
             style={{
-              width: 36, height: 52, objectFit: "cover",
-              borderRadius: 6, flexShrink: 0,
+              width: 44, height: 64, objectFit: "cover",
+              borderRadius: 8, flexShrink: 0,
             }}
           />
         )}
@@ -428,7 +428,7 @@ export function VoteTab({
 
       {/* ── Filter bar ───────────────────────────────────────────── */}
       {!isFlexible && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2, scrollbarWidth: "none" }}>
           <FilterPill
             label={eventFilter ? `Event: ${eventFilter}` : "Event"}
             active={!!eventFilter}
