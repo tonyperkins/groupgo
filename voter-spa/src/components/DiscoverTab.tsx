@@ -21,9 +21,9 @@ function EventTypebadge({ type }: { type: string }) {
     : `📍 ${type.charAt(0).toUpperCase() + type.slice(1)}`;
   return (
     <span style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+      fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
       color: C.accent, background: C.accentDim,
-      borderRadius: 6, padding: "2px 7px",
+      borderRadius: 6, padding: "3px 8px",
     }}>{label}</span>
   );
 }
@@ -109,18 +109,18 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
         {/* Title + badge */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
               {event.title}
             </div>
             {isMovie && event.year && (
-              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+              <div style={{ fontSize: 14, color: C.textMuted, marginTop: 2 }}>
                 {event.year}
                 {event.runtime_mins && ` · ${Math.floor(event.runtime_mins / 60)}h ${event.runtime_mins % 60}m`}
                 {event.rating && ` · ${event.rating}`}
               </div>
             )}
             {!isMovie && event.venue_name && (
-              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+              <div style={{ fontSize: 14, color: C.textMuted, marginTop: 2 }}>
                 📍 {event.venue_name}
               </div>
             )}
@@ -133,14 +133,14 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
             {event.tmdb_rating != null && event.tmdb_rating > 0 && (
               <span style={{
-                fontSize: 12, fontWeight: 700, color: C.accent,
-                background: C.accentDim, borderRadius: 6, padding: "2px 8px",
+                fontSize: 13, fontWeight: 700, color: C.accent,
+                background: C.accentDim, borderRadius: 6, padding: "3px 9px",
               }}>⭐ {event.tmdb_rating.toFixed(1)}</span>
             )}
             {event.genres.slice(0, 4).map((g) => (
               <span key={g} style={{
-                fontSize: 10, color: C.textMuted, border: `1px solid ${C.border}`,
-                borderRadius: 99, padding: "2px 8px",
+                fontSize: 12, color: C.textMuted, border: `1px solid ${C.border}`,
+                borderRadius: 99, padding: "3px 9px",
               }}>{g}</span>
             ))}
           </div>
@@ -150,7 +150,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
         {synopsis && (
           <div>
             <div style={{
-              fontSize: 12, color: C.textMuted, lineHeight: 1.6,
+              fontSize: 14, color: C.textMuted, lineHeight: 1.6,
               overflow: "hidden",
               WebkitLineClamp: synopsisExpanded ? undefined : 3,
               display: synopsisExpanded ? "block" : "-webkit-box",
@@ -161,7 +161,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
             {synopsisShort && (
               <div
                 onClick={() => setSynopsisExpanded(!synopsisExpanded)}
-                style={{ fontSize: 11, color: C.accent, marginTop: 4, cursor: "pointer", fontWeight: 600 }}
+                style={{ fontSize: 13, color: C.accent, marginTop: 4, cursor: "pointer", fontWeight: 600 }}
               >
                 {synopsisExpanded ? "Show less" : "Read more"}
               </div>
@@ -177,7 +177,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
             rel="noopener noreferrer"
             style={{
               display: "inline-flex", alignItems: "center", gap: 4,
-              fontSize: 12, color: C.accent, fontWeight: 600,
+              fontSize: 16, color: C.accent, fontWeight: 600,
               textDecoration: "none",
             }}
           >More Info →</a>
@@ -192,8 +192,8 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
                 style={{
                   flex: 1, background: showTrailer ? C.accentDim : C.surface,
                   border: `1px solid ${showTrailer ? C.accent : C.border}`,
-                  borderRadius: 8, padding: "7px 12px",
-                  fontSize: 12, fontWeight: 700, color: showTrailer ? C.accent : C.text,
+                  borderRadius: 8, padding: "9px 12px",
+                  fontSize: 16, fontWeight: 700, color: showTrailer ? C.accent : C.text,
                   textAlign: "center", cursor: "pointer",
                 }}
               >{showTrailer ? "▶ Hide Trailer" : "▶ Watch Trailer"}</div>
@@ -203,8 +203,8 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
               style={{
                 flex: 1, background: reviewsOpen ? C.accentDim : C.surface,
                 border: `1px solid ${reviewsOpen ? C.accent : C.border}`,
-                borderRadius: 8, padding: "7px 12px",
-                fontSize: 12, fontWeight: 700, color: reviewsOpen ? C.accent : C.text,
+                borderRadius: 8, padding: "9px 12px",
+                fontSize: 14, fontWeight: 700, color: reviewsOpen ? C.accent : C.text,
                 textAlign: "center", cursor: "pointer",
               }}
             >{reviewsLoading ? "…" : reviewsOpen ? "Hide Reviews" : "Reviews"}</div>
@@ -242,9 +242,9 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
               }}
             >
               <span style={{
-                fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted,
+                fontSize: 14, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted,
               }}>SHOWTIMES</span>
-              <span style={{ fontSize: 10, color: C.textDim }}>
+              <span style={{ fontSize: 12, color: C.textDim }}>
                 {eventSessions.length} time{eventSessions.length !== 1 ? "s" : ""} &nbsp;{showtimesOpen ? "▴" : "▾"}
               </span>
             </div>
@@ -254,23 +254,23 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
               <>
                 {sortedDates.map(date => (
                   <div key={date} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 6 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>
                       {fmtDate(date)}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       {byDate[date].map(s => (
                         <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, minWidth: 64 }}>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: C.accent, minWidth: 72 }}>
                             {fmt12h(s.session_time)}
                           </span>
-                          <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
+                          <span style={{ fontSize: 14, color: C.textMuted, flex: 1 }}>
                             {s.theater_name}
                           </span>
                           {s.format !== "Standard" && (
                             <span style={{
-                              fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                              fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
                               color: C.accent, background: C.accentDim,
-                              borderRadius: 4, padding: "1px 5px",
+                              borderRadius: 4, padding: "2px 6px",
                             }}>{s.format}</span>
                           )}
                         </div>
@@ -283,8 +283,8 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
                     href={joinUrl}
                     style={{
                       display: "block", textAlign: "center",
-                      padding: "10px 12px",
-                      fontSize: 12, fontWeight: 700,
+                      padding: "11px 12px",
+                      fontSize: 16, fontWeight: 700,
                       color: C.accent, textDecoration: "none",
                       background: C.accentGlow,
                     }}
@@ -305,18 +305,18 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
                 background: C.surface, borderRadius: 10, padding: "10px 12px",
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{r.author}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.author}</span>
                   {r.rating != null && (
-                    <span style={{ fontSize: 11, color: C.accent }}>⭐ {r.rating}/10</span>
+                    <span style={{ fontSize: 13, color: C.accent }}>⭐ {r.rating}/10</span>
                   )}
                 </div>
-                <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.5 }}>{r.excerpt}</div>
+                <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.5 }}>{r.excerpt}</div>
               </div>
             ))}
           </div>
         )}
         {reviewsOpen && reviews && reviews.length === 0 && (
-          <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center" }}>No reviews found.</div>
+          <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center" }}>No reviews found.</div>
         )}
       </div>
     </div>
@@ -333,7 +333,7 @@ export function DiscoverTab({ events, sessions, isParticipating: _isParticipatin
     return (
       <div style={{ padding: "48px 20px", textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-        <div style={{ fontSize: 14, color: C.textMuted }}>No events yet</div>
+        <div style={{ fontSize: 16, color: C.textMuted }}>No events yet</div>
       </div>
     );
   }
@@ -345,14 +345,14 @@ export function DiscoverTab({ events, sessions, isParticipating: _isParticipatin
         padding: "6px 0 8px", borderBottom: `1px solid ${C.border}`,
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
+        <span style={{ fontSize: 13, color: C.textMuted, flex: 1 }}>
           {events.length} event{events.length !== 1 ? "s" : ""}
           {isBrowse ? " · browse showtimes, then join to vote" : " · browse, then vote on the Vote tab"}
         </span>
         {!isBrowse && (
           <div
             onClick={() => navigate("/vote/vote")}
-            style={{ fontSize: 11, fontWeight: 700, color: C.accent, cursor: "pointer" }}
+            style={{ fontSize: 13, fontWeight: 700, color: C.accent, cursor: "pointer" }}
           >Vote →</div>
         )}
       </div>

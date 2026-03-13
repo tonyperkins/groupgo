@@ -51,7 +51,7 @@ function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) 
           cursor: "pointer",
         }}
       >
-        <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flex: 1 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1 }}>
           Group progress
         </span>
         {/* Stacked avatar row */}
@@ -96,11 +96,11 @@ function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) 
                   fontSize: 9, fontWeight: 800,
                   color: v.fully_voted ? "#000" : C.textDim,
                 }}>{v.name[0].toUpperCase()}</div>
-                <span style={{ fontSize: 11, color: v.fully_voted ? C.text : C.textDim }}>
+                <span style={{ fontSize: 13, color: v.fully_voted ? C.text : C.textDim }}>
                   {v.name}
                 </span>
                 {!v.fully_voted && (
-                  <span style={{ fontSize: 10, color: C.textDim }}>· pending</span>
+                  <span style={{ fontSize: 12, color: C.textDim }}>· pending</span>
                 )}
               </div>
             );
@@ -158,20 +158,20 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
 
         {/* Title + detail */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 1 }}>
             {entry.event.title}
           </div>
-          <div style={{ fontSize: 11, color: C.textMuted }}>
+          <div style={{ fontSize: 15, color: C.textMuted }}>
             {fmt12h(entry.session.session_time)} · {entry.session.theater_name}
             {entry.session.format !== "Standard" && (
               <span style={{
-                marginLeft: 6, fontSize: 10, fontWeight: 700,
+                marginLeft: 6, fontSize: 12, fontWeight: 700,
                 color: C.accent, background: C.accentDim,
                 borderRadius: 4, padding: "1px 5px",
               }}>{entry.session.format}</span>
             )}
           </div>
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 1 }}>
+          <div style={{ fontSize: 14, color: C.textDim, marginTop: 1 }}>
             {fmtDate(entry.session.session_date)}
           </div>
         </div>
@@ -179,15 +179,15 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
         {/* Score */}
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div style={{
-            fontSize: 16, fontWeight: 900,
+            fontSize: 18, fontWeight: 900,
             color: highlight ? C.accent : C.textMuted,
           }}>
             {entry.voter_count}
-            <span style={{ fontSize: 10, color: C.textDim, fontWeight: 400 }}>
+            <span style={{ fontSize: 12, color: C.textDim, fontWeight: 400 }}>
               {" "}/ {totalVoters}
             </span>
           </div>
-          <div style={{ fontSize: 9, color: C.textDim }}>members</div>
+          <div style={{ fontSize: 13, color: C.textDim }}>members</div>
         </div>
       </div>
 
@@ -209,8 +209,8 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
           {entry.voter_names.map((name, j) => (
             <div key={j} style={{
               background: C.surface, border: `1px solid ${C.border}`,
-              borderRadius: 99, padding: "2px 8px",
-              fontSize: 10, color: C.textMuted,
+              borderRadius: 99, padding: "3px 10px",
+              fontSize: 14, color: C.textMuted,
             }}>{name}</div>
           ))}
         </div>
@@ -259,7 +259,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
   if (!data && !loadError) {
     return (
       <div style={{ padding: "48px 20px", textAlign: "center" }}>
-        <div style={{ color: C.textMuted, fontSize: 13 }}>Loading results…</div>
+        <div style={{ color: C.textMuted, fontSize: 15 }}>Loading results…</div>
       </div>
     );
   }
@@ -274,7 +274,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           style={{
             marginTop: 16, display: "inline-block",
             background: C.accent, color: "#000", fontWeight: 700,
-            borderRadius: 10, padding: "8px 20px", cursor: "pointer", fontSize: 13,
+            borderRadius: 10, padding: "8px 20px", cursor: "pointer", fontSize: 15,
           }}
         >Retry</div>
       </div>
@@ -312,19 +312,19 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           borderRadius: 12, padding: "10px 14px",
           display: "flex", alignItems: "center", gap: 10,
         }}>
-          <span style={{ fontSize: 18, flexShrink: 0 }}>👋</span>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>👋</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 2 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.accent, marginBottom: 2 }}>
               You're not in the vote yet
             </div>
-            <div style={{ fontSize: 11, color: C.textMuted }}>
+            <div style={{ fontSize: 15, color: C.textMuted }}>
               Join to influence these standings.
             </div>
           </div>
           <div
             onClick={onJoin}
             style={{
-              background: C.accent, color: "#000", fontSize: 12, fontWeight: 700,
+              background: C.accent, color: "#000", fontSize: 14, fontWeight: 700,
               padding: "6px 14px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
             }}
           >Join</div>
@@ -338,10 +338,10 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           borderRadius: 12, padding: "10px 14px",
           display: "flex", alignItems: "center", gap: 10,
         }}>
-          <span style={{ fontSize: 18 }}>&#x1F3C6;</span>
+          <span style={{ fontSize: 20 }}>&#x1F3C6;</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.accent }}>Poll closed</div>
-            <div style={{ fontSize: 11, color: C.textMuted }}>Voting has ended. These are the final results.</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.accent }}>Poll closed</div>
+            <div style={{ fontSize: 15, color: C.textMuted }}>Voting has ended. These are the final results.</div>
           </div>
         </div>
       )}
@@ -354,24 +354,24 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           borderRadius: 18, padding: "20px 18px",
           display: "flex", flexDirection: "column", gap: 10,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.accent }}>WINNER</div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{winner.event.title}</div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>{fmt12h(winner.session.session_time)} &middot; {fmtDate(winner.session.session_date)}</div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.12em", color: C.accent }}>WINNER</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{winner.event.title}</div>
+          <div style={{ fontSize: 14, color: C.textMuted }}>{fmt12h(winner.session.session_time)} &middot; {fmtDate(winner.session.session_date)}</div>
+          <div style={{ fontSize: 14, color: C.textMuted }}>
             {winner.session.theater_name}
             {winner.session.format !== "Standard" && (
-              <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: C.accent, background: C.accentDim, borderRadius: 4, padding: "1px 5px" }}>{winner.session.format}</span>
+              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: C.accent, background: C.accentDim, borderRadius: 4, padding: "1px 5px" }}>{winner.session.format}</span>
             )}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: C.accent }}>
-            {winner.voter_count}/{totalVoters} <span style={{ fontSize: 11, fontWeight: 400, color: C.textMuted }}>members available</span>
+          <div style={{ fontSize: 15, fontWeight: 900, color: C.accent }}>
+            {winner.voter_count}/{totalVoters} <span style={{ fontSize: 13, fontWeight: 400, color: C.textMuted }}>members available</span>
           </div>
           {winner.session.booking_url && (
             <a href={winner.session.booking_url} target="_blank" rel="noopener noreferrer" style={{
               display: "block", marginTop: 4,
               background: C.accent, color: "#000",
               borderRadius: 12, padding: "12px 18px",
-              textAlign: "center", fontSize: 14, fontWeight: 700,
+              textAlign: "center", fontSize: 16, fontWeight: 700,
               textDecoration: "none",
             }}>Get Tickets &#x2192;</a>
           )}
@@ -392,8 +392,8 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           borderRadius: 12, padding: "10px 14px",
           display: "flex", alignItems: "center", gap: 10,
         }}>
-          <span style={{ fontSize: 18, flexShrink: 0 }}>👋</span>
-          <div style={{ fontSize: 12, color: C.textMuted }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>👋</span>
+          <div style={{ fontSize: 14, color: C.textMuted }}>
             <span style={{ fontWeight: 700, color: C.accent }}>
               {participation.fully_voted} member{participation.fully_voted !== 1 ? "s" : ""} voted.
             </span>
@@ -408,12 +408,12 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
         padding: "2px 2px 0",
       }}>
         <span style={{
-          fontSize: 11, fontWeight: 700, color: C.textMuted, letterSpacing: "0.1em",
+          fontSize: 15, fontWeight: 700, color: C.textMuted, letterSpacing: "0.1em",
         }}>GROUP STANDINGS</span>
 
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {!isClosed && (
-            <span style={{ fontSize: 10, color: C.textDim, marginRight: 4 }}>live &middot; updates every 15s</span>
+            <span style={{ fontSize: 14, color: C.textDim, marginRight: 4 }}>live &middot; updates every 15s</span>
           )}
           {/* Filter pills — only shown when user is participating and has picks */}
           {isParticipating && personal_pick_keys.length > 0 && (
@@ -423,8 +423,8 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
                   key={val}
                   onClick={() => setFilter(val)}
                   style={{
-                    fontSize: 11, fontWeight: 700, cursor: "pointer",
-                    padding: "4px 12px", borderRadius: 99,
+                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    padding: "5px 14px", borderRadius: 99,
                     background: filter === val ? C.accent : C.card,
                     color: filter === val ? "#000" : C.textMuted,
                     border: `1px solid ${filter === val ? C.accent : C.border}`,
@@ -444,8 +444,8 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
         }}>
           <span style={{ fontSize: 36 }}>🍿</span>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>No votes yet</div>
-          <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>No votes yet</div>
+          <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
             Standings will appear here as your group starts voting.
           </div>
         </div>
@@ -459,10 +459,10 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
         }}>
           <span style={{ fontSize: 36 }}>😕</span>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
             No valid combinations yet
           </div>
-          <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
             Everyone's voted, but no single showtime works for the whole group. Try adjusting your showtimes or switching on flexible mode.
           </div>
           <div

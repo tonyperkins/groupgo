@@ -46,7 +46,7 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
             key={tab.id}
             onClick={() => navigate(tab.route)}
             style={{
-              flex: 1, padding: "10px 0",
+              flex: 1, padding: "12px 0",
               display: "flex", flexDirection: "column",
               alignItems: "center", gap: 2,
               position: "relative",
@@ -57,7 +57,7 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
             }}
           >
             <div style={{ position: "relative", display: "inline-flex" }}>
-              <span style={{ fontSize: isActive ? 22 : 18, transition: "font-size 0.15s" }}>{tab.icon}</span>
+              <span style={{ fontSize: isActive ? 26 : 22, transition: "font-size 0.15s" }}>{tab.icon}</span>
               {badge !== null && (
                 <div style={{
                   position: "absolute", top: -8, right: -10,
@@ -76,7 +76,7 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
               )}
             </div>
             <span style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
               color: isActive ? C.accent : C.textMuted,
             }}>{tab.label.toUpperCase()}</span>
           </div>
