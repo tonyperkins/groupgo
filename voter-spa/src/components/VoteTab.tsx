@@ -277,29 +277,51 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
         }}>▾</span>
       </div>
 
-      {/* Sessions */}
-      {!collapsed && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {sessions.map((session, i) => {
-            const rawVote = votes[`session:${session.id}`] as SessionVote | undefined;
-            return (
-              <div key={session.id} style={{
-                borderTop: i > 0 ? `1px solid ${C.border}` : "none",
-              }}>
-                <ShowtimeCard
-                  session={session}
-                  eventTitle=""
-                  vote={rawVote ?? null}
-                  locked={locked}
-                  submitted={submitted}
-                  isLocked={isLocked}
-                  onVote={onSessionVote}
-                />
+      {/* Sessions grouped by date */}
+      {!collapsed && (() => {
+        const byDate = new Map<string, VoterSession[]>();
+        for (const s of sessions) {
+          const arr = byDate.get(s.session_date) ?? [];
+          arr.push(s);
+          byDate.set(s.session_date, arr);
+        }
+        const dates = Array.from(byDate.keys()).sort();
+        return (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {dates.map((date) => (
+              <div key={date}>
+                <div style={{
+                  padding: "6px 12px 4px",
+                  fontSize: FS.sm, fontWeight: 700,
+                  color: C.textDim,
+                  letterSpacing: "0.04em",
+                  background: C.surface,
+                  borderTop: `1px solid ${C.border}`,
+                  textTransform: "uppercase",
+                }}>
+                  {formatDate(date)}
+                </div>
+                {(byDate.get(date) ?? []).map((session) => {
+                  const rawVote = votes[`session:${session.id}`] as SessionVote | undefined;
+                  return (
+                    <div key={session.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <ShowtimeCard
+                        session={session}
+                        eventTitle=""
+                        vote={rawVote ?? null}
+                        locked={locked}
+                        submitted={submitted}
+                        isLocked={isLocked}
+                        onVote={onSessionVote}
+                      />
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
