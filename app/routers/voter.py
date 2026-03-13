@@ -8,6 +8,7 @@ from app.middleware.identity import get_current_user_optional, get_secure_poll_i
 from app.models import Poll, PollDate, Venue, User
 from app.services import movie_service, showtime_service, vote_service
 from app.services.security_service import ensure_user_token, normalize_member_pin, set_voter_identity_cookies
+from app.config import settings
 from app.templates_config import templates
 
 router = APIRouter()
@@ -28,11 +29,25 @@ def _get_poll_dates(poll_id: int, db: Session) -> list[str]:
     return [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
 
 
+def _get_browse_poll_id(request: Request) -> int | None:
+    """Returns poll_id from the browse-mode cookie (set on /join/{uuid} without PIN)."""
+    v = request.cookies.get("gg_browse_poll_id")
+    try:
+        return int(v) if v else None
+    except ValueError:
+        return None
+
+
 def _get_poll_for_request(request: Request, statuses: list[str], db: Session) -> Poll | None:
     secure_poll_id = get_secure_poll_id(request)
     if secure_poll_id is not None:
         return db.exec(
             select(Poll).where(Poll.id == secure_poll_id, Poll.status.in_(statuses))
+        ).first()
+    browse_poll_id = _get_browse_poll_id(request)
+    if browse_poll_id is not None:
+        return db.exec(
+            select(Poll).where(Poll.id == browse_poll_id, Poll.status.in_(statuses))
         ).first()
     return db.exec(select(Poll).where(Poll.status.in_(statuses))).first()
 
@@ -104,6 +119,9 @@ async def no_poll_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/join/{access_uuid}", response_class=HTMLResponse)
 async def secure_join_page(request: Request, access_uuid: str, db: Session = Depends(get_db)):
+    """Landing page for invite link: show poll info then go straight to SPA (browse mode).
+    PIN entry is deferred to /join/{uuid}/enter when the voter chooses to vote.
+    """
     poll = db.exec(select(Poll).where(Poll.access_uuid == access_uuid)).first()
     if not poll:
         return templates.TemplateResponse(
@@ -120,6 +138,48 @@ async def secure_join_page(request: Request, access_uuid: str, db: Session = Dep
             status_code=403,
         )
 
+    # If already authenticated for this poll, go straight to SPA
+    current_user = get_current_user_optional(request, db)
+    if current_user and get_secure_poll_id(request) == poll.id:
+        return RedirectResponse("/vote/movies", status_code=302)
+
+    # Set browse-mode cookie so SPA can load without PIN, then redirect to browse
+    response = RedirectResponse("/vote/movies", status_code=302)
+    response.set_cookie(
+        "gg_browse_poll_id",
+        str(poll.id),
+        httponly=True,
+        samesite="lax",
+        secure=settings.use_https_cookies,
+        max_age=3600 * 24,
+    )
+    return response
+
+
+@router.get("/join/{access_uuid}/enter", response_class=HTMLResponse)
+async def secure_join_enter(
+    request: Request,
+    access_uuid: str,
+    db: Session = Depends(get_db),
+):
+    """PIN entry page — shown when voter clicks 'Join to Vote' in the SPA."""
+    poll = db.exec(select(Poll).where(Poll.access_uuid == access_uuid)).first()
+    if not poll:
+        return templates.TemplateResponse(
+            request,
+            "voter/join_poll.html",
+            {"request": request, "poll": None, "poll_dates": [], "error": "This invite link is not valid."},
+            status_code=404,
+        )
+    if poll.status != "OPEN":
+        return templates.TemplateResponse(
+            request,
+            "voter/join_poll.html",
+            {"request": request, "poll": poll, "poll_dates": _get_poll_dates(poll.id, db), "error": "This poll is not currently accepting votes."},
+            status_code=403,
+        )
+
+    # Already authenticated — go straight to voting
     current_user = get_current_user_optional(request, db)
     if current_user and get_secure_poll_id(request) == poll.id:
         return RedirectResponse("/vote/movies", status_code=302)
@@ -131,40 +191,7 @@ async def secure_join_page(request: Request, access_uuid: str, db: Session = Dep
     )
 
 
-@router.get("/join/{access_uuid}/preview", response_class=HTMLResponse)
-async def secure_join_preview(
-    request: Request,
-    access_uuid: str,
-    db: Session = Depends(get_db),
-):
-    """Preview Without Voting: set the secure poll context then go to identify.
-    After identifying, the user lands on /vote/movies in non-participating state.
-    """
-    poll = db.exec(select(Poll).where(Poll.access_uuid == access_uuid)).first()
-    if not poll or poll.status != "OPEN":
-        return RedirectResponse(f"/join/{access_uuid}", status_code=302)
-
-    current_user = get_current_user_optional(request, db)
-    if current_user:
-        from app.services.security_service import ensure_user_token, set_voter_identity_cookies
-        user_token = ensure_user_token(current_user, db)
-        response = RedirectResponse("/vote/movies", status_code=302)
-        set_voter_identity_cookies(response, user_token=user_token, poll_id=poll.id, user_id=current_user.id)
-        return response
-
-    response = RedirectResponse("/identify", status_code=302)
-    from app.services.security_service import POLL_SESSION_COOKIE_NAME, create_poll_session_token
-    response.set_cookie(
-        "gg_preview_poll_id",
-        str(poll.id),
-        httponly=True,
-        samesite="lax",
-        max_age=3600,
-    )
-    return response
-
-
-@router.post("/join/{access_uuid}", response_class=HTMLResponse)
+@router.post("/join/{access_uuid}/enter", response_class=HTMLResponse)
 async def secure_join_submit(
     request: Request,
     access_uuid: str,
@@ -208,8 +235,18 @@ async def secure_join_submit(
             status_code=401,
         )
 
+    # Enforce group membership
+    if poll.group_id is not None and user.group_id != poll.group_id:
+        return templates.TemplateResponse(
+            request,
+            "voter/join_poll.html",
+            {"request": request, "poll": poll, "poll_dates": _get_poll_dates(poll.id, db), "error": "You are not in the group for this poll."},
+            status_code=403,
+        )
+
     user_token = ensure_user_token(user, db)
     response = RedirectResponse("/vote/movies", status_code=302)
+    response.delete_cookie("gg_browse_poll_id")
     set_voter_identity_cookies(response, user_token=user_token, poll_id=poll.id, user_id=user.id)
     return response
 
@@ -273,14 +310,17 @@ async def identify_submit(
 
 @router.get("/vote/movies", response_class=HTMLResponse)
 async def voter_movies(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_optional(request, db)
-    if not user:
-        return _identity_redirect(request, db)
-
     poll = _get_poll_for_request(request, ["OPEN"], db)
     if not poll:
         return RedirectResponse("/", status_code=302)
+    return _serve_spa()
 
+
+@router.get("/vote/discover", response_class=HTMLResponse)
+async def voter_discover(request: Request, db: Session = Depends(get_db)):
+    poll = _get_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        return RedirectResponse("/", status_code=302)
     return _serve_spa()
 
 
@@ -292,7 +332,7 @@ async def voter_logistics(
     db: Session = Depends(get_db)
 ):
     user = get_current_user_optional(request, db)
-    if not user:
+    if not user and _get_browse_poll_id(request) is None:
         return _identity_redirect(request, db)
 
     poll = _get_poll_for_request(request, ["OPEN"], db)

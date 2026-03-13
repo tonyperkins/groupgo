@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select
 
 from app.db import get_db
-from app.middleware.identity import get_current_user, get_secure_poll_id, is_secure_entry
+from app.middleware.identity import get_current_user, get_current_user_optional, get_secure_poll_id, is_secure_entry
 from app.middleware.auth import verify_admin
 from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession
 from app.services import vote_service, movie_service, showtime_service, theater_service
@@ -23,11 +23,24 @@ from app.templates_config import templates
 router = APIRouter()
 
 
+def _get_browse_poll_id(request: Request) -> int | None:
+    v = request.cookies.get("gg_browse_poll_id")
+    try:
+        return int(v) if v else None
+    except ValueError:
+        return None
+
+
 def _get_voter_poll_for_request(request: Request, statuses: list[str], db: Session) -> Poll | None:
     secure_poll_id = get_secure_poll_id(request)
     if secure_poll_id is not None:
         return db.exec(
             select(Poll).where(Poll.id == secure_poll_id, Poll.status.in_(statuses))
+        ).first()
+    browse_poll_id = _get_browse_poll_id(request)
+    if browse_poll_id is not None:
+        return db.exec(
+            select(Poll).where(Poll.id == browse_poll_id, Poll.status.in_(statuses))
         ).first()
     return db.exec(select(Poll).where(Poll.status.in_(statuses))).first()
 
@@ -506,24 +519,52 @@ def _serialize_event(event) -> dict:
 
 @router.get("/api/voter/me")
 async def voter_me(request: Request, db: Session = Depends(get_db)):
-    """React SPA bootstrap endpoint. Returns full voter state on mount."""
-    from app.middleware.identity import get_current_user_optional
+    """React SPA bootstrap endpoint. Returns full voter state on mount.
+    Works in browse mode (no PIN) — user will be None, state='browse'.
+    """
     user = get_current_user_optional(request, db)
-    if not user:
+    is_browse = user is None and _get_browse_poll_id(request) is not None
+
+    if not user and not is_browse:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     poll = _get_voter_poll_for_request(request, ["OPEN", "CLOSED"], db)
     if not poll:
+        if user:
+            return {
+                "user": _serialize_user(user),
+                "poll": None,
+                "state": "no_active_poll",
+                "preferences": {},
+                "votes": {},
+                "yes_movie_count": 0,
+                "voted_session_count": 0,
+                "events": [],
+                "is_secure_entry": False,
+                "is_browse": False,
+                "join_url": None,
+            }
+        raise HTTPException(status_code=404, detail="No active poll")
+
+    events = movie_service.get_poll_events(poll.id, db)
+    sessions = showtime_service.get_sessions_for_poll(poll.id, db)
+    theater_map = {t.id: t.name for t in theater_service.get_all_theaters(db)}
+    join_url = f"/join/{poll.access_uuid}/enter" if poll.access_uuid else None
+
+    if is_browse:
         return {
-            "user": _serialize_user(user),
-            "poll": None,
-            "state": "no_active_poll",
+            "user": None,
+            "poll": _serialize_poll(poll),
+            "state": "browse",
             "preferences": {},
             "votes": {},
             "yes_movie_count": 0,
             "voted_session_count": 0,
-            "events": [],
-            "is_secure_entry": is_secure_entry(request),
+            "events": [_serialize_event(e) for e in events],
+            "sessions": [_serialize_session(s, theater_map.get(s.theater_id, "")) for s in sessions if s.is_included],
+            "is_secure_entry": False,
+            "is_browse": True,
+            "join_url": join_url,
         }
 
     prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
@@ -532,9 +573,6 @@ async def voter_me(request: Request, db: Session = Depends(get_db)):
     voted_session_count = sum(
         1 for (tt, _), v in user_votes.items() if tt == "session" and v == "can_do"
     )
-    events = movie_service.get_poll_events(poll.id, db)
-    sessions = showtime_service.get_sessions_for_poll(poll.id, db)
-    theater_map = {t.id: t.name for t in theater_service.get_all_theaters(db)}
 
     return {
         "user": _serialize_user(user),
@@ -547,6 +585,8 @@ async def voter_me(request: Request, db: Session = Depends(get_db)):
         "events": [_serialize_event(e) for e in events],
         "sessions": [_serialize_session(s, theater_map.get(s.theater_id, "")) for s in sessions if s.is_included],
         "is_secure_entry": is_secure_entry(request),
+        "is_browse": False,
+        "join_url": join_url,
     }
 
 
@@ -1151,12 +1191,14 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
     body = await request.json()
     title = body.get("title", "").strip()
     target_dates = body.get("target_dates", [])
+    group_id = body.get("group_id") or None
     if not title or not target_dates:
         raise HTTPException(status_code=400, detail="title and target_dates required")
 
     poll = Poll(
         title=title,
         status="DRAFT",
+        group_id=group_id,
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(poll)
@@ -1213,6 +1255,26 @@ async def admin_poll_invite_link(
     if poll.status != "OPEN":
         raise HTTPException(status_code=400, detail="Invite links are only available for OPEN polls")
 
+    invite_url = build_poll_invite_url(poll, db)
+    return {"poll_id": poll.id, "access_uuid": poll.access_uuid, "invite_url": invite_url}
+
+
+@router.post("/api/admin/polls/{poll_id}/regenerate-invite")
+async def admin_regenerate_invite(
+    request: Request, poll_id: int, db: Session = Depends(get_db)
+):
+    """Generate a new access_uuid, invalidating the old invite link."""
+    verify_admin(request, db)
+    import uuid as _uuid
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    poll.access_uuid = str(_uuid.uuid4())
+    poll.updated_at = datetime.now(timezone.utc).isoformat()
+    db.add(poll)
+    db.commit()
+    db.refresh(poll)
+    from app.services.security_service import build_poll_invite_url
     invite_url = build_poll_invite_url(poll, db)
     return {"poll_id": poll.id, "access_uuid": poll.access_uuid, "invite_url": invite_url}
 

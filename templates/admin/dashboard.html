@@ -157,8 +157,12 @@
           <button type="button" onclick="copyInviteLink()" class="btn-primary text-sm whitespace-nowrap">Copy Link</button>
         </div>
       </div>
-      <div class="surface-muted p-4 text-xs text-slate-400 rounded-2xl">
-        Members who open this link will be asked for their unique 4-digit member PIN and then taken directly into their own ballot.
+      <div class="surface-muted p-4 text-xs text-slate-400 rounded-2xl space-y-2">
+        <p>Members who open this link can browse the poll immediately. They'll be asked for their PIN only when they choose to join and vote.</p>
+        <p>Regenerating the link invalidates the old one — anyone with the old link will not be able to use it.</p>
+      </div>
+      <div class="flex justify-end">
+        <button type="button" onclick="regenerateInviteLink()" class="btn-ghost text-xs text-amber-400 border-amber-800 hover:border-amber-600">🔄 Regenerate Link</button>
       </div>
     </div>
   </div>
@@ -203,6 +207,12 @@
         </div>
         <!-- Selected dates pills -->
         <div id="cal-selected" class="flex flex-wrap gap-1.5 mt-2 min-h-[1.5rem]"></div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1" style="color:var(--text-secondary)">Group <span class="text-slate-500 font-normal">(optional)</span></label>
+        <select id="poll-group-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <option value="">All members (no group filter)</option>
+        </select>
       </div>
       <div id="poll-create-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
       <div class="flex gap-2 justify-end">
@@ -268,7 +278,24 @@ function calRenderPills() {
   ).join('');
 }
 
-function openNewPollModal() { calInit(); document.getElementById('new-poll-modal').classList.remove('hidden'); }
+async function openNewPollModal() {
+  calInit();
+  document.getElementById('new-poll-modal').classList.remove('hidden');
+  const sel = document.getElementById('poll-group-id');
+  sel.innerHTML = '<option value="">All members (no group filter)</option>';
+  try {
+    const resp = await fetch('/api/admin/groups');
+    if (resp.ok) {
+      const groups = await resp.json();
+      groups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        sel.appendChild(opt);
+      });
+    }
+  } catch(e) {}
+}
 calInit();
 
 // ── Poll CRUD ───────────────────────────────────────────────────────────────
@@ -276,6 +303,8 @@ async function createPoll(e) {
   e.preventDefault();
   const title = document.getElementById('poll-title').value.trim();
   const dates = [..._calSelected].sort();
+  const groupVal = document.getElementById('poll-group-id').value;
+  const group_id = groupVal ? parseInt(groupVal) : null;
   const errEl = document.getElementById('poll-create-error');
   errEl.classList.add('hidden');
   if (!title || !dates.length) {
@@ -285,7 +314,7 @@ async function createPoll(e) {
   }
   const resp = await fetch('/api/admin/polls', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title, target_dates: dates})
+    body: JSON.stringify({title, target_dates: dates, group_id})
   });
   if (resp.ok) { window.location.reload(); }
   else { const d = await resp.json(); errEl.textContent = d.detail || 'Error creating poll.'; errEl.classList.remove('hidden'); }
@@ -351,11 +380,15 @@ function deletePollFromButton(button) {
   deletePoll(Number(button.dataset.pollId));
 }
 
+let _currentInvitePollId = null;
+
 function closeInviteModal() {
   document.getElementById('invite-link-modal').classList.add('hidden');
+  _currentInvitePollId = null;
 }
 
 async function showInviteLink(pollId, pollTitle) {
+  _currentInvitePollId = pollId;
   const modal = document.getElementById('invite-link-modal');
   const subtitle = document.getElementById('invite-link-subtitle');
   const input = document.getElementById('invite-link-field');
@@ -381,6 +414,28 @@ async function showInviteLink(pollId, pollTitle) {
 
 function showInviteLinkFromButton(button) {
   showInviteLink(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll');
+}
+
+async function regenerateInviteLink() {
+  if (!_currentInvitePollId) return;
+  showConfirm('Regenerate the invite link? The old link will stop working immediately.', async () => {
+    const input = document.getElementById('invite-link-field');
+    const error = document.getElementById('invite-link-error');
+    input.value = 'Regenerating…';
+    error.classList.add('hidden');
+    const resp = await fetch(`/api/admin/polls/${_currentInvitePollId}/regenerate-invite`, {method: 'POST'});
+    if (!resp.ok) {
+      const data = await resp.json();
+      error.textContent = data.detail || 'Failed to regenerate link.';
+      error.classList.remove('hidden');
+      input.value = '';
+      return;
+    }
+    const data = await resp.json();
+    input.value = data.invite_url;
+    input.select();
+    showToast('Invite link regenerated. Old link is now invalid.', 'info');
+  }, 'Regenerate', true);
 }
 
 async function copyInviteLink() {
