@@ -415,8 +415,8 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           {!isClosed && (
             <span style={{ fontSize: 10, color: C.textDim, marginRight: 4 }}>live &middot; updates every 15s</span>
           )}
-          {/* Filter pills — only shown when user has picks */}
-          {personal_pick_keys.length > 0 && (
+          {/* Filter pills — only shown when user is participating and has picks */}
+          {isParticipating && personal_pick_keys.length > 0 && (
             <>
               {(["all", "mine"] as const).map((val) => (
                 <div

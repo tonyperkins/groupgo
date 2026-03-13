@@ -245,6 +245,11 @@ async def secure_join_submit(
         )
 
     user_token = ensure_user_token(user, db)
+
+    # Auto-join: mark the voter as participating immediately on PIN entry
+    from app.services import vote_service
+    vote_service.set_participating(user.id, poll.id, True, db)
+
     response = RedirectResponse("/vote/movies", status_code=302)
     response.delete_cookie("gg_browse_poll_id")
     set_voter_identity_cookies(response, user_token=user_token, poll_id=poll.id, user_id=user.id)

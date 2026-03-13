@@ -308,8 +308,10 @@ export default function App() {
         <ScrollArea>
           <DiscoverTab
             events={meData.events}
+            sessions={meData.sessions}
             isParticipating={false}
             hasCompletedVoting={false}
+            joinUrl={meData.join_url}
           />
         </ScrollArea>
       </div>
@@ -355,6 +357,7 @@ export default function App() {
           <Route path="/vote/discover" element={
             <DiscoverTab
               events={meData.events}
+              sessions={meData.sessions}
               isParticipating={prefs.is_participating}
               hasCompletedVoting={prefs.has_completed_voting}
             />
