@@ -23,7 +23,7 @@
         <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.5;">{{ poll.title }}{% if poll_dates %} · {{ poll_dates | first | display_date }}{% endif %}</div>
       </div>
 
-      <form method="post" action="/join/{{ poll.access_uuid }}" id="gg-pin-form">
+      <form method="post" action="/join/{{ poll.access_uuid }}/enter" id="gg-pin-form">
         <input type="hidden" name="member_pin" id="gg-pin-input" value=""/>
 
         <div style="background:var(--gg-card);border-radius:18px;border:1px solid var(--gg-border);padding:20px;">
