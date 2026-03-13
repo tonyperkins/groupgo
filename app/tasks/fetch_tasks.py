@@ -1,5 +1,5 @@
 import asyncio
-import json
+import logging
 from datetime import datetime, timezone
 
 from sqlmodel import Session, select
@@ -11,6 +11,8 @@ from app.services.showtime_service import (
     parse_serpapi_showtimes,
     get_or_create_sessions,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -49,6 +51,20 @@ async def run_fetch_job(
             if ev:
                 poll_events.append(ev)
 
+    if not poll_events:
+        logger.warning("[fetch_job %s] No movies found for poll_id=%s event_ids=%s — aborting", job_id, poll_id, event_ids)
+        with _get_db_session() as db:
+            job = db.get(FetchJob, job_id)
+            if job:
+                job.status = "failed"
+                job.last_error = "No movies matched the selection"
+                job.finished_at = _now()
+                db.add(job)
+                db.commit()
+        return
+
+    logger.info("[fetch_job %s] Fetching %d movies × %d theaters × %d dates", job_id, len(poll_events), len(theater_ids), len(dates))
+
     # One task per (movie, theater, date) so each movie gets its own API call
     tasks = [
         (ev, tid, date)
@@ -74,12 +90,14 @@ async def run_fetch_job(
             serpapi_query = theater.serpapi_query
 
         query = f"{event.title} {serpapi_query}"
+        logger.info("[fetch_job %s] Query: %r date=%s", job_id, query, date)
         try:
             raw = await fetch_showtimes_from_serpapi(query, date)
         except Exception as exc:
             err = str(exc)
             if "429" in err:
                 err = "SerpApi returned 429 — account not yet activated. Visit serpapi.com/users/welcome to complete activation."
+            logger.error("[fetch_job %s] FAILED query=%r: %s", job_id, query, err)
             return False, err
 
         parsed = parse_serpapi_showtimes(
@@ -91,6 +109,8 @@ async def run_fetch_job(
             target_date=date,
             theater_name=theater_name,
         )
+
+        logger.info("[fetch_job %s] Parsed %d sessions for %r @ %s on %s", job_id, len(parsed), event.title, theater_name, date)
 
         if parsed:
             with _get_db_session() as db:

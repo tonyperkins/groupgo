@@ -327,10 +327,17 @@ async function triggerFetch() {
   </div>`;
   htmx.process(jobArea);
 
-  document.addEventListener('jobComplete', () => {
-    document.getElementById('admin-session-list')?.closest('div')?.replaceWith();
-    window.location.reload();
-  }, {once: true});
+  document.body.addEventListener('htmx:beforeSwap', function onJobSwap(evt) {
+    if (evt.detail.target?.id === `job-progress-${data.job_id}`) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = evt.detail.serverResponse;
+      const status = tmp.querySelector('[data-job-status]')?.dataset.jobStatus;
+      if (status === 'complete' || status === 'failed') {
+        document.body.removeEventListener('htmx:beforeSwap', onJobSwap);
+        setTimeout(() => window.location.reload(), 1200);
+      }
+    }
+  });
 }
 
 async function toggleSessionVisibility(id, currentIncluded) {
