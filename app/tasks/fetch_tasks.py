@@ -26,6 +26,7 @@ async def run_fetch_job(
     poll_id: int,
     theater_ids: list[int],
     dates: list[str],
+    event_ids: list[int] | None = None,
 ) -> None:
     """
     Background asyncio task. Fetches showtimes for all theater × date combos,
@@ -42,6 +43,8 @@ async def run_fetch_job(
             select(PollEvent).where(PollEvent.poll_id == poll_id)
         ).all()
         for link in links:
+            if event_ids is not None and link.event_id not in event_ids:
+                continue
             ev = db.get(Event, link.event_id)
             if ev:
                 poll_events.append(ev)
@@ -127,7 +130,7 @@ async def run_fetch_job(
             db.commit()
 
 
-def create_fetch_job(poll_id: int, theater_ids: list[int], dates: list[str], db: Session) -> str:
+def create_fetch_job(poll_id: int, theater_ids: list[int], dates: list[str], db: Session, event_ids: list[int] | None = None) -> str:
     import uuid
     job_id = str(uuid.uuid4())
     job = FetchJob(
