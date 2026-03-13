@@ -21,7 +21,11 @@
     <div>
       <div style="font-size: 22px; font-weight: 900; color: var(--gg-text); margin-bottom: 8px;">No Active Poll</div>
       <div style="font-size: 14px; color: var(--gg-text-muted); line-height: 1.6;">
+        {% if invite_only %}
+        To join a poll, use the invite link sent to you by the organiser.
+        {% else %}
         No movie night vote is running right now. Check back later.
+        {% endif %}
       </div>
     </div>
 
@@ -41,10 +45,12 @@
     </div>
     {% endif %}
 
+    {% if user and not invite_only %}
     <div style="font-size: 12px; color: var(--gg-text-dim);">
       Signed in as <strong style="color: var(--gg-text-muted);">{{ user.name }}</strong>
       · <a href="/identify" style="color: var(--gg-text-dim);">Switch</a>
     </div>
+    {% endif %}
 
   </div>
 </div>
