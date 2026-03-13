@@ -20,20 +20,20 @@ def _ensure_many_to_many_tables(db: Session):
     """Idempotent migration: create user_groups/poll_groups if absent and backfill from legacy FK columns."""
     db.exec(text("""CREATE TABLE IF NOT EXISTS user_groups (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-        group_id INTEGER NOT NULL REFERENCES "group"(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
         UNIQUE(user_id, group_id)
     )"""))  # type: ignore[call-overload]
     db.exec(text("""INSERT OR IGNORE INTO user_groups (user_id, group_id)
-        SELECT id, group_id FROM user WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+        SELECT id, group_id FROM users WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
     db.exec(text("""CREATE TABLE IF NOT EXISTS poll_groups (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        poll_id INTEGER NOT NULL REFERENCES poll(id) ON DELETE CASCADE,
-        group_id INTEGER NOT NULL REFERENCES "group"(id) ON DELETE CASCADE,
+        poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
         UNIQUE(poll_id, group_id)
     )"""))  # type: ignore[call-overload]
     db.exec(text("""INSERT OR IGNORE INTO poll_groups (poll_id, group_id)
-        SELECT id, group_id FROM poll WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+        SELECT id, group_id FROM polls WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
     db.commit()
 
 
