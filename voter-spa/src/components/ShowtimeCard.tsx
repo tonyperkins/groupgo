@@ -63,13 +63,16 @@ export function ShowtimeCard({
           <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, marginBottom: 2 }}>
             {eventTitle}
           </div>
-          <div style={{ fontSize: FS.base, color: C.textMuted }}>
-            {session.theater_name}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+            <span style={{ fontSize: FS.base, color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>
+              {session.theater_name}
+            </span>
             {session.format !== "Standard" && (
               <span style={{
-                marginLeft: 6, fontSize: FS.sm, fontWeight: 700,
+                flexShrink: 0, fontSize: FS.sm, fontWeight: 700,
                 color: C.accent, background: C.accentDim,
-                borderRadius: 4, padding: "1px 5px",
+                borderRadius: 4, padding: "2px 6px",
+                whiteSpace: "nowrap",
               }}>{session.format}</span>
             )}
           </div>

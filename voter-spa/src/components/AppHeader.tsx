@@ -25,39 +25,40 @@ export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: A
 
   return (
     <div style={{
-      padding: "12px 20px 10px",
+      padding: "10px 16px 8px",
       borderBottom: `1px solid ${C.border}`,
       background: C.surface,
       flexShrink: 0,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: FS.lg, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif" }}>GroupGo</span>
-            <span style={{ fontSize: FS.xs, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em" }}>VOTE</span>
-          </div>
-          {pollTitle && (
-            <div style={{ fontSize: FS.sm, color: C.textMuted, marginTop: 1 }}>{pollTitle}</div>
-          )}
+      {/* Row 1: branding + status chip + username */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: FS.lg, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif", whiteSpace: "nowrap" }}>GroupGo</span>
+          <span style={{ fontSize: FS.xs, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em", whiteSpace: "nowrap", flexShrink: 0 }}>VOTE</span>
           {countdown && (
-            <div style={{ marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 10, color: countdown.urgent ? C.red : C.textDim }}>⏱</span>
-              <span style={{
-                fontSize: 10, fontWeight: countdown.urgent ? 800 : 600,
-                color: countdown.urgent ? C.red : C.textDim,
-                letterSpacing: "0.02em",
-              }}>{countdown.label}</span>
-            </div>
+            <span style={{
+              fontSize: FS.xs, fontWeight: countdown.urgent ? 800 : 600,
+              color: countdown.urgent ? C.red : C.textDim,
+              whiteSpace: "nowrap", flexShrink: 0,
+            }}>⏱ {countdown.label}</span>
           )}
         </div>
         {statusChip}
         <div style={{
           fontSize: FS.sm, fontWeight: 700, color: C.textMuted,
           background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 8, padding: "5px 12px",
-          flexShrink: 0,
+          borderRadius: 8, padding: "5px 10px",
+          flexShrink: 0, whiteSpace: "nowrap",
+          maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis",
         }}>{userName}</div>
       </div>
+      {/* Row 2: poll title */}
+      {pollTitle && (
+        <div style={{
+          fontSize: FS.sm, color: C.textMuted, marginTop: 3,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{pollTitle}</div>
+      )}
     </div>
   );
 }
