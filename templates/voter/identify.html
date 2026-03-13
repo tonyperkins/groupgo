@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Who are you? · GroupGo{% endblock %}
+
+{% block page_header %}{% endblock %}
+
+{% block content %}
+<div style="
+  min-height: 100dvh;
+  background: var(--gg-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+">
+  <div style="width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- Logo / title -->
+    <div style="text-align: center;">
+      <div style="font-size: 40px; margin-bottom: 12px;">🎬</div>
+      <div style="font-size: 22px; font-weight: 900; color: var(--gg-text); margin-bottom: 6px;">GroupGo</div>
+      <div style="font-size: 14px; color: var(--gg-text-muted);">Who are you?</div>
+    </div>
+
+    <!-- Error -->
+    {% if error %}
+    <div style="
+      background: var(--gg-red-dim); border: 1px solid var(--gg-red);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; color: var(--gg-red); text-align: center;
+    ">{{ error }}</div>
+    {% endif %}
+
+    <!-- Picker form -->
+    <form method="post" action="/identify" style="display: flex; flex-direction: column; gap: 12px;">
+
+      <div style="
+        background: var(--gg-card); border: 1px solid var(--gg-border);
+        border-radius: 14px; overflow: hidden;
+      ">
+        {% if users %}
+          {% for user in users %}
+          <label style="
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px; cursor: pointer;
+            border-bottom: 1px solid {% if not loop.last %}var(--gg-border){% else %}transparent{% endif %};
+          ">
+            <input
+              type="radio"
+              name="user_id"
+              value="{{ user.id }}"
+              required
+              style="
+                width: 18px; height: 18px; flex-shrink: 0;
+                accent-color: var(--gg-accent); cursor: pointer;
+              "
+            />
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: var(--gg-text);">{{ user.name }}</div>
+              {% if user.email %}
+              <div style="font-size: 11px; color: var(--gg-text-muted);">{{ user.email }}</div>
+              {% endif %}
+            </div>
+          </label>
+          {% endfor %}
+        {% else %}
+          <div style="padding: 32px 20px; text-align: center; color: var(--gg-text-muted); font-size: 13px;">
+            No members have been added yet. Ask your admin to add you.
+          </div>
+        {% endif %}
+      </div>
+
+      {% if users %}
+      <button
+        type="submit"
+        class="gg-btn-primary"
+        style="border: none;"
+      >That's me →</button>
+      {% endif %}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

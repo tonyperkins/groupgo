@@ -8,8 +8,7 @@ from sqlmodel import Session, select
 from app.db import get_db
 from app.middleware.identity import get_current_user, get_secure_poll_id, is_secure_entry
 from app.middleware.auth import verify_admin
-from app.models import Poll, FetchJob, User, Group, Event as EventModel, Theater as TheaterModel
-from app.models import Session as ShowSession
+from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession
 from app.services import vote_service, movie_service, showtime_service, theater_service
 from app.services.security_service import (
     build_poll_invite_url,
@@ -36,8 +35,8 @@ def _get_voter_poll_for_request(request: Request, statuses: list[str], db: Sessi
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 @router.get("/api/admin/serpapi/status")
-async def serpapi_status(request: Request):
-    verify_admin(request)
+async def serpapi_status(request: Request, db: Session = Depends(get_db)):
+    verify_admin(request, db)
     import httpx as _httpx
     from app.config import settings as _s
     try:
@@ -380,7 +379,41 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No active poll")
 
     results = vote_service.calculate_results(poll.id, db)
+    personal_results = vote_service.calculate_user_results(user.id, poll.id, db)
     participation = vote_service.get_participation(poll.id, db)
+    theater_map = {t.id: t.name for t in theater_service.get_all_theaters(db)}
+
+    # Set of "event_id:session_id" strings for the current user's picks.
+    # Compared by value in the React component, not object identity.
+    personal_pick_keys = {
+        f"{r['event'].id}:{r['session'].id}"
+        for r in personal_results["ranked"]
+    }
+
+    # Distinguish the two empty states:
+    #   has_any_votes=False              → no one has voted yet
+    #   has_any_votes=True + no_valid_options=True → votes exist but no valid combination
+    has_any_votes = participation["fully_voted_count"] > 0
+
+    def _ser_result(r: dict) -> dict:
+        return {
+            "rank": r["rank"],
+            "score": r["score"],
+            "event": {"id": r["event"].id, "title": r["event"].title},
+            "session": {
+                "id": r["session"].id,
+                "session_date": r["session"].session_date,
+                "session_time": r["session"].session_time,
+                "format": r["session"].format,
+                "theater_id": r["session"].theater_id,
+                "theater_name": theater_map.get(r["session"].theater_id, ""),
+                "booking_url": r["session"].booking_url,
+            },
+            "voter_names": [v["user"].name for v in r.get("voters", [])],
+            "voter_count": r.get("score", 0),
+        }
+
+    prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
 
     return {
         "poll_id": poll.id,
@@ -393,23 +426,217 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
                 for p in participation["participants"]
             ],
         },
-        "results": [
-            {
-                "rank": r["rank"],
-                "score": r["score"],
-                "event": {"id": r["event"].id, "title": r["event"].title},
-                "session": {
-                    "id": r["session"].id,
-                    "session_date": r["session"].session_date,
-                    "session_time": r["session"].session_time,
-                    "format": r["session"].format,
-                    "theater_id": r["session"].theater_id,
-                },
-            }
-            for r in results["ranked"][:5]
-        ],
+        "results": [_ser_result(r) for r in results["ranked"][:5]],
         "no_valid_options": results["no_valid_options"],
+        "has_any_votes": has_any_votes,
+        "personal_pick_keys": list(personal_pick_keys),
+        "is_participating": bool(prefs.get("is_participating")),
     }
+
+
+def _serialize_user(user: User) -> dict:
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "group_id": user.group_id,
+    }
+
+
+def _serialize_poll(poll: Poll) -> dict:
+    return {
+        "id": poll.id,
+        "title": poll.title,
+        "status": poll.status,
+        "access_uuid": poll.access_uuid,
+        "voting_closes_at": poll.voting_closes_at,
+        "description": poll.description,
+        "group_id": poll.group_id,
+    }
+
+
+def _serialize_votes(user_votes: dict) -> dict:
+    """Convert {('event'|'session', id): value} to {'event:123': 'yes'} for JSON."""
+    return {
+        f"{target_type}:{target_id}": value
+        for (target_type, target_id), value in user_votes.items()
+    }
+
+
+def _serialize_session(s, theater_name: str) -> dict:
+    return {
+        "id": s.id,
+        "event_id": s.event_id,
+        "theater_id": s.theater_id,
+        "theater_name": theater_name,
+        "session_date": s.session_date,
+        "session_time": s.session_time,
+        "format": s.format,
+        "booking_url": s.booking_url,
+    }
+
+
+def _serialize_event(event) -> dict:
+    import json as _json
+    genres = []
+    if event.genres:
+        try:
+            genres = _json.loads(event.genres)
+        except Exception:
+            genres = []
+    return {
+        "id": event.id,
+        "title": event.title,
+        "year": event.year,
+        "synopsis": event.synopsis,
+        "poster_path": event.poster_path,
+        "trailer_key": event.trailer_key,
+        "tmdb_rating": event.tmdb_rating,
+        "runtime_mins": event.runtime_mins,
+        "rating": event.rating,
+        "genres": genres,
+        "poster_url": movie_service.poster_url(event.poster_path) if event.poster_path else None,
+        "event_type": getattr(event, "event_type", "movie"),
+        "image_url": getattr(event, "image_url", None),
+        "external_url": getattr(event, "external_url", None),
+        "venue_name": getattr(event, "venue_name", None),
+    }
+
+
+@router.get("/api/voter/me")
+async def voter_me(request: Request, db: Session = Depends(get_db)):
+    """React SPA bootstrap endpoint. Returns full voter state on mount."""
+    from app.middleware.identity import get_current_user_optional
+    user = get_current_user_optional(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    poll = _get_voter_poll_for_request(request, ["OPEN", "CLOSED"], db)
+    if not poll:
+        return {
+            "user": _serialize_user(user),
+            "poll": None,
+            "state": "no_active_poll",
+            "preferences": {},
+            "votes": {},
+            "yes_movie_count": 0,
+            "voted_session_count": 0,
+            "events": [],
+            "is_secure_entry": is_secure_entry(request),
+        }
+
+    prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
+    voted_session_count = sum(
+        1 for (tt, _), v in user_votes.items() if tt == "session" and v == "can_do"
+    )
+    events = movie_service.get_poll_events(poll.id, db)
+    sessions = showtime_service.get_sessions_for_poll(poll.id, db)
+    theater_map = {t.id: t.name for t in theater_service.get_all_theaters(db)}
+
+    return {
+        "user": _serialize_user(user),
+        "poll": _serialize_poll(poll),
+        "state": "active",
+        "preferences": prefs,
+        "votes": _serialize_votes(user_votes),
+        "yes_movie_count": yes_movie_count,
+        "voted_session_count": voted_session_count,
+        "events": [_serialize_event(e) for e in events],
+        "sessions": [_serialize_session(s, theater_map.get(s.theater_id, "")) for s in sessions if s.is_included],
+        "is_secure_entry": is_secure_entry(request),
+    }
+
+
+@router.post("/api/voter/votes/movie")
+async def voter_vote_movie(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        raise HTTPException(status_code=403, detail="No open poll")
+
+    body = await request.json()
+    event_id = body.get("event_id")
+    vote_value = body.get("vote")
+    veto_reason = body.get("veto_reason")
+
+    if vote_value not in ("yes", "no", "abstain"):
+        raise HTTPException(status_code=400, detail="Invalid vote value")
+
+    vote_service.cast_vote(user.id, poll.id, "event", event_id, vote_value, db, veto_reason=veto_reason)
+    yes_movie_count = vote_service.get_yes_movie_count(user.id, poll.id, db)
+
+    return {"status": "ok", "vote": vote_value, "yes_movie_count": yes_movie_count}
+
+
+@router.post("/api/voter/votes/session")
+async def voter_vote_session(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        raise HTTPException(status_code=403, detail="No open poll")
+
+    body = await request.json()
+    session_id = body.get("session_id")
+    vote_value = body.get("vote")
+
+    if vote_value not in ("can_do", "cant_do", "abstain"):
+        raise HTTPException(status_code=400, detail="Invalid vote value")
+
+    vote_service.cast_vote(user.id, poll.id, "session", session_id, vote_value, db)
+    user_votes = vote_service.get_user_votes(user.id, poll.id, db)
+    voted_session_count = sum(
+        1 for (tt, _), v in user_votes.items() if tt == "session" and v == "can_do"
+    )
+
+    return {"status": "ok", "vote": vote_value, "voted_session_count": voted_session_count}
+
+
+@router.post("/api/voter/votes/flexible")
+async def voter_vote_flexible(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        raise HTTPException(status_code=403, detail="No open poll")
+
+    body = await request.json()
+    is_flexible = bool(body.get("is_flexible", False))
+    vote_service.set_flexible(user.id, poll.id, is_flexible, db)
+
+    return {"status": "ok", "is_flexible": is_flexible}
+
+
+@router.post("/api/voter/votes/complete")
+async def voter_vote_complete(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        raise HTTPException(status_code=403, detail="No open poll")
+
+    body = await request.json()
+    is_complete = bool(body.get("is_complete", True))
+    vote_service.mark_voting_complete(user.id, poll.id, is_complete, db)
+
+    prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    return {"status": "ok", "is_complete": is_complete, "preferences": prefs}
+
+
+@router.post("/api/voter/votes/participation")
+async def voter_vote_participation(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    poll = _get_voter_poll_for_request(request, ["OPEN"], db)
+    if not poll:
+        raise HTTPException(status_code=403, detail="No open poll")
+
+    body = await request.json()
+    is_participating = bool(body.get("is_participating", True))
+    opt_out_reason = body.get("opt_out_reason")
+    vote_service.set_participating(user.id, poll.id, is_participating, db, opt_out_reason=opt_out_reason)
+
+    prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
+    return {"status": "ok", "is_participating": is_participating, "preferences": prefs}
 
 
 # ─── Admin: Movies ────────────────────────────────────────────────────────────
@@ -421,7 +648,7 @@ async def admin_search_movies(
     poll_id: int,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     if not q.strip():
         raise HTTPException(status_code=400, detail="Query required")
 
@@ -444,7 +671,7 @@ async def admin_add_movie(
     tmdb_id: int = Form(...),
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -479,7 +706,7 @@ async def admin_remove_movie(
     event_id: int,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     try:
         movie_service.remove_movie_from_poll(poll_id, event_id, db)
     except PermissionError as e:
@@ -501,6 +728,46 @@ async def admin_remove_movie(
     )
 
 
+# ─── Admin: Manual Event Entry ────────────────────────────────────────────────
+
+@router.post("/api/admin/polls/{poll_id}/events/manual")
+async def admin_add_manual_event(
+    request: Request,
+    poll_id: int,
+    db: Session = Depends(get_db),
+):
+    verify_admin(request, db)
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required")
+
+    from app.models import PollEvent as PollEventModel
+    event = EventModel(
+        title=title,
+        event_type=body.get("event_type", "other"),
+        synopsis=body.get("description") or None,
+        image_url=body.get("image_url") or None,
+        external_url=body.get("external_url") or None,
+        venue_name=body.get("venue_name") or None,
+        is_custom_event=True,
+    )
+    db.add(event)
+    db.flush()
+
+    sort_order = len(movie_service.get_poll_events(poll_id, db))
+    link = PollEventModel(poll_id=poll_id, event_id=event.id, sort_order=sort_order)
+    db.add(link)
+    db.commit()
+    db.refresh(event)
+
+    return {"status": "ok", "event": _serialize_event(event)}
+
+
 # ─── Admin: Showtimes ─────────────────────────────────────────────────────────
 
 @router.post("/api/admin/showtimes/fetch")
@@ -508,7 +775,7 @@ async def admin_fetch_showtimes(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     poll_id = body.get("poll_id")
     theater_ids = body.get("theater_ids", [])
@@ -541,7 +808,7 @@ async def admin_add_manual_showtime(
     format: str = Form("Standard"),
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     try:
         showtime_service.add_manual_session(
             poll_id, event_id, theater_id, session_date, session_time, format, db
@@ -573,7 +840,7 @@ async def admin_delete_showtime(
     session_id: int,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     session_obj = db.get(ShowSession, session_id)
     if not session_obj:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -604,8 +871,8 @@ async def admin_delete_showtime(
 # ─── Admin: Theaters ──────────────────────────────────────────────────────────
 
 @router.get("/api/admin/theaters/search")
-async def admin_search_theaters(request: Request, q: str = ""):
-    verify_admin(request)
+async def admin_search_theaters(request: Request, q: str = "", db: Session = Depends(get_db)):
+    verify_admin(request, db)
     if not q.strip():
         raise HTTPException(status_code=400, detail="q required")
     from app.config import settings as _s
@@ -646,7 +913,7 @@ async def admin_add_theater(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     name = body.get("name", "").strip()
     address = body.get("address", "")
@@ -667,8 +934,8 @@ async def admin_delete_theater(
     theater_id: int,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
-    theater = db.get(TheaterModel, theater_id)
+    verify_admin(request, db)
+    theater = db.get(VenueModel, theater_id)
     if not theater:
         raise HTTPException(status_code=404, detail="Theater not found")
     db.delete(theater)
@@ -682,7 +949,7 @@ async def admin_update_theater(
     theater_id: int,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     try:
         t = theater_service.update_theater(
@@ -707,7 +974,7 @@ async def admin_toggle_session_visibility(
     session_id: int,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     session_obj = db.get(ShowSession, session_id)
     if not session_obj:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -724,7 +991,7 @@ async def admin_bulk_session_visibility(
     db: Session = Depends(get_db),
 ):
     """Set is_included on sessions for a poll filtered by time window."""
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     poll_id = body.get("poll_id")
     time_start = body.get("time_start")  # "HH:MM" or None
@@ -749,14 +1016,14 @@ async def admin_bulk_session_visibility(
 
 @router.get("/api/admin/groups")
 async def admin_list_groups(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     groups = db.exec(select(Group)).all()
     return [{"id": g.id, "name": g.name} for g in groups]
 
 
 @router.post("/api/admin/groups")
 async def admin_create_group(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     name = body.get("name", "").strip()
     if not name:
@@ -770,7 +1037,7 @@ async def admin_create_group(request: Request, db: Session = Depends(get_db)):
 
 @router.delete("/api/admin/groups/{group_id}")
 async def admin_delete_group(request: Request, group_id: int, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     g = db.get(Group, group_id)
     if not g:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -781,7 +1048,7 @@ async def admin_delete_group(request: Request, group_id: int, db: Session = Depe
 
 @router.get("/api/admin/users")
 async def admin_list_users(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     users = db.exec(select(User).order_by(User.id)).all()
     groups = {g.id: g.name for g in db.exec(select(Group)).all()}
     return [
@@ -797,28 +1064,29 @@ async def admin_list_users(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/api/admin/users")
 async def admin_create_user(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     name = body.get("name", "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="name required")
-    is_admin = body.get("is_admin", False)
+    role = body.get("role", "voter")
+    if role not in ("voter", "admin"):
+        raise HTTPException(status_code=400, detail="role must be 'voter' or 'admin'")
     raw_pin = body.get("member_pin")
     member_pin = None
-    if not is_admin:
-        if raw_pin in (None, ""):
-            member_pin = generate_member_pin(db)
-        else:
-            try:
-                member_pin = normalize_member_pin(raw_pin)
-                ensure_unique_member_pin(db, member_pin)
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc))
+    if raw_pin in (None, ""):
+        member_pin = generate_member_pin(db)
+    else:
+        try:
+            member_pin = normalize_member_pin(raw_pin)
+            ensure_unique_member_pin(db, member_pin)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
     u = User(
         name=name,
         email=body.get("email") or None,
-        is_admin=is_admin,
+        role=role,
         group_id=body.get("group_id") or None,
         member_pin=member_pin,
     )
@@ -830,7 +1098,7 @@ async def admin_create_user(request: Request, db: Session = Depends(get_db)):
 
 @router.patch("/api/admin/users/{user_id}")
 async def admin_update_user(request: Request, user_id: int, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
@@ -841,7 +1109,12 @@ async def admin_update_user(request: Request, user_id: int, db: Session = Depend
         u.email = body["email"] or None
     if "group_id" in body:
         u.group_id = body["group_id"] or None
-    if not u.is_admin and "member_pin" in body:
+    if "role" in body:
+        role = body["role"]
+        if role not in ("voter", "admin"):
+            raise HTTPException(status_code=400, detail="role must be 'voter' or 'admin'")
+        u.role = role
+    if "member_pin" in body:
         raw_pin = body.get("member_pin")
         if raw_pin in (None, ""):
             u.member_pin = generate_member_pin(db)
@@ -859,22 +1132,21 @@ async def admin_update_user(request: Request, user_id: int, db: Session = Depend
 
 @router.delete("/api/admin/users/{user_id}")
 async def admin_delete_user(request: Request, user_id: int, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
-    if u.is_admin:
+    if u.role == "admin":
         raise HTTPException(status_code=403, detail="Cannot delete admin user")
     db.delete(u)
     db.commit()
     return {"deleted": user_id}
 
-
 # ─── Admin: Polls ─────────────────────────────────────────────────────────────
 
 @router.post("/api/admin/polls")
 async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     body = await request.json()
     title = body.get("title", "").strip()
     target_dates = body.get("target_dates", [])
@@ -883,13 +1155,15 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
 
     poll = Poll(
         title=title,
-        target_dates=json.dumps(target_dates),
         status="DRAFT",
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(poll)
     db.commit()
     db.refresh(poll)
+    for date in target_dates:
+        db.add(PollDate(poll_id=poll.id, date=date))
+    db.commit()
     return JSONResponse(
         {
             "id": poll.id,
@@ -905,7 +1179,7 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
 async def admin_publish_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -931,7 +1205,7 @@ async def admin_publish_poll(
 async def admin_poll_invite_link(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -946,7 +1220,7 @@ async def admin_poll_invite_link(
 async def admin_close_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -961,7 +1235,7 @@ async def admin_close_poll(
 async def admin_declare_winner(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -978,7 +1252,7 @@ async def admin_declare_winner(
     if not event or not session:
         raise HTTPException(status_code=404, detail="Event or session not found")
 
-    theater = db.get(TheaterModel, session.theater_id)
+    theater = db.get(VenueModel, session.theater_id)
     theater_name = theater.name if theater else "Unknown Theater"
 
     try:
@@ -1010,7 +1284,7 @@ async def admin_declare_winner(
 async def admin_archive_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -1026,7 +1300,7 @@ async def admin_reopen_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
     """Reopen a closed poll — resets winner and changes status back to OPEN."""
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -1047,12 +1321,16 @@ async def admin_delete_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
     """Permanently delete a poll and all related data (votes, sessions, etc.)."""
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
 
     from app.models import Vote, PollEvent, UserPollPreference
+
+    poll_dates = db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()
+    for pd in poll_dates:
+        db.delete(pd)
 
     fetch_jobs = db.exec(select(FetchJob).where(FetchJob.poll_id == poll_id)).all()
     for job in fetch_jobs:
@@ -1088,7 +1366,7 @@ async def admin_job_status(
     job_id: str,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     job = db.get(FetchJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -1109,7 +1387,7 @@ async def admin_job_status_json(
     job_id: str,
     db: Session = Depends(get_db),
 ):
-    verify_admin(request)
+    verify_admin(request, db)
     job = db.get(FetchJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -1124,3 +1402,20 @@ async def admin_job_status_json(
         "started_at": job.started_at,
         "finished_at": job.finished_at,
     }
+
+
+# ─── Voter: Event reviews ─────────────────────────────────────────────────────
+
+@router.get("/api/voter/events/{event_id}/reviews")
+async def voter_event_reviews(request: Request, event_id: int, db: Session = Depends(get_db)):
+    from app.middleware.identity import get_current_user_optional
+    user = get_current_user_optional(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    event = db.get(EventModel, event_id)
+    if not event or not event.tmdb_id:
+        return {"reviews": []}
+
+    reviews = await movie_service.fetch_tmdb_reviews(event.tmdb_id)
+    return {"reviews": reviews}

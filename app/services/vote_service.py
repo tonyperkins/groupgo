@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 
 from app.models import (
     User, Vote, UserPollPreference, Poll, PollEvent,
-    Session as ShowSession, Event,
+    Showtime, Event,
 )
 
 
@@ -230,8 +230,53 @@ def get_showtime_event_ids(user_votes: dict) -> list[int] | None:
     return None
 
 
+def _synthesize_movie_votes(
+    sessions: list[Showtime],
+    vote_lookup: dict[tuple, str],
+    user_ids: list[int],
+    event_ids: list[int],
+) -> dict[tuple, str]:
+    """
+    Derive implicit movie-level votes from showtime votes.
+
+    Rules per (user, event):
+      - Any can_do on any session for this event  → "yes"
+      - All sessions voted cant_do (≥1 session)   → "no"
+      - No session votes cast yet                 → "abstain"
+
+    Existing explicit event-level votes in vote_lookup are respected as
+    fallback for legacy data, but synthesized votes take precedence.
+    """
+    # Group session ids by event_id
+    sessions_by_event: dict[int, list[int]] = {}
+    for s in sessions:
+        sessions_by_event.setdefault(s.event_id, []).append(s.id)
+
+    synthesized: dict[tuple, str] = {}
+    for uid in user_ids:
+        for eid in event_ids:
+            session_ids = sessions_by_event.get(eid, [])
+            if not session_ids:
+                # No sessions for this event — fall back to explicit vote or abstain
+                explicit = vote_lookup.get(("event", eid, uid), "abstain")
+                synthesized[("event", eid, uid)] = explicit
+                continue
+            session_votes = [
+                vote_lookup.get(("session", sid, uid), "abstain")
+                for sid in session_ids
+            ]
+            voted = [v for v in session_votes if v != "abstain"]
+            if any(v == "can_do" for v in voted):
+                synthesized[("event", eid, uid)] = "yes"
+            elif voted and all(v == "cant_do" for v in voted):
+                synthesized[("event", eid, uid)] = "no"
+            else:
+                synthesized[("event", eid, uid)] = "abstain"
+    return synthesized
+
+
 def _load_result_inputs(poll_id: int, db: Session) -> dict:
-    users = db.exec(select(User).where(User.is_admin == False)).all()
+    users = db.exec(select(User)).all()
     user_ids = [u.id for u in users]
 
     poll_event_links = db.exec(
@@ -241,9 +286,9 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
     events = db.exec(select(Event).where(Event.id.in_(event_ids))).all() if event_ids else []
 
     sessions = db.exec(
-        select(ShowSession).where(
-            ShowSession.poll_id == poll_id,
-            ShowSession.is_included == True,
+        select(Showtime).where(
+            Showtime.poll_id == poll_id,
+            Showtime.is_included == True,
         )
     ).all()
 
@@ -253,6 +298,11 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
     vote_lookup: dict[tuple, str] = {
         (v.target_type, v.target_id, v.user_id): v.vote_value for v in votes
     }
+
+    # Synthesize movie-level votes from showtime votes (replaces explicit event votes)
+    synthesized_movie_votes = _synthesize_movie_votes(sessions, vote_lookup, user_ids, event_ids)
+    # Merge: synthesized takes precedence for event-type keys
+    merged_vote_lookup = {**vote_lookup, **synthesized_movie_votes}
 
     prefs = db.exec(
         select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
@@ -269,14 +319,14 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
     return {
         "users": users,
         "user_ids": user_ids,
-        "vote_lookup": vote_lookup,
+        "vote_lookup": merged_vote_lookup,
         "flexible_user_ids": flexible_user_ids,
         "unavailable_user_ids": unavailable_user_ids,
         "candidates": candidates,
     }
 
 def _score_candidates(
-    candidates: list[tuple[Event, ShowSession]],
+    candidates: list[tuple[Event, Showtime]],
     users: list[User],
     flexible_user_ids: set[int],
     unavailable_user_ids: set[int],
@@ -416,7 +466,7 @@ def calculate_user_results(user_id: int, poll_id: int, db: Session) -> dict:
 
 
 def get_participation(poll_id: int, db: Session) -> dict:
-    users = db.exec(select(User).where(User.is_admin == False)).all()
+    users = db.exec(select(User)).all()
 
     poll_event_links = db.exec(
         select(PollEvent).where(PollEvent.poll_id == poll_id)
@@ -424,9 +474,9 @@ def get_participation(poll_id: int, db: Session) -> dict:
     event_ids = [pe.event_id for pe in poll_event_links]
 
     sessions = db.exec(
-        select(ShowSession).where(
-            ShowSession.poll_id == poll_id,
-            ShowSession.is_included == True,
+        select(Showtime).where(
+            Showtime.poll_id == poll_id,
+            Showtime.is_included == True,
         )
     ).all()
     session_ids = [s.id for s in sessions]

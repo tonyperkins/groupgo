@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 
 from app.db import engine
-from app.models import FetchJob, Theater, Event, PollEvent
+from app.models import FetchJob, Venue, Event, PollEvent
 from app.services.showtime_service import (
     fetch_showtimes_from_serpapi,
     parse_serpapi_showtimes,
@@ -64,7 +64,7 @@ async def run_fetch_job(
 
     async def fetch_one(event: Event, theater_id: int, date: str) -> tuple[bool, str]:
         with _get_db_session() as db:
-            theater = db.get(Theater, theater_id)
+            theater = db.get(Venue, theater_id)
             if not theater:
                 return False, f"Theater {theater_id} not found"
             theater_name = theater.name

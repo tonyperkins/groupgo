@@ -1,7 +1,7 @@
 import os
 from sqlmodel import SQLModel, Session, create_engine, select, text
 from app.config import settings
-from app.models import User, Theater, DbVersion, Group
+from app.models import User, Venue, DbVersion, Group
 
 os.makedirs("data", exist_ok=True)
 
@@ -16,10 +16,6 @@ def get_db():
         yield session
 
 
-SEED_USERS = [
-    {"id": 1, "name": "Admin",   "is_admin": True},
-]
-
 SEED_THEATERS = [
     {
         "name": "Cinemark Cedar Park",
@@ -28,17 +24,7 @@ SEED_THEATERS = [
         "serpapi_query": "Cinemark Cedar Park Texas showtimes",
         "is_active": True,
     },
-   
 ]
-
-
-def _add_column_if_missing(db, table: str, column: str, col_def: str):
-    """Safely add a column to an existing table if it doesn't exist."""
-    try:
-        db.exec(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}"))  # type: ignore[call-overload]
-        db.commit()
-    except Exception:
-        db.rollback()
 
 
 def init_db():
@@ -49,18 +35,7 @@ def init_db():
 
         # Enable WAL mode for better concurrency
         db.exec(text("PRAGMA journal_mode=WAL"))  # type: ignore[call-overload]
-        db.exec(text("PRAGMA foreign_keys=ON"))  # type: ignore[call-overload]
-
-        # Schema migrations for new columns on existing tables
-        _add_column_if_missing(db, "users", "group_id", "INTEGER REFERENCES groups(id)")
-        _add_column_if_missing(db, "users", "member_pin", "TEXT")
-        _add_column_if_missing(db, "polls", "access_uuid", "TEXT")
-        _add_column_if_missing(db, "sessions", "is_included", "INTEGER NOT NULL DEFAULT 1")
-        _add_column_if_missing(db, "user_poll_preferences", "has_completed_voting", "INTEGER NOT NULL DEFAULT 0")
-        _add_column_if_missing(db, "user_poll_preferences", "is_participating", "INTEGER NOT NULL DEFAULT 0")
-        _add_column_if_missing(db, "user_poll_preferences", "opt_out_reason", "TEXT")
-        _add_column_if_missing(db, "theaters", "website_url", "TEXT")
-        _add_column_if_missing(db, "votes", "veto_reason", "TEXT")
+        db.exec(text("PRAGMA foreign_keys=ON"))   # type: ignore[call-overload]
 
         # Seed default group
         existing_groups = db.exec(select(Group)).all()
@@ -68,23 +43,32 @@ def init_db():
             db.add(Group(id=1, name="Default Group"))
             db.commit()
 
-        # Seed users if table is empty
+        # Seed admin user if no users exist
         existing_users = db.exec(select(User)).all()
         if not existing_users:
-            for u in SEED_USERS:
-                db.add(User(**u))
+            admin_pin = generate_member_pin(db)
+            db.add(User(
+                id=1,
+                name="Admin",
+                email="admin@groupgo.local",
+                role="admin",
+                member_pin=admin_pin,
+                group_id=1,
+            ))
+            db.commit()
         else:
+            # Ensure every non-admin voter has a PIN
             for user in existing_users:
-                if user.is_admin or user.member_pin:
-                    continue
-                user.member_pin = generate_member_pin(db)
-                db.add(user)
+                if not user.member_pin:
+                    user.member_pin = generate_member_pin(db)
+                    db.add(user)
+            db.commit()
 
         # Seed theaters if table is empty
-        existing_theaters = db.exec(select(Theater)).all()
+        existing_theaters = db.exec(select(Venue)).all()
         if not existing_theaters:
             for t in SEED_THEATERS:
-                db.add(Theater(**t))
+                db.add(Venue(**t))
 
         # Record schema version
         existing_version = db.get(DbVersion, 1)

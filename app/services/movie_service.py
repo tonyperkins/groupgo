@@ -160,3 +160,43 @@ def poster_url(poster_path: Optional[str], size: str = "w342") -> Optional[str]:
     if not poster_path:
         return None
     return f"{settings.tmdb_image_base}/{size}{poster_path}"
+
+
+# Simple in-process cache: {tmdb_id: (fetched_at_epoch, reviews_list)}
+_reviews_cache: dict[int, tuple[float, list[dict]]] = {}
+_REVIEWS_TTL_SECONDS = 3600  # 1 hour
+
+
+async def fetch_tmdb_reviews(tmdb_id: int, max_reviews: int = 3) -> list[dict]:
+    """Fetch up to max_reviews user reviews for a TMDB movie. Results are cached for 1 hour."""
+    import time
+    cached = _reviews_cache.get(tmdb_id)
+    if cached:
+        fetched_at, reviews = cached
+        if time.time() - fetched_at < _REVIEWS_TTL_SECONDS:
+            return reviews
+
+    url = f"{settings.tmdb_base_url}/movie/{tmdb_id}/reviews"
+    params = {"api_key": settings.TMDB_API_KEY, "language": "en-US", "page": 1}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:
+        return []
+
+    reviews = []
+    for r in data.get("results", [])[:max_reviews]:
+        content = r.get("content", "")
+        excerpt = content[:280].rstrip()
+        if len(content) > 280:
+            excerpt += "…"
+        reviews.append({
+            "author": r.get("author", "Anonymous"),
+            "rating": r.get("author_details", {}).get("rating"),
+            "excerpt": excerpt,
+        })
+
+    _reviews_cache[tmdb_id] = (time.time(), reviews)
+    return reviews

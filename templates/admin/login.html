@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login — GroupGo</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <style>
+    :root { --bg-page: #0f172a; --bg-card: rgba(30,41,59,0.88); --border: rgba(148,163,184,0.16); --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-muted: #64748b; }
+    body { background-color: var(--bg-page); color: var(--text-primary); font-family: Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 1.25rem; box-shadow: 0 24px 60px rgba(2,6,23,0.36); padding: 2.5rem 2rem; width: 100%; max-width: 400px; }
+    .input-base { background: rgba(15,23,42,0.55); border: 1px solid var(--border); color: var(--text-primary); border-radius: 0.75rem; padding: 0.75rem 1rem; font-size: 0.9rem; width: 100%; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+    .input-base:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.12); }
+    .btn-primary { background: linear-gradient(135deg,#6366f1,#4f46e5); color: white; border-radius: 999px; padding: 0.75rem 1.5rem; font-weight: 700; font-size: 0.9rem; width: 100%; border: 1px solid rgba(129,140,248,0.3); box-shadow: 0 12px 28px rgba(79,70,229,0.24); cursor: pointer; transition: all 0.18s; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(79,70,229,0.3); }
+    .brand-mark { width: 3rem; height: 3rem; border-radius: 1rem; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg,rgba(99,102,241,0.22),rgba(14,165,233,0.22)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16); font-size: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="flex flex-col items-center gap-3 mb-8">
+      <span class="brand-mark">🎬</span>
+      <div class="text-center">
+        <div class="font-bold text-xl tracking-tight">GroupGo Admin</div>
+        <div class="text-sm mt-1" style="color:var(--text-secondary)">Enter your email to receive a login link</div>
+      </div>
+    </div>
+
+    {% if sent %}
+      <div class="rounded-xl p-4 mb-5 text-sm text-center" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);color:#4ade80;">
+        ✓ If that email belongs to an admin account, a login link has been sent.<br>
+        <span style="color:var(--text-muted);font-size:0.8rem;">Check server logs if running in dev mode.</span>
+      </div>
+      <a href="/admin/login" class="btn-primary text-center block" style="text-decoration:none;">Send another link</a>
+    {% else %}
+      {% if error %}
+        <div class="rounded-xl p-3 mb-4 text-sm" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#f87171;">
+          {{ error }}
+        </div>
+      {% endif %}
+
+      <form method="post" action="/admin/login" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-2" style="color:var(--text-secondary)">Email address</label>
+          <input
+            type="email"
+            name="email"
+            class="input-base"
+            placeholder="you@example.com"
+            autocomplete="email"
+            autofocus
+            required
+          />
+        </div>
+        <button type="submit" class="btn-primary">Send login link</button>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

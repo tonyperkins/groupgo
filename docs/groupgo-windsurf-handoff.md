@@ -282,7 +282,8 @@ groupgo/
         │   ├── PhoneShell.tsx  # AppHeader + ProgressBar + TabBar + ScrollArea
         │   ├── MovieCard.tsx
         │   ├── ShowtimeCard.tsx
-        │   ├── ParticipationBanner.tsx
+        │   ├── StatusChip.tsx
+        │   ├── VoteTabFooter.tsx
         │   ├── ResultsCard.tsx
         │   └── ...
         ├── screens/            # One file per logical screen group
@@ -397,27 +398,64 @@ Copy these directly from the mockup into `voter-spa/src/tokens.ts`:
 
 ```typescript
 export const C = {
-  bg:          "#0A0A0F",
-  surface:     "#111118",
-  card:        "#16161F",
-  border:      "#1E1E2E",
-  borderLight: "#2A2A3E",
-  accent:      "#E8A020",
-  accentDim:   "#7A5510",
-  green:       "#22C55E",
-  greenDim:    "#14532D",
-  red:         "#EF4444",
-  redDim:      "#450A0A",
-  blue:        "#3B82F6",
-  blueDim:     "#1E3A5F",
-  text:        "#F0EEE8",
-  textMuted:   "#7A7A8E",
-  textDim:     "#4A4A5E",
-  locked:      "#2A2A3E",
+  bg:           "#0A0A0F",
+  surface:      "#111118",
+  card:         "#16161F",
+  border:       "#1E1E2E",
+  borderLight:  "#2A2A3E",
+  borderTap:    "#4A4A6E",   // unselected-but-tappable affordance — see Visual Polish notes
+  accent:       "#E8A020",
+  accentDim:    "#7A5510",
+  green:        "#22C55E",
+  greenDim:     "#14532D",
+  red:          "#EF4444",
+  redDim:       "#450A0A",
+  blue:         "#3B82F6",
+  blueDim:      "#1E3A5F",
+  text:         "#F0EEE8",
+  textMuted:    "#7A7A8E",
+  textDim:      "#4A4A6E",
+  locked:       "#2A2A3E",
 } as const;
 
 export const PHONE = { width: 390, height: 844 };
 ```
+
+---
+
+## Visual Polish — Tappable vs Disabled Affordances
+
+**Critical:** In standard mobile UI, a dim dark element with a muted border reads as *disabled/unavailable*. GroupGo uses this same treatment for *unselected-but-tappable* elements — this is a bug, not a style choice. Users will not tap things that look disabled.
+
+### ShowtimeCard checkbox — three distinct states
+
+| State | Treatment |
+|-------|-----------|
+| Unselected (tappable) | Empty box, border `#4A4A6E` (visibly lighter than card bg), no fill — reads as "tap me" |
+| Selected | Green fill `#22C55E`, white `✓`, green border — reads as "active/chosen" |
+| Locked/submitted | Muted filled `✓` in `#3A3A4E`, dim border `#2A2A3E`, `opacity: 0.65` — reads as "locked in" |
+
+The unselected border must be noticeably brighter than `#1E1E2E` (card border) and `#2A2A3E` (borderLight). `#4A4A6E` (`borderTap`) is the right value — use it consistently for any unselected interactive element.
+
+### ShowtimeCard tap target — full row, not just checkbox
+
+The entire showtime row should be tappable, not just the checkbox element. This is standard mobile UI — small rows (~44px) require generous tap targets. The `onClick` handler belongs on the row container, not the checkbox.
+
+Press feedback (highlight/background flash) must cover the full row. If only the checkbox animates on tap the interaction feels broken. Use a subtle `background` color change on the row on press — e.g. briefly flashing to `#1E1E2E` → `#16161F`.
+
+`pointer-events: none` on the checkbox element itself in locked state — the row container can still receive taps for expand/collapse, just the vote toggle is disabled.
+
+### "I'm In" flexible toggle
+
+The iOS-style toggle in its off state reads as disabled because it uses the same dim styling. Fix: give the toggle track a visible border (`#4A4A6E`) when off, so it reads as "available to enable" rather than "greyed out feature."
+
+### General rule
+- `#1E1E2E` / `#2A2A3E` borders = structural/decorative, non-interactive
+- `#4A4A6E` borders = unselected but tappable
+- `#22C55E` borders/fills = selected/active
+- `opacity: 0.65` + `#2A2A3E` = locked/disabled
+
+Apply this consistently across ShowtimeCard, SingleOptionCard, and the flexible toggle.
 
 ---
 
@@ -429,16 +467,23 @@ Derived from `docs/groupgo-voter-flow.jsx` — port these components in this ord
 ```
 <VoterApp>                      # Fetches /api/voter/me, owns all state
   <PhoneShell>
-    <AppHeader />               # title, subtitle, countdown, countdownUrgent
-    <ProgressBar step={0-4} />  # 4-segment binary fill
-    <ParticipationBanner />     # 5 states: preview/voting/editing/submitted/opted-out
+    <AppHeader />               # title, subtitle, countdown, countdownUrgent, statusChip
+    <ProgressBar step={0-3} />  # 3-segment binary fill: Joined / Voted / Submitted
     <ScrollArea>                # flex:1, minHeight:0
       {children}                # screen content
     </ScrollArea>
-    <TabBar />                  # movies/showtimes/results + badges
+    {activeTab === "vote" && <VoteTabFooter />}  # sticky footer, Vote tab only
+    <TabBar />                  # discover/vote/results + badge
   </PhoneShell>
 </VoterApp>
 ```
+
+**NOTE: `ParticipationBanner` has been removed.** Its role is replaced by:
+1. A **status chip** in the AppHeader (always visible, tappable)
+2. A **sticky footer** on the Vote tab only (contextual submit/resubmit actions)
+3. The **ProgressBar** (already communicates state visually)
+
+See "Status Chip & Vote Tab Footer" section below for the full spec.
 
 ### Layer 2 — Screens (swap based on active tab)
 ```
@@ -449,7 +494,7 @@ Derived from `docs/groupgo-voter-flow.jsx` — port these components in this ord
 
 ### Layer 3 — Overlays
 ```
-<OptOutDialog />      # Bottom sheet
+<OptOutDialog />      # Centered modal (NOT a bottom sheet — triggered from top chip)
 <Toast />             # Inline at top of ScrollArea
 <TrailerPlayer />     # Inline 16:9 expand within MovieCard
 ```
@@ -462,14 +507,100 @@ interface VoterState {
   poll: Poll | null;
   preferences: UserPollPreference;
   votes: Record<string, string>;     // "event:123" → "yes"
-  yesMovieCount: number;
   votedSessionCount: number;
-  activeTab: "movies" | "showtimes" | "results";
+  activeTab: "discover" | "vote" | "results";
   isEditing: boolean;
   showOptOutDialog: boolean;
   toast: string | null;
+  // NOTE: no bannerState — derived from preferences + isEditing
+  // preview  = !preferences.is_participating
+  // voting   = is_participating && !has_completed_voting && !isEditing
+  // editing  = is_participating && !has_completed_voting && isEditing
+  // submitted = is_participating && has_completed_voting && !isEditing
 }
 ```
+
+---
+
+## Status Chip & Vote Tab Footer
+
+The `ParticipationBanner` has been removed and replaced by two focused components.
+
+### StatusChip (in AppHeader, always visible)
+
+Sits on the right side of the AppHeader row, left of the user name pill. Tapping it opens a popover anchored below-right with a dim overlay behind it. The chip state is derived — never stored directly:
+
+```typescript
+type ChipState = "preview" | "voting" | "editing" | "submitted"
+
+function deriveChipState(prefs: UserPollPreference, isEditing: boolean): ChipState {
+  if (!prefs.is_participating) return "preview"
+  if (prefs.has_completed_voting && !isEditing) return "submitted"
+  if (isEditing) return "editing"
+  return "voting"
+}
+```
+
+| State | Label | Colors | Tap action |
+|-------|-------|--------|------------|
+| preview | `JOIN →` | bg `#1E3A5F`, border `#3B82F6`, text `#3B82F6` | Direct — calls join API, no popover |
+| voting | `VOTING ▾` | bg `#7A5510`, border `#E8A020`, text `#E8A020` | Opens popover |
+| editing | `EDITING ▾` | bg `#7A5510`, border `#E8A020`, text `#E8A020` | Opens popover |
+| submitted | `✓ DONE ▾` | bg `#14532D`, border `#22C55E`, text `#22C55E` | Opens popover |
+
+**Popover contents by state:**
+
+| State | Row 1 | Row 2 |
+|-------|-------|-------|
+| voting | "Go to Vote tab" → navigate `/vote/vote` | "Opt out" (neutral/ghost) → opt-out flow |
+| editing | "Go to Vote tab" → navigate `/vote/vote` | "Cancel edit" → `setIsEditing(false)`, resubmit via API |
+| submitted | "Change vote" → `setIsEditing(true)`, set `is_complete=false` via API | "Opt out" (neutral/ghost) → opt-out flow |
+
+**After opt out:** chip reverts to `JOIN →` preview state.
+
+---
+
+### VoteTabFooter (Vote tab only, sticky above TabBar)
+
+Only rendered when `activeTab === "vote"`. Contents are state-driven:
+
+| State | Primary button | Secondary button |
+|-------|---------------|-----------------|
+| voting + has selections | `Submit vote →` (amber) → POST complete, `isEditing=false` | `Opt out` (ghost) |
+| voting + no selections | *(footer hidden)* | — |
+| editing | `Resubmit →` (amber) → POST complete, `isEditing=false` | `Cancel` (ghost) → `setIsEditing(false)` |
+| submitted | *(footer hidden)* | — |
+| preview | *(footer hidden)* | — |
+
+**Inline hint bar (Vote tab, editing state only):** A small dark-amber bar sits between the FilterBar and the event list: `✏️ Editing — hit Resubmit when done`. Not a persistent banner — only visible on the Vote tab while `isEditing === true`.
+
+---
+
+### Vote Tab — Submitted State Appearance
+
+When `chipState === "submitted"` and `isEditing === false`, the Vote tab enters a locked read-only state. Two things change:
+
+**1. Submitted info card**
+
+Rendered as the first item in the scroll area, above the event/showtime cards. Dim, non-interactive, informational:
+
+```
+🔒  Your vote is locked in
+    Tap ✓ DONE above to change your selections or opt out.
+```
+
+Style: dark background (`#16161F`), muted border (`#2A2A3E`), border-radius matches other cards. Lock icon and first line in muted white (`#9A9AAE`), second line dimmer (`#5A5A6E`). No amber, no green — deliberately quiet.
+
+**2. Locked showtime/option cards**
+
+All `ShowtimeCard` and `SingleOptionCard` components render in a read-only locked mode:
+- Toggle/checkbox affordance: replace active color with a muted filled icon (e.g. `✓` in `#3A3A4E` instead of bright green bordered checkbox)
+- Card border: `#1E1E2E` (same as unselected) regardless of selection state — remove the green highlight border
+- Opacity: `0.65` on the entire card
+- `pointer-events: none` on the toggle element specifically (card itself can still be tapped to expand, just can't change the vote)
+- Do NOT hide or collapse cards — voter should be able to see what they voted for
+
+The `EventGroup` collapse/expand still works in submitted state. Only the vote toggles are locked.
 
 ---
 
@@ -491,13 +622,13 @@ The mockup ZIP of all 25 screens as PNGs is at `docs/mockup_images/` (or regener
 
 | Priority | Screen | Notes |
 |----------|--------|-------|
-| 1 | Shell (AppHeader + ProgressBar + TabBar + ParticipationBanner) | Everything depends on this |
+| 1 | Shell (AppHeader + ProgressBar + TabBar + StatusChip + VoteTabFooter) | Everything depends on this |
 | 2 | Secure Entry (`/join/{uuid}`) | Keep as Jinja2 — already works |
-| 3 | Active Voting (Movies tab) | Core loop |
-| 4 | Showtimes tab | Core loop |
-| 5 | Vote Submitted state | Banner change only |
+| 3 | Discover tab | Info-only cards |
+| 4 | Vote tab | Core loop |
+| 5 | Vote Submitted state | Chip + footer change only |
 | 6 | Results tab — all states | 5 variants |
-| 7 | Zero Yes Preview | Minor variant |
+| 7 | Edge cases (no active poll, opted out, countdown urgent) | Minor variants |
 | 8 | Opted Out | Banner variant |
 | 9 | Countdown Urgent | Header variant |
 | 10 | Change Vote / Editing | Banner variant |
@@ -602,7 +733,7 @@ npm run build
 5. Add `/vote/{path:path}` catch-all in FastAPI to serve SPA
 
 **Session 2 — Shell components**
-1. Port `PhoneShell`, `AppHeader`, `ProgressBar`, `TabBar`, `ParticipationBanner`, `ScrollArea` from mockup
+1. Port `PhoneShell`, `AppHeader`, `ProgressBar`, `TabBar`, `StatusChip`, `VoteTabFooter`, `ScrollArea` from mockup
 2. Wire to `/api/voter/me` — get real user + poll data rendering in the shell
 3. Verify auth flow: `/join/{uuid}` → PIN → cookie → React loads with correct user
 
@@ -1302,15 +1433,15 @@ The React router makes this easy — push a state change after the API call reso
 
 **2. `is_editing` / Change Vote state is never actually set**
 
-The participation banner has a fully designed "Editing your vote" amber state with a Resubmit button. But look at every template — `is_editing` is always `false`. The "Change Vote" button calls `POST /api/votes/complete` with `is_complete=false` (which also triggers `HX-Refresh`), and then the voter is back in the active voting state with no amber banner — the editing state never appears.
+The HTMX implementation had a fully designed "Editing your vote" state but `is_editing` is always `false` — the editing state never appears. The "Change Vote" button calls `POST /api/votes/complete` with `is_complete=false` (which also triggers `HX-Refresh`), and the voter is back in voting state with no editing indicator.
 
-In React this is local state: `const [isEditing, setIsEditing] = useState(false)`. When "Change Vote" is clicked: set `is_complete=false` via API, set `isEditing=true` in local state. The banner shows amber. When Resubmit is clicked: `is_complete=true`, `isEditing=false`. Clean.
+In React this is local state: `const [isEditing, setIsEditing] = useState(false)`. When "Change Vote" is triggered (via chip popover): set `is_complete=false` via API, set `isEditing=true`. The header chip shows EDITING ▾, and the Vote tab shows a small inline hint bar. When Resubmit is clicked: `is_complete=true`, `isEditing=false`, chip returns to ✓ DONE. Clean.
 
 **3. Preview → Join transition is abrupt**
 
 Current flow: voter lands on `/join/{uuid}/preview`, gets redirected to `/identify` (if no cookie) or `/vote/movies` directly. If they hit `/vote/movies` in preview mode and click "Join" on the banner, it posts to `/api/votes/participation` which triggers `HX-Refresh` — a full page reload back to movies.
 
-This is the one transition where the full-page reload is most jarring. The voter just tapped "Join" on the banner and the whole page reloads. In React: the banner's Join button calls the API, gets back `{is_participating: true}`, updates local state — the banner smoothly transitions from blue preview to green voting with no reload.
+This is the one transition where the full-page reload is most jarring. The voter just tapped "JOIN →" on the header chip and the whole page reloads. In React: the chip's Join action calls the API, gets back `{is_participating: true}`, updates local state — the chip smoothly transitions from blue JOIN → to amber VOTING ▾ with no reload.
 
 **4. Tab navigation reloads the page**
 
@@ -1364,9 +1495,19 @@ The results panel handles most states correctly. Three things to nail in React:
 
 Simple empty state, implemented well. The `closed_poll` branch (showing "View Final Results →") is correct. No changes needed.
 
-**Opt-out bottom sheet — minor issue**
+**Opt-out dialog — use centered modal, not bottom sheet**
 
-The sheet is triggered by `onclick="ggShowLeaveSheet()"`. In React this becomes local state: `const [showOptOutSheet, setShowOptOutSheet] = useState(false)`. The sheet content is good. One addition: the spec shows an optional "reason" text field in the opt-out sheet. Currently the backend accepts `opt_out_reason` but the UI never collects it. Either add the field or remove the backend param — don't leave them out of sync.
+The opt-out action lives in the chip popover at the top of the screen. A bottom sheet would create a jarring top-to-bottom eye journey. Use a centered modal with dim overlay instead — this matches the spatial origin of the action.
+
+Dialog content:
+- Title: `"Opt out of this poll?"`
+- Body: `"Your selections will be removed. You can rejoin at any time."`  (softer than "votes will be cleared")
+- Confirm button: neutral/amber — **not red**. The destructive weight is in the text, not the color. Opt-out is reversible.
+- Cancel button: ghost
+
+The action triggered from the Vote tab footer's "Opt out" ghost button also opens this same centered modal — consistent regardless of entry point.
+
+One addition: the backend accepts `opt_out_reason` but the UI never collects it. Either add an optional text field to the dialog or remove the backend param — don't leave them out of sync.
 
 ---
 
@@ -1413,7 +1554,7 @@ All voter state lives in `VoterApp` (the root component) and flows down as props
 
 **3. URL as tab state, not as page navigation**
 
-The tab bar uses React Router `<Link>` components, but the shell (AppHeader, ProgressBar, ParticipationBanner, TabBar) never unmounts. The URL changes, the active tab changes, the scroll area content swaps — but the voter state in `VoterApp` persists across tab changes. This is the core advantage over the current HTMX full-page-reload tab navigation.
+The tab bar uses React Router `<Link>` components, but the shell (AppHeader, ProgressBar, StatusChip, VoteTabFooter, TabBar) never unmounts. The URL changes, the active tab changes, the scroll area content swaps — but the voter state in `VoterApp` persists across tab changes. This is the core advantage over the current HTMX full-page-reload tab navigation.
 
 ---
 
@@ -1421,11 +1562,282 @@ The tab bar uses React Router `<Link>` components, but the shell (AppHeader, Pro
 
 | Issue | HTMX behavior | React fix |
 |-------|--------------|-----------|
-| Submit UX | Page reload, no transition | Optimistic state → navigate to submitted view |
-| Change Vote / editing state | `is_editing` always false | Local state, amber banner works correctly |
-| Preview → Join | Jarring reload | Smooth banner state transition |
+| Submit UX | Page reload, no transition | Optimistic state → chip turns ✓ DONE, footer hides |
+| Change Vote / editing state | `is_editing` always false | Local state, EDITING chip + inline hint bar on Vote tab |
+| Preview → Join | Jarring reload | Smooth chip transition: JOIN → → VOTING ▾ |
 | Tab switches | Full page reload | Instant, no data re-fetch |
 | Results freshness | Silent 10s poll | Same interval + "Updated X seconds ago" |
 | Opt-out reason | Backend field, no UI | Add text field or remove backend param |
 | Trailer scroll | Iframe loads off-screen | scrollIntoView after load |
 | Toast consistency | Two systems (floating + inline) | Single inline toast, one system |
+
+
+---
+
+## Generalization Session — Rename & Extend for Generic Events
+
+This session should be completed before Sessions 7-10. It prepares the codebase for use beyond movies — restaurants, concerts, bars, weekend activities — without breaking any existing functionality.
+
+---
+
+### Philosophy
+
+GroupGo is becoming a general-purpose group decision tool. The movie use case is the primary one and stays fully supported. The goal is to make the data model and UI generic enough that other event types work without special-casing, not to build a full event management system.
+
+**Rule:** If a change requires touching the scoring algorithm, the vote flow, or the results tab — it's out of scope for this session. Those are agnostic already.
+
+---
+
+### Model changes
+
+**`Event` — add generic fields alongside existing movie fields**
+
+```python
+class Event(SQLModel, table=True):
+    # Existing movie fields — keep all of these
+    tmdb_id: Optional[int]
+    poster_path: Optional[str]
+    trailer_key: Optional[str]
+    tmdb_rating: Optional[float]
+    runtime_mins: Optional[int]
+    rating: Optional[str]          # MPAA rating
+    genres: Optional[str]          # JSON array string
+    synopsis: Optional[str]
+
+    # New generic fields
+    event_type: str = "movie"      # "movie" | "restaurant" | "concert" | "bar" | "other"
+    image_url: Optional[str]       # generic image, used when poster_path is None
+    external_url: Optional[str]    # website, booking link, etc.
+    venue_name: Optional[str]      # for events not tied to a Venue/Theater
+```
+
+`event_type` defaults to `"movie"` so all existing data is unaffected.
+
+**`Theater` → rename Python class to `Venue`**
+
+Keep `__tablename__ = "theaters"` to avoid a DB migration — this is a Python-only rename. Add a comment:
+
+```python
+class Venue(SQLModel, table=True):
+    __tablename__ = "theaters"  # kept for migration compatibility
+    # ... existing fields unchanged
+```
+
+Update all imports and references from `Theater` / `TheaterModel` → `Venue`.
+
+**`Showtime` — no rename needed**
+
+`Showtime` is already generic enough. `session_date` + `session_time` + `format` work fine for any event type. The `theater_id` FK stays — it now points to `Venue` rows which can represent any location.
+
+---
+
+### Admin flow changes
+
+The admin currently adds movies exclusively via TMDB search. Add a second path: **manual event entry**.
+
+New endpoint:
+```
+POST /api/admin/polls/{poll_id}/events/manual
+```
+
+Body:
+```json
+{
+  "title": "Khruangbin at Stubb's",
+  "event_type": "concert",
+  "description": "An evening of global groove...",
+  "image_url": "https://...",
+  "external_url": "https://stubbs.com/...",
+  "venue_name": "Stubb's Waller Creek Amphitheater"
+}
+```
+
+The existing `POST /api/admin/polls/{poll_id}/movies` (TMDB path) stays unchanged and is now the "movie" path.
+
+In the admin UI, the "Add Movie" button becomes "Add Event" with two options:
+- **Search TMDB** (existing flow, for movies)
+- **Add Manually** (new form, for anything else)
+
+---
+
+### Voter UI changes
+
+**Tab labels and icons:**
+```
+🎬 Movies  →  🎟️ Discover   (or just "Info")
+🕐 Showtimes → 🗳️ Vote
+🏆 Results  →  🏆 Results    (unchanged)
+```
+
+**MovieInfoPanel — enriched**
+
+The info card on the Discover tab becomes a richer panel:
+
+For `event_type = "movie"`:
+- Poster, title, year, runtime, MPAA rating
+- Genre pills
+- Synopsis (collapsed to 3 lines, "Read more" expands)
+- TMDB rating + up to 3 user review excerpts (from TMDB reviews endpoint)
+- Watch Trailer button
+
+For `event_type = "other"` / generic:
+- `image_url` in place of poster (full-width banner style)
+- Title, `event_type` badge
+- `description` in place of synopsis
+- `external_url` as "More Info →" link
+- `venue_name` if set and no Venue FK
+
+The card detects which mode to use from `event_type` — no prop needed.
+
+**Empty states and copy:**
+
+Global find-and-replace on voter-facing copy:
+```
+"No movies yet"      → "No events yet"
+"Pick your movies"   → "Browse events"
+"movie"              → "event" (lowercase, in copy only)
+"Vote Yes on a movie" → "Mark what works for you"
+```
+
+Admin-facing copy stays more specific since admin is always adding movies or events explicitly.
+
+---
+
+### Navigation restructure
+
+Current tab bar: Movies · Showtimes · Results
+New tab bar: **Discover · Vote · Results**
+
+**Discover tab** (replaces Movies tab):
+- Rich event info cards
+- No vote buttons on the cards themselves
+- Trailer, synopsis, reviews, external links
+- Read-only, purely informational
+
+**Vote tab** (replaces Showtimes tab):
+- All voteable options (event + showtime combinations)
+- Filter pills: Event · Location · Date
+- Grouped by event, collapsible
+- ShowtimeCard with ✓/✕ availability toggles
+- Flexible toggle
+- Submit button
+
+**Results tab** — unchanged
+
+This separation cleanly maps to the mental model: **learn** (Discover) → **decide** (Vote) → **see outcome** (Results).
+
+---
+
+### VoteTab component structure
+
+```
+VoteTab
+├── FilterBar (sticky)
+│   ├── FilterPill (event filter)
+│   ├── FilterPill (location filter)
+│   ├── FilterPill (date filter)
+│   └── FlexibleButton ("I'm in for anything")
+│
+├── HintCard (inline, shown when 0 selections and participating)
+│
+└── EventGroup[] (one per event)
+    ├── EventGroupHeader
+    │   ├── Thumbnail (poster_path or image_url)
+    │   ├── Title + event_type badge
+    │   └── Collapse chevron (hidden when only 1 showtime)
+    │
+    └── ShowtimeCard[] (collapsed by default)
+        ├── Venue · Date · Time · Format
+        ├── [📍 Directions]  [🔗 More Info / Book]
+        └── [✓ Works]  [✕ Can't]
+```
+
+**Single-showtime detection:**
+```typescript
+// When an event has exactly one showtime, render as a flat card
+// No collapse chevron, no nested list
+function renderEventGroup(event, sessions) {
+  if (sessions.length === 1) {
+    return <SingleOptionCard event={event} session={sessions[0]} />
+  }
+  return <EventGroup event={event} sessions={sessions} />
+}
+```
+
+**Filter pill behavior:**
+- Tapping a pill opens a bottom sheet with options (correct pattern — filter sheets are a standard mobile convention)
+- Active filter shown as dismissable amber pill with ✕
+- Multiple filters are AND'd
+- Groups with no matching showtimes are hidden when filters active
+- Groups with partial matches show only matching showtimes but keep full event header
+
+**Filter bottom sheet — required details:**
+
+The sheet needs four things to feel complete:
+
+1. **Selection state on each row** — active options get a visible indicator (amber checkmark or amber text color). The user must be able to see what's currently filtered at a glance.
+
+2. **"All / Clear" option at the top of each list** — lets the user reset without manually deselecting. Label: "All events", "All locations", "All dates" depending on the pill. Tapping it deselects all options in that filter and dismisses.
+
+3. **Tap affordance on list rows** — plain text on dark background doesn't read as tappable. Each row gets a subtle border-bottom `#1E1E2E` separator and a press highlight (`#1E1E2E` background flash on tap).
+
+4. **Close affordance** — a small `✕` or "Done" button in the sheet header. Tapping outside to dismiss is fine as secondary behavior but isn't obvious to all users.
+
+Sheet header format: `"Filter by event"` / `"Filter by location"` / `"Filter by date"` — matches the pill label.
+
+---
+
+### Progress bar update
+
+Current: Joined → Movie → Showtime → Submitted
+New: **Joined → Voted → Submitted** (3 steps)
+
+`step` derives from:
+- 0 — not participating
+- 1 — participating, 0 selections
+- 2 — participating, ≥1 session vote or flexible
+- 3 — submitted
+
+---
+
+### What does NOT change
+
+- Scoring algorithm (`vote_service.py`) — completely untouched
+- All vote endpoints — untouched
+- `POST /api/votes/complete` — untouched
+- `GET /api/results/json` — untouched
+- Results tab component — untouched
+- Auth system — untouched
+- Poll lifecycle — untouched
+- `StatusChip` — untouched
+- `VoteTabFooter` — untouched
+- `AppHeader` — untouched
+
+---
+
+### Session checklist
+
+**Backend:**
+- [ ] Add `event_type`, `image_url`, `external_url`, `venue_name` to `Event` model
+- [ ] Rename `Theater` Python class → `Venue` (keep `__tablename__ = "theaters"`)
+- [ ] Update all `Theater`/`TheaterModel` imports → `Venue`
+- [ ] Add `POST /api/admin/polls/{poll_id}/events/manual` endpoint
+- [ ] Add TMDB reviews fetch to `movie_service.py` (2-3 reviews, cached)
+- [ ] Update `_serialize_event()` in `api.py` to include new fields
+
+**Frontend:**
+- [ ] Rename `MoviesTab` → `DiscoverTab`, update route `/vote/movies` → `/vote/discover`
+- [ ] Rename `ShowtimesTab` → `VoteTab`, update route `/vote/showtimes` → `/vote`
+- [ ] Update `TabBar` — 3 tabs: Discover · Vote · Results
+- [ ] Update `ProgressBar` — 3 steps: Joined · Voted · Submitted
+- [ ] Build `FilterBar` with 3 filter pills + flexible button
+- [ ] Build `EventGroup` with collapsible showtime list
+- [ ] Build `SingleOptionCard` for single-showtime events
+- [ ] Enrich `MovieInfoPanel` — synopsis expand, reviews, external links
+- [ ] Global copy pass — "movie" → "event" in voter-facing strings
+- [ ] Update `AppHeader` subtitle logic if needed
+
+**Admin UI:**
+- [ ] Rename "Add Movie" → "Add Event"
+- [ ] Add manual entry form alongside TMDB search
+- [ ] Update members/event labels where movie-specific

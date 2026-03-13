@@ -1,21 +1,93 @@
 import json
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from app.db import get_db
-from app.middleware.auth import verify_admin
-from app.models import Poll, User, Group
+from app.middleware.auth import verify_admin, get_admin_user
+from app.models import Poll, PollDate, User, Group, Showtime
 from app.services import movie_service, showtime_service, vote_service, theater_service
+from app.services.auth_service import (
+    ADMIN_SESSION_COOKIE,
+    ADMIN_SESSION_TTL_DAYS,
+    send_admin_magic_link,
+    consume_magic_link,
+    create_admin_session,
+    revoke_admin_session,
+)
 from app.templates_config import templates
 
 router = APIRouter(prefix="/admin")
 
 
+# ─── Auth routes ──────────────────────────────────────────────────────────────
+
+@router.get("/login", response_class=HTMLResponse)
+async def admin_login_page(request: Request):
+    return templates.TemplateResponse(
+        request, "admin/login.html", {"request": request, "sent": False, "error": None}
+    )
+
+
+@router.post("/login", response_class=HTMLResponse)
+async def admin_login_submit(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    send_admin_magic_link(email.strip().lower(), db)
+    return templates.TemplateResponse(
+        request, "admin/login.html", {"request": request, "sent": True, "error": None}
+    )
+
+
+@router.get("/auth/{token}", response_class=HTMLResponse)
+async def admin_auth_token(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    user = consume_magic_link(token, "admin_login", db)
+    if not user:
+        return templates.TemplateResponse(
+            request,
+            "admin/login.html",
+            {"request": request, "sent": False, "error": "This login link is invalid or has expired."},
+            status_code=400,
+        )
+
+    session_id = create_admin_session(user, dict(request.headers), db)
+    response = RedirectResponse("/admin", status_code=302)
+    response.set_cookie(
+        ADMIN_SESSION_COOKIE,
+        session_id,
+        max_age=60 * 60 * 24 * ADMIN_SESSION_TTL_DAYS,
+        path="/",
+        httponly=True,
+        secure=False,
+        samesite="lax",
+    )
+    return response
+
+
+@router.get("/logout")
+@router.post("/logout")
+async def admin_logout(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if session_id:
+        revoke_admin_session(session_id, db)
+    response = RedirectResponse("/admin/login", status_code=302)
+    response.delete_cookie(ADMIN_SESSION_COOKIE, path="/")
+    return response
+
+
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     polls = db.exec(
         select(Poll).order_by(Poll.id.desc())
     ).all()
@@ -48,7 +120,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/polls/{poll_id}/movies", response_class=HTMLResponse)
 async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         return RedirectResponse("/admin", status_code=302)
@@ -69,7 +141,7 @@ async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get
 
 @router.get("/polls/{poll_id}/showtimes", response_class=HTMLResponse)
 async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         return RedirectResponse("/admin", status_code=302)
@@ -80,7 +152,7 @@ async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(
     theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
     event_map = {e.id: e for e in events}
 
-    target_dates = json.loads(poll.target_dates) if poll.target_dates else []
+    target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
 
     grouped_sessions: dict = {}
     for s in sessions:
@@ -108,7 +180,7 @@ async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(
 
 @router.get("/theaters", response_class=HTMLResponse)
 async def admin_theaters(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     theaters = theater_service.get_all_theaters(db)
     return templates.TemplateResponse(
         request,
@@ -119,7 +191,7 @@ async def admin_theaters(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/members", response_class=HTMLResponse)
 async def admin_members(request: Request, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     users = db.exec(select(User).order_by(User.id)).all()
     groups = db.exec(select(Group)).all()
     group_map = {g.id: g.name for g in groups}
@@ -137,7 +209,7 @@ async def admin_members(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/polls/{poll_id}/results", response_class=HTMLResponse)
 async def admin_results(request: Request, poll_id: int, db: Session = Depends(get_db)):
-    verify_admin(request)
+    verify_admin(request, db)
     poll = db.get(Poll, poll_id)
     if not poll:
         return RedirectResponse("/admin", status_code=302)
@@ -149,9 +221,9 @@ async def admin_results(request: Request, poll_id: int, db: Session = Depends(ge
     winner_event = None
     winner_session = None
     if poll.winner_event_id:
-        from app.models import Event, Session as ShowSession
+        from app.models import Event
         winner_event = db.get(Event, poll.winner_event_id)
-        winner_session = db.get(ShowSession, poll.winner_session_id)
+        winner_session = db.get(Showtime, poll.winner_session_id)
 
     return templates.TemplateResponse(
         request,

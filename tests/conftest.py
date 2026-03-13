@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.models import User, Theater, Poll, Event, PollEvent, Session as ShowSession
+from app.models import User, Theater, Poll, PollDate, Event, PollEvent, Session as ShowSession
 from app.db import SEED_USERS, SEED_THEATERS, get_db
 from app.routers import voter, admin, api
 
@@ -76,10 +76,12 @@ def client(test_app):
 
 @pytest.fixture
 def open_poll(seeded_db):
-    poll = Poll(title="Test Weekend", status="OPEN", target_dates='["2026-03-14"]')
+    poll = Poll(title="Test Weekend", status="OPEN")
     seeded_db.add(poll)
     seeded_db.commit()
     seeded_db.refresh(poll)
+    seeded_db.add(PollDate(poll_id=poll.id, date="2026-03-14"))
+    seeded_db.commit()
     return poll
 
 

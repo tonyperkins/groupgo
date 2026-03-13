@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 import httpx
 
 from app.config import settings
-from app.models import Session as ShowSession, Theater, Event, Poll, PollEvent
+from app.models import Showtime, Venue, Event, Poll, PollEvent
 
 
 FORMAT_KEYWORDS = {
@@ -183,17 +183,17 @@ async def fetch_showtimes_from_serpapi(query: str, date: str) -> dict:
         return resp.json()
 
 
-def get_or_create_sessions(sessions_data: list[dict], db: Session) -> list[ShowSession]:
-    saved: list[ShowSession] = []
+def get_or_create_sessions(sessions_data: list[dict], db: Session) -> list[Showtime]:
+    saved: list[Showtime] = []
     for data in sessions_data:
         existing = db.exec(
-            select(ShowSession).where(
-                ShowSession.event_id == data["event_id"],
-                ShowSession.theater_id == data["theater_id"],
-                ShowSession.poll_id == data["poll_id"],
-                ShowSession.session_date == data["session_date"],
-                ShowSession.session_time == data["session_time"],
-                ShowSession.format == data["format"],
+            select(Showtime).where(
+                Showtime.event_id == data["event_id"],
+                Showtime.theater_id == data["theater_id"],
+                Showtime.poll_id == data["poll_id"],
+                Showtime.session_date == data["session_date"],
+                Showtime.session_time == data["session_time"],
+                Showtime.format == data["format"],
             )
         ).first()
         if existing:
@@ -204,18 +204,18 @@ def get_or_create_sessions(sessions_data: list[dict], db: Session) -> list[ShowS
             db.add(existing)
             saved.append(existing)
         else:
-            s = ShowSession(**data)
+            s = Showtime(**data)
             db.add(s)
             saved.append(s)
     db.commit()
     return saved
 
 
-def get_sessions_for_poll(poll_id: int, db: Session) -> list[ShowSession]:
+def get_sessions_for_poll(poll_id: int, db: Session) -> list[Showtime]:
     return db.exec(
-        select(ShowSession)
-        .where(ShowSession.poll_id == poll_id)
-        .order_by(ShowSession.session_date, ShowSession.session_time)
+        select(Showtime)
+        .where(Showtime.poll_id == poll_id)
+        .order_by(Showtime.session_date, Showtime.session_time)
     ).all()
 
 
@@ -235,7 +235,7 @@ def get_sessions_grouped(
         sessions = list(all_sessions)
     if event_ids is not None:
         sessions = [s for s in sessions if s.event_id in event_ids]
-    theaters = {t.id: t for t in db.exec(select(Theater)).all()}
+    theaters = {t.id: t for t in db.exec(select(Venue)).all()}
     events = {}
     for link in db.exec(
         select(PollEvent).where(PollEvent.poll_id == poll_id)
@@ -285,22 +285,22 @@ def add_manual_session(
     session_time: str,
     fmt: str,
     db: Session,
-) -> ShowSession:
+) -> Showtime:
     existing = db.exec(
-        select(ShowSession).where(
-            ShowSession.event_id == event_id,
-            ShowSession.theater_id == theater_id,
-            ShowSession.poll_id == poll_id,
-            ShowSession.session_date == session_date,
-            ShowSession.session_time == session_time,
-            ShowSession.format == fmt,
+        select(Showtime).where(
+            Showtime.event_id == event_id,
+            Showtime.theater_id == theater_id,
+            Showtime.poll_id == poll_id,
+            Showtime.session_date == session_date,
+            Showtime.session_time == session_time,
+            Showtime.format == fmt,
         )
     ).first()
     if existing:
         raise ValueError("Duplicate session")
 
     now_ts = datetime.now(timezone.utc).isoformat()
-    s = ShowSession(
+    s = Showtime(
         event_id=event_id,
         theater_id=theater_id,
         poll_id=poll_id,
@@ -318,7 +318,7 @@ def add_manual_session(
 
 
 def delete_session(session_id: int, db: Session) -> None:
-    s = db.get(ShowSession, session_id)
+    s = db.get(Showtime, session_id)
     if not s:
         raise ValueError("Session not found")
     db.delete(s)

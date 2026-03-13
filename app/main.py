@@ -1,7 +1,8 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 
 from app.config import settings
 from app.db import init_db, engine
@@ -37,9 +38,24 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+if os.path.exists("static/voter"):
+    app.mount("/static/voter", StaticFiles(directory="static/voter"), name="voter-static")
+
 app.include_router(voter.router)
 app.include_router(admin.router)
 app.include_router(api.router)
+
+
+@app.get("/vote/{path:path}", response_class=HTMLResponse)
+async def voter_spa(path: str):
+    """Catch-all for React SPA — must be registered after all API routers."""
+    spa_index = os.path.join("static", "voter", "index.html")
+    if os.path.exists(spa_index):
+        return FileResponse(spa_index)
+    return HTMLResponse(
+        "<p>Voter SPA not built yet. Run <code>npm run build</code> in voter-spa/.</p>",
+        status_code=503,
+    )
 
 
 @app.exception_handler(404)

@@ -1,33 +1,25 @@
-import base64
-import secrets
 from fastapi import Request, HTTPException
-from app.config import settings
+from fastapi.responses import RedirectResponse
+from sqlmodel import Session
+
+from app.services.auth_service import ADMIN_SESSION_COOKIE, get_admin_user_from_session
 
 
-def verify_admin(request: Request) -> None:
-    """Verify HTTP Basic Auth credentials for admin routes."""
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Basic "):
+def get_admin_user(request: Request, db: Session):
+    """Resolve admin identity from session cookie. Raises 401 on failure."""
+    session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
+    user = get_admin_user_from_session(session_id, db)
+    if not user:
         raise HTTPException(
             status_code=401,
             detail="Admin authentication required",
-            headers={"WWW-Authenticate": 'Basic realm="GroupGo Admin"'},
         )
-    try:
-        decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
-        username, password = decoded.split(":", 1)
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": 'Basic realm="GroupGo Admin"'},
-        )
+    return user
 
-    valid_user = secrets.compare_digest(username, settings.ADMIN_USERNAME)
-    valid_pass = secrets.compare_digest(password, settings.ADMIN_PASSWORD)
-    if not (valid_user and valid_pass):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": 'Basic realm="GroupGo Admin"'},
-        )
+
+def verify_admin(request: Request, db: Session | None = None) -> None:
+    """Backward-compat shim. Callers in admin.py pass only request — we grab db from request.state if available."""
+    _db: Session | None = db or getattr(request.state, "db", None)
+    if _db is None:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    get_admin_user(request, _db)

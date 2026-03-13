@@ -1,0 +1,264 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { C } from "../tokens";
+import { VoterEvent, EventReview, voterApi } from "../api/voter";
+
+interface DiscoverTabProps {
+  events: VoterEvent[];
+  isParticipating: boolean;
+  hasCompletedVoting: boolean;
+}
+
+// ─── Event Info Panel ─────────────────────────────────────────────────────────
+
+function EventTypebadge({ type }: { type: string }) {
+  const label = type === "movie" ? "🎬 Movie"
+    : type === "concert" ? "🎵 Concert"
+    : type === "restaurant" ? "🍽️ Restaurant"
+    : type === "bar" ? "🍺 Bar"
+    : `📍 ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+      color: C.accent, background: C.accentDim,
+      borderRadius: 6, padding: "2px 7px",
+    }}>{label}</span>
+  );
+}
+
+interface EventCardProps {
+  event: VoterEvent;
+}
+
+function EventCard({ event }: EventCardProps) {
+  const [synopsisExpanded, setSynopsisExpanded] = useState(false);
+  const [showTrailer, setShowTrailer] = useState(false);
+  const [reviews, setReviews] = useState<EventReview[] | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
+
+  const isMovie = event.event_type === "movie";
+  const synopsis = event.synopsis ?? "";
+  const synopsisShort = synopsis.length > 180;
+
+  function loadReviews() {
+    if (reviews !== null) { setReviewsOpen(!reviewsOpen); return; }
+    setReviewsLoading(true);
+    voterApi.getEventReviews(event.id)
+      .then((d) => { setReviews(d.reviews); setReviewsOpen(true); })
+      .catch(() => setReviews([]))
+      .finally(() => setReviewsLoading(false));
+  }
+
+  const imageUrl = event.poster_url ?? event.image_url ?? null;
+
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`,
+      borderRadius: 16, overflow: "hidden",
+    }}>
+      {/* Banner / poster */}
+      {imageUrl && (
+        <div style={{
+          width: "100%", aspectRatio: isMovie ? "2/3" : "16/7",
+          maxHeight: isMovie ? 280 : 160,
+          overflow: "hidden", flexShrink: 0,
+          background: C.surface,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <img
+            src={imageUrl}
+            alt={event.title}
+            style={{
+              width: "100%", height: "100%",
+              objectFit: isMovie ? "cover" : "cover",
+            }}
+          />
+        </div>
+      )}
+
+      <div style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* Title + badge */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
+              {event.title}
+            </div>
+            {isMovie && event.year && (
+              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+                {event.year}
+                {event.runtime_mins && ` · ${Math.floor(event.runtime_mins / 60)}h ${event.runtime_mins % 60}m`}
+                {event.rating && ` · ${event.rating}`}
+              </div>
+            )}
+            {!isMovie && event.venue_name && (
+              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+                📍 {event.venue_name}
+              </div>
+            )}
+          </div>
+          <EventTypebadge type={event.event_type} />
+        </div>
+
+        {/* TMDB rating + genres (movies) */}
+        {isMovie && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+            {event.tmdb_rating != null && event.tmdb_rating > 0 && (
+              <span style={{
+                fontSize: 12, fontWeight: 700, color: C.accent,
+                background: C.accentDim, borderRadius: 6, padding: "2px 8px",
+              }}>⭐ {event.tmdb_rating.toFixed(1)}</span>
+            )}
+            {event.genres.slice(0, 4).map((g) => (
+              <span key={g} style={{
+                fontSize: 10, color: C.textMuted, border: `1px solid ${C.border}`,
+                borderRadius: 99, padding: "2px 8px",
+              }}>{g}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Synopsis / description */}
+        {synopsis && (
+          <div>
+            <div style={{
+              fontSize: 12, color: C.textMuted, lineHeight: 1.6,
+              overflow: "hidden",
+              WebkitLineClamp: synopsisExpanded ? undefined : 3,
+              display: synopsisExpanded ? "block" : "-webkit-box",
+              WebkitBoxOrient: "vertical",
+            }}>
+              {synopsis}
+            </div>
+            {synopsisShort && (
+              <div
+                onClick={() => setSynopsisExpanded(!synopsisExpanded)}
+                style={{ fontSize: 11, color: C.accent, marginTop: 4, cursor: "pointer", fontWeight: 600 }}
+              >
+                {synopsisExpanded ? "Show less" : "Read more"}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* External URL (non-movies) */}
+        {!isMovie && event.external_url && (
+          <a
+            href={event.external_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              fontSize: 12, color: C.accent, fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >More Info →</a>
+        )}
+
+        {/* Trailer + Reviews buttons (movies) */}
+        {isMovie && (
+          <div style={{ display: "flex", gap: 8 }}>
+            {event.trailer_key && (
+              <div
+                onClick={() => setShowTrailer(!showTrailer)}
+                style={{
+                  flex: 1, background: showTrailer ? C.accentDim : C.surface,
+                  border: `1px solid ${showTrailer ? C.accent : C.border}`,
+                  borderRadius: 8, padding: "7px 12px",
+                  fontSize: 12, fontWeight: 700, color: showTrailer ? C.accent : C.text,
+                  textAlign: "center", cursor: "pointer",
+                }}
+              >{showTrailer ? "▶ Hide Trailer" : "▶ Watch Trailer"}</div>
+            )}
+            <div
+              onClick={loadReviews}
+              style={{
+                flex: 1, background: reviewsOpen ? C.accentDim : C.surface,
+                border: `1px solid ${reviewsOpen ? C.accent : C.border}`,
+                borderRadius: 8, padding: "7px 12px",
+                fontSize: 12, fontWeight: 700, color: reviewsOpen ? C.accent : C.text,
+                textAlign: "center", cursor: "pointer",
+              }}
+            >{reviewsLoading ? "…" : reviewsOpen ? "Hide Reviews" : "Reviews"}</div>
+          </div>
+        )}
+
+        {/* Trailer iframe */}
+        {showTrailer && event.trailer_key && (
+          <div style={{
+            position: "relative", paddingBottom: "56.25%",
+            borderRadius: 10, overflow: "hidden",
+          }}>
+            <iframe
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+              src={`https://www.youtube.com/embed/${event.trailer_key}?autoplay=1&rel=0`}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+            />
+          </div>
+        )}
+
+        {/* Reviews */}
+        {reviewsOpen && reviews && reviews.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {reviews.map((r, i) => (
+              <div key={i} style={{
+                background: C.surface, borderRadius: 10, padding: "10px 12px",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{r.author}</span>
+                  {r.rating != null && (
+                    <span style={{ fontSize: 11, color: C.accent }}>⭐ {r.rating}/10</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.5 }}>{r.excerpt}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {reviewsOpen && reviews && reviews.length === 0 && (
+          <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center" }}>No reviews found.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── DiscoverTab ──────────────────────────────────────────────────────────────
+
+export function DiscoverTab({ events, isParticipating: _isParticipating, hasCompletedVoting: _hasCompletedVoting }: DiscoverTabProps) {
+  const navigate = useNavigate();
+
+  if (events.length === 0) {
+    return (
+      <div style={{ padding: "48px 20px", textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+        <div style={{ fontSize: 14, color: C.textMuted }}>No events yet</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Header hint */}
+      <div style={{
+        padding: "6px 0 8px", borderBottom: `1px solid ${C.border}`,
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
+          {events.length} event{events.length !== 1 ? "s" : ""} · browse, then vote on the Vote tab
+        </span>
+        <div
+          onClick={() => navigate("/vote/vote")}
+          style={{
+            fontSize: 11, fontWeight: 700, color: C.accent, cursor: "pointer",
+          }}
+        >Vote →</div>
+      </div>
+
+      {events.map((event) => (
+        <EventCard key={event.id} event={event} />
+      ))}
+    </div>
+  );
+}

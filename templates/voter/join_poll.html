@@ -20,7 +20,7 @@
       <div style="text-align:center;">
         <div style="font-size:44px;margin-bottom:12px;">🎟️</div>
         <div style="font-size:22px;font-weight:900;color:var(--gg-text);font-family:Georgia,serif;margin-bottom:6px;">You're Invited</div>
-        <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.5;">{{ poll.title }}{% if poll.target_dates %} · {{ poll.target_dates | fromjson | first | display_date }}{% endif %}</div>
+        <div style="font-size:13px;color:var(--gg-text-muted);line-height:1.5;">{{ poll.title }}{% if poll_dates %} · {{ poll_dates | first | display_date }}{% endif %}</div>
       </div>
 
       <form method="post" action="/join/{{ poll.access_uuid }}" id="gg-pin-form">

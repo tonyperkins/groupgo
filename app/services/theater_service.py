@@ -1,34 +1,34 @@
 from sqlmodel import Session, select
-from app.models import Theater
+from app.models import Venue
 
 
-def get_all_theaters(db: Session) -> list[Theater]:
-    return db.exec(select(Theater).order_by(Theater.name)).all()
+def get_all_theaters(db: Session) -> list[Venue]:
+    return db.exec(select(Venue).order_by(Venue.name)).all()
 
 
-def get_active_theaters(db: Session) -> list[Theater]:
+def get_active_theaters(db: Session) -> list[Venue]:
     return db.exec(
-        select(Theater).where(Theater.is_active == True).order_by(Theater.name)
+        select(Venue).where(Venue.is_active == True).order_by(Venue.name)
     ).all()
 
 
-def get_theater(theater_id: int, db: Session) -> Theater:
-    t = db.get(Theater, theater_id)
+def get_theater(theater_id: int, db: Session) -> Venue:
+    t = db.get(Venue, theater_id)
     if not t:
         raise ValueError("Theater not found")
     return t
 
 
-def add_theater(name: str, address: str, website_url: str | None, serpapi_query: str, db: Session) -> Theater:
-    t = Theater(name=name, address=address, website_url=website_url, serpapi_query=serpapi_query, is_active=True)
+def add_theater(name: str, address: str, website_url: str | None, serpapi_query: str, db: Session) -> Venue:
+    t = Venue(name=name, address=address, website_url=website_url, serpapi_query=serpapi_query, is_active=True)
     db.add(t)
     db.commit()
     db.refresh(t)
     return t
 
 
-def toggle_theater(theater_id: int, db: Session) -> Theater:
-    t = db.get(Theater, theater_id)
+def toggle_theater(theater_id: int, db: Session) -> Venue:
+    t = db.get(Venue, theater_id)
     if not t:
         raise ValueError("Theater not found")
     t.is_active = not t.is_active
@@ -46,8 +46,8 @@ def update_theater(
     serpapi_query: str | None,
     is_active: bool | None,
     db: Session,
-) -> Theater:
-    t = db.get(Theater, theater_id)
+) -> Venue:
+    t = db.get(Venue, theater_id)
     if not t:
         raise ValueError("Theater not found")
     if name is not None:
