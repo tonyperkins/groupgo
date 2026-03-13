@@ -55,9 +55,9 @@ export interface VoterSession {
 }
 
 export interface VoterMeResponse {
-  user: VoterUser;
+  user: VoterUser | null;
   poll: VoterPoll | null;
-  state: "active" | "no_active_poll";
+  state: "active" | "no_active_poll" | "browse";
   preferences: VoterPreferences;
   votes: Record<string, string>;
   yes_movie_count: number;
@@ -65,6 +65,8 @@ export interface VoterMeResponse {
   events: VoterEvent[];
   sessions: VoterSession[];
   is_secure_entry: boolean;
+  is_browse: boolean;
+  join_url: string | null;
 }
 
 export interface ResultsEntry {

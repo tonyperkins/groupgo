@@ -136,15 +136,15 @@ export default function App() {
         setState((prev) => ({
           ...prev,
           meData: data,
-          votes: data.votes,
-          yesMovieCount: data.yes_movie_count,
-          votedSessionCount: data.voted_session_count,
+          votes: data.votes ?? {},
+          yesMovieCount: data.yes_movie_count ?? 0,
+          votedSessionCount: data.voted_session_count ?? 0,
         }));
         setLoading(false);
       })
       .catch((err) => {
         if (err.status === 401) {
-          window.location.href = "/identify";
+          window.location.href = "/no-poll";
         } else {
           setError(err.message ?? "Failed to load voter data");
           setLoading(false);
@@ -269,6 +269,53 @@ export default function App() {
   const { meData } = state;
   if (!meData || meData.state === "no_active_poll") return <NoActivePollScreen />;
 
+  // ── Browse mode (no PIN — viewer only) ─────────────────────────────────────
+  if (meData.state === "browse") {
+    return (
+      <div style={{
+        background: C.bg, color: C.text,
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        height: "100dvh", display: "flex", flexDirection: "column",
+      }}>
+        <AppHeader
+          userName="Viewer"
+          pollTitle={meData.poll?.title ?? null}
+          votingClosesAt={meData.poll?.voting_closes_at ?? null}
+          statusChip={null}
+        />
+        {/* Join banner */}
+        {meData.join_url && (
+          <div style={{
+            background: C.accentGlow, borderBottom: `1px solid ${C.accentDim}`,
+            padding: "10px 16px", display: "flex", alignItems: "center",
+            justifyContent: "space-between", gap: 12, flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>
+              🎟️ Enter your PIN to join and vote
+            </span>
+            <a
+              href={meData.join_url}
+              style={{
+                background: C.accent, color: "#000", fontWeight: 700,
+                fontSize: 11, padding: "5px 14px", borderRadius: 99,
+                textDecoration: "none", whiteSpace: "nowrap",
+              }}
+            >
+              Join to Vote
+            </a>
+          </div>
+        )}
+        <ScrollArea>
+          <DiscoverTab
+            events={meData.events}
+            isParticipating={false}
+            hasCompletedVoting={false}
+          />
+        </ScrollArea>
+      </div>
+    );
+  }
+
   const prefs = meData.preferences;
   const step = progressStep(state);
 
@@ -286,7 +333,7 @@ export default function App() {
     }}>
       {/* Fixed header region */}
       <AppHeader
-        userName={meData.user.name}
+        userName={meData.user?.name ?? ""}
         pollTitle={meData.poll?.title ?? null}
         votingClosesAt={meData.poll?.voting_closes_at ?? null}
         statusChip={

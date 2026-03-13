@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 
 from app.models import (
     User, Vote, UserPollPreference, Poll, PollEvent,
-    Showtime, Event,
+    Showtime, Event, Group,
 )
 
 
@@ -275,8 +275,16 @@ def _synthesize_movie_votes(
     return synthesized
 
 
+def _get_poll_group_users(poll_id: int, db: Session) -> list[User]:
+    """Return users eligible for this poll — filtered by poll.group_id if set."""
+    poll = db.get(Poll, poll_id)
+    if poll and poll.group_id is not None:
+        return db.exec(select(User).where(User.group_id == poll.group_id)).all()
+    return db.exec(select(User)).all()
+
+
 def _load_result_inputs(poll_id: int, db: Session) -> dict:
-    users = db.exec(select(User)).all()
+    users = _get_poll_group_users(poll_id, db)
     user_ids = [u.id for u in users]
 
     poll_event_links = db.exec(
@@ -466,7 +474,7 @@ def calculate_user_results(user_id: int, poll_id: int, db: Session) -> dict:
 
 
 def get_participation(poll_id: int, db: Session) -> dict:
-    users = db.exec(select(User)).all()
+    users = _get_poll_group_users(poll_id, db)
 
     poll_event_links = db.exec(
         select(PollEvent).where(PollEvent.poll_id == poll_id)
