@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     SERPAPI_RATE_LIMIT_HOURS: int = 12
     GROUP_SIZE: int = 5
 
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"

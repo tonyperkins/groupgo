@@ -62,33 +62,85 @@ def consume_magic_link(token: str, purpose: str, db: Session) -> User | None:
 
 def send_admin_magic_link(email: str, db: Session) -> bool:
     """
-    Look up admin user by email, generate a magic link, and 'send' it.
-    During development: logs the link to stdout instead of sending email.
-    Returns True if a user was found and the link was generated, False otherwise.
+    Look up admin user by email, generate a magic link, and send it.
+    In production: sends via Gmail SMTP using SMTP_* settings.
+    In development: logs the link to stdout.
+    Returns True always (avoids email enumeration).
     """
     from app.config import settings
 
     user = db.exec(select(User).where(User.email == email)).first()
     if not user or user.role != "admin":
-        # Don't reveal whether the email exists — always return True to avoid enumeration
         logger.info("[MAGIC LINK] No admin user found for email=%s (suppressed for security)", email)
         return True
 
     token = create_magic_link(user, "admin_login", db)
     login_url = f"{settings.app_base_url}/admin/auth/{token}"
 
-    # DEV: log to stdout instead of sending email
-    logger.warning(
-        "\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "  MAGIC LINK (dev — not emailed)\n"
-        "  User : %s <%s>\n"
-        "  URL  : %s\n"
-        "  TTL  : %d minutes\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-        user.name, user.email, login_url, MAGIC_LINK_TTL_MINUTES,
-    )
+    if settings.is_production and settings.SMTP_USER:
+        _send_magic_link_email(
+            to_email=user.email,
+            to_name=user.name,
+            login_url=login_url,
+            settings=settings,
+        )
+    else:
+        logger.warning(
+            "\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "  MAGIC LINK (dev — not emailed)\n"
+            "  User : %s <%s>\n"
+            "  URL  : %s\n"
+            "  TTL  : %d minutes\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            user.name, user.email, login_url, MAGIC_LINK_TTL_MINUTES,
+        )
     return True
+
+
+def _send_magic_link_email(*, to_email: str, to_name: str, login_url: str, settings) -> None:
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    from_addr = settings.SMTP_FROM or settings.SMTP_USER
+    subject = "Your GroupGo admin login link"
+
+    text_body = (
+        f"Hi {to_name},\n\n"
+        f"Click the link below to log in to GroupGo Admin.\n"
+        f"This link expires in {MAGIC_LINK_TTL_MINUTES} minutes and can only be used once.\n\n"
+        f"{login_url}\n\n"
+        f"If you didn't request this, you can ignore it.\n"
+    )
+    html_body = (
+        f"<p>Hi {to_name},</p>"
+        f"<p>Click the button below to log in to <strong>GroupGo Admin</strong>.<br>"
+        f"This link expires in {MAGIC_LINK_TTL_MINUTES} minutes and can only be used once.</p>"
+        f'<p><a href="{login_url}" style="display:inline-block;padding:12px 24px;'
+        f'background:#4F46E5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">'
+        f"Log in to GroupGo</a></p>"
+        f"<p style='color:#888;font-size:12px'>Or copy this URL: {login_url}</p>"
+        f"<p style='color:#888;font-size:12px'>If you didn't request this, you can ignore it.</p>"
+    )
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"GroupGo <{from_addr}>"
+    msg["To"] = to_email
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.sendmail(from_addr, to_email, msg.as_string())
+        logger.info("[MAGIC LINK] Email sent to %s", to_email)
+    except Exception as exc:
+        logger.error("[MAGIC LINK] Failed to send email to %s: %s", to_email, exc)
+        raise
 
 
 # ─── Admin session ─────────────────────────────────────────────────────────────
