@@ -50,6 +50,11 @@ app.include_router(admin.router)
 app.include_router(api.router)
 
 
+@app.get("/manifest.json")
+async def manifest():
+    return FileResponse("static/voter/manifest.json")
+
+
 @app.get("/vote/{path:path}", response_class=HTMLResponse)
 async def voter_spa(path: str):
     """Catch-all for React SPA — must be registered after all API routers."""
