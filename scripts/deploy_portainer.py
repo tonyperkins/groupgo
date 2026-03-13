@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--branch", dest="branch")
     parser.add_argument("--compose-file", dest="compose_file")
     parser.add_argument("--replace", action="store_true")
+    parser.add_argument("--string", action="store_true", help="Deploy via compose file upload instead of git")
     parser.add_argument("--timeout", type=float, default=30.0)
     return parser.parse_args()
 
@@ -244,6 +245,26 @@ class PortainerClient:
             "Portainer did not accept any standalone string stack create endpoint: " + ", ".join(errors)
         )
 
+    def update_string_stack(
+        self,
+        *,
+        stack_id: int,
+        endpoint_id: int,
+        stack_file_content: str,
+        env_vars: list[dict[str, str]],
+    ) -> dict[str, Any]:
+        payload = {
+            "StackFileContent": stack_file_content,
+            "Env": env_vars,
+            "Prune": False,
+            "PullImage": True,
+        }
+        return self.request(
+            "PUT",
+            f"/api/stacks/{stack_id}?endpointId={endpoint_id}",
+            json=payload,
+        ).json()
+
     def redeploy_git_stack(self, *, stack_id: int, endpoint_id: int) -> dict[str, Any]:
         return self.request(
             "POST",
@@ -351,6 +372,34 @@ def main() -> int:
         )
         endpoint_id = int(endpoint["Id"])
         existing_stack = find_stack(client.list_stacks(), stack_name=stack_name, endpoint_id=endpoint_id)
+
+        if args.string:
+            if existing_stack and not args.replace:
+                stack_id = int(existing_stack["Id"])
+                response = client.update_string_stack(
+                    stack_id=stack_id,
+                    endpoint_id=endpoint_id,
+                    stack_file_content=compose_content,
+                    env_vars=env_vars,
+                )
+                print(f"Updated existing stack '{stack_name}' on endpoint {endpoint_id} (compose upload).")
+                print(response)
+                return 0
+
+            if existing_stack and args.replace:
+                stack_id = int(existing_stack["Id"])
+                client.delete_stack(stack_id=stack_id, endpoint_id=endpoint_id)
+                print(f"Deleted existing stack '{stack_name}' on endpoint {endpoint_id}.")
+
+            response = client.create_standalone_string_stack(
+                endpoint_id=endpoint_id,
+                stack_name=stack_name,
+                stack_file_content=compose_content,
+                env_vars=env_vars,
+            )
+            print(f"Deployed stack '{stack_name}' via compose upload to endpoint {endpoint_id}.")
+            print(response)
+            return 0
 
         if existing_stack and not args.replace:
             stack_id = int(existing_stack["Id"])
