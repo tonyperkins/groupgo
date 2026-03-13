@@ -60,9 +60,11 @@ export function ShowtimeCard({
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {/* Movie + theater info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, marginBottom: 2 }}>
-            {eventTitle}
-          </div>
+          {eventTitle && (
+            <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, marginBottom: 2 }}>
+              {eventTitle}
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
             <span style={{ fontSize: FS.base, color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>
               {session.theater_name}
