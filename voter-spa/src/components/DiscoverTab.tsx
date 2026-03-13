@@ -58,6 +58,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
     return acc;
   }, {});
   const sortedDates = Object.keys(byDate).sort();
+  const [showtimesOpen, setShowtimesOpen] = useState(false);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [reviews, setReviews] = useState<EventReview[] | null>(null);
@@ -182,64 +183,6 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
           >More Info →</a>
         )}
 
-        {/* Showtimes panel — shown in browse mode when sessions are available */}
-        {eventSessions.length > 0 && (
-          <div style={{
-            background: C.surface, border: `1px solid ${C.border}`,
-            borderRadius: 10, overflow: "hidden",
-          }}>
-            <div style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: "0.1em",
-              color: C.textMuted, padding: "8px 12px 6px",
-              borderBottom: `1px solid ${C.border}`,
-            }}>SHOWTIMES</div>
-            {sortedDates.map(date => (
-              <div key={date} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 6 }}>
-                  {fmtDate(date)}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {byDate[date].map(s => (
-                    <div key={s.id} style={{
-                      display: "flex", alignItems: "center",
-                      gap: 8, flexWrap: "wrap",
-                    }}>
-                      <span style={{
-                        fontSize: 12, fontWeight: 700, color: C.accent,
-                        minWidth: 64,
-                      }}>{fmt12h(s.session_time)}</span>
-                      <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
-                        {s.theater_name}
-                      </span>
-                      {s.format !== "Standard" && (
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                          color: C.accent, background: C.accentDim,
-                          borderRadius: 4, padding: "1px 5px",
-                        }}>{s.format}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {joinUrl && (
-              <a
-                href={joinUrl}
-                style={{
-                  display: "block", textAlign: "center",
-                  padding: "10px 12px",
-                  fontSize: 12, fontWeight: 700,
-                  color: C.accent, textDecoration: "none",
-                  background: C.accentGlow,
-                }}
-              >
-                🎟️ Enter PIN to pick your showtimes →
-              </a>
-            )}
-          </div>
-        )}
-
         {/* Trailer + Reviews buttons (movies) */}
         {isMovie && (
           <div style={{ display: "flex", gap: 8 }}>
@@ -280,6 +223,77 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
               allow="autoplay; encrypted-media"
               allowFullScreen
             />
+          </div>
+        )}
+
+        {/* Showtimes collapsible card — shown when sessions are available */}
+        {eventSessions.length > 0 && (
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 10, overflow: "hidden",
+          }}>
+            {/* Toggle header */}
+            <div
+              onClick={() => setShowtimesOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "9px 12px", cursor: "pointer",
+                borderBottom: showtimesOpen ? `1px solid ${C.border}` : "none",
+              }}
+            >
+              <span style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted,
+              }}>SHOWTIMES</span>
+              <span style={{ fontSize: 10, color: C.textDim }}>
+                {eventSessions.length} time{eventSessions.length !== 1 ? "s" : ""} &nbsp;{showtimesOpen ? "▴" : "▾"}
+              </span>
+            </div>
+
+            {/* Expanded body */}
+            {showtimesOpen && (
+              <>
+                {sortedDates.map(date => (
+                  <div key={date} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 6 }}>
+                      {fmtDate(date)}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {byDate[date].map(s => (
+                        <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, minWidth: 64 }}>
+                            {fmt12h(s.session_time)}
+                          </span>
+                          <span style={{ fontSize: 11, color: C.textMuted, flex: 1 }}>
+                            {s.theater_name}
+                          </span>
+                          {s.format !== "Standard" && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                              color: C.accent, background: C.accentDim,
+                              borderRadius: 4, padding: "1px 5px",
+                            }}>{s.format}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {joinUrl && (
+                  <a
+                    href={joinUrl}
+                    style={{
+                      display: "block", textAlign: "center",
+                      padding: "10px 12px",
+                      fontSize: 12, fontWeight: 700,
+                      color: C.accent, textDecoration: "none",
+                      background: C.accentGlow,
+                    }}
+                  >
+                    🎟️ Enter PIN to pick your showtimes →
+                  </a>
+                )}
+              </>
+            )}
           </div>
         )}
 
