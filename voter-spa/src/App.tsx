@@ -7,6 +7,7 @@ import {
   AppHeader,
   ProgressBar,
   TabBar,
+  SideNav,
   Toast,
   ScrollArea,
   DiscoverTab,
@@ -17,6 +18,7 @@ import type { SessionVote } from "./components";
 import { StatusChip } from "./components/StatusChip";
 import { VoteFooter } from "./components/VoteFooter";
 import { OptOutModal } from "./components/OptOutModal";
+import { useIsDesktop } from "./hooks/useIsDesktop";
 
 // ─── Full-screen states (outside shell) ───────────────────────────────────────
 
@@ -320,78 +322,139 @@ export default function App() {
 
   const prefs = meData.preferences;
   const step = progressStep(state);
+  const isDesktop = useIsDesktop();
+
+  // ── Shared route content ────────────────────────────────────────────────────
+
+  const routeContent = (
+    <Routes>
+      <Route path="/vote/discover" element={
+        <DiscoverTab
+          events={meData.events}
+          sessions={meData.sessions}
+          isParticipating={prefs.is_participating}
+          hasCompletedVoting={prefs.has_completed_voting}
+        />
+      } />
+      <Route path="/vote/vote" element={
+        <VoteTab
+          sessions={meData.sessions ?? []}
+          events={meData.events}
+          votes={state.votes}
+          votedSessionCount={state.votedSessionCount}
+          isParticipating={prefs.is_participating}
+          hasCompletedVoting={prefs.has_completed_voting}
+          isFlexible={prefs.is_flexible}
+          isEditing={state.isEditing}
+          onSessionVote={castSessionVote}
+          onSetFlexible={handleSetFlexible}
+          onJoin={handleJoin}
+        />
+      } />
+      <Route path="/vote/results" element={
+        <ResultsTab
+          isParticipating={prefs.is_participating}
+          hasCompletedVoting={prefs.has_completed_voting}
+          onJoin={handleJoin}
+        />
+      } />
+      <Route path="/vote/movies"    element={<Navigate to="/vote/discover" replace />} />
+      <Route path="/vote/showtimes" element={<Navigate to="/vote/vote" replace />} />
+      <Route path="/vote/*"         element={<Navigate to="/vote/discover" replace />} />
+      <Route path="*"               element={<Navigate to="/vote/discover" replace />} />
+    </Routes>
+  );
+
+  const statusChip = (
+    <StatusChip
+      prefs={prefs}
+      isEditing={state.isEditing}
+      onJoin={handleJoin}
+      onChangeVote={handleChangeVote}
+      onOptOut={handleRequestOptOut}
+      onCancelEdit={handleCancelEdit}
+    />
+  );
 
   // ── Shell layout ────────────────────────────────────────────────────────────
 
-  const shell = (
+  const shell = isDesktop ? (
+    // ── Desktop layout ────────────────────────────────────────────────────────
     <div style={{
-      background: C.bg,
-      color: C.text,
+      background: C.bg, color: C.text,
       fontFamily: "system-ui, -apple-system, sans-serif",
-      height: "100dvh",
-      display: "flex",
-      flexDirection: "column",
-      position: "relative",
+      height: "100dvh", display: "flex", flexDirection: "column",
     }}>
-      {/* Fixed header region */}
+      {/* Top header bar — full width */}
       <AppHeader
         userName={meData.user?.name ?? ""}
         pollTitle={meData.poll?.title ?? null}
         votingClosesAt={meData.poll?.voting_closes_at ?? null}
-        statusChip={
-          <StatusChip
-            prefs={prefs}
-            isEditing={state.isEditing}
-            onJoin={handleJoin}
-            onChangeVote={handleChangeVote}
-            onOptOut={handleRequestOptOut}
-            onCancelEdit={handleCancelEdit}
-          />
-        }
+        statusChip={statusChip}
       />
       <ProgressBar step={step} />
 
-      {/* Scrollable content area */}
+      {/* Body: sidebar + content */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* Left sidebar nav */}
+        <SideNav
+          votedSessionCount={state.votedSessionCount}
+          isParticipating={prefs.is_participating}
+        />
+
+        {/* Center content column */}
+        <div style={{
+          flex: 1, display: "flex", flexDirection: "column",
+          overflow: "hidden", alignItems: "center",
+          background: C.bg,
+        }}>
+          <ScrollArea style={{ width: "100%", maxWidth: 720 }}>
+            {routeContent}
+          </ScrollArea>
+
+          {/* Vote footer — only on /vote/vote */}
+          {pathname.includes("vote/vote") && (
+            <div style={{ width: "100%", maxWidth: 720 }}>
+              <VoteFooter
+                isParticipating={prefs.is_participating}
+                hasCompletedVoting={prefs.has_completed_voting}
+                isEditing={state.isEditing}
+                isFlexible={prefs.is_flexible}
+                votes={state.votes}
+                onSubmit={handleSubmit}
+                onOptOut={handleRequestOptOut}
+                onCancelEdit={handleCancelEdit}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {state.showOptOutModal && (
+        <OptOutModal onConfirm={handleConfirmOptOut} onCancel={handleDismissOptOutModal} />
+      )}
+      <Toast message={state.toast} onDismiss={dismissToast} />
+    </div>
+  ) : (
+    // ── Mobile layout ─────────────────────────────────────────────────────────
+    <div style={{
+      background: C.bg, color: C.text,
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      height: "100dvh", display: "flex", flexDirection: "column",
+      position: "relative",
+    }}>
+      <AppHeader
+        userName={meData.user?.name ?? ""}
+        pollTitle={meData.poll?.title ?? null}
+        votingClosesAt={meData.poll?.voting_closes_at ?? null}
+        statusChip={statusChip}
+      />
+      <ProgressBar step={step} />
+
       <ScrollArea>
-        <Routes>
-          <Route path="/vote/discover" element={
-            <DiscoverTab
-              events={meData.events}
-              sessions={meData.sessions}
-              isParticipating={prefs.is_participating}
-              hasCompletedVoting={prefs.has_completed_voting}
-            />
-          } />
-          <Route path="/vote/vote"     element={
-            <VoteTab
-              sessions={meData.sessions ?? []}
-              events={meData.events}
-              votes={state.votes}
-              votedSessionCount={state.votedSessionCount}
-              isParticipating={prefs.is_participating}
-              hasCompletedVoting={prefs.has_completed_voting}
-              isFlexible={prefs.is_flexible}
-              isEditing={state.isEditing}
-              onSessionVote={castSessionVote}
-              onSetFlexible={handleSetFlexible}
-              onJoin={handleJoin}
-            />
-          } />
-          <Route path="/vote/results"  element={
-            <ResultsTab
-              isParticipating={prefs.is_participating}
-              hasCompletedVoting={prefs.has_completed_voting}
-              onJoin={handleJoin}
-            />
-          } />
-          <Route path="/vote/movies"   element={<Navigate to="/vote/discover" replace />} />
-          <Route path="/vote/showtimes" element={<Navigate to="/vote/vote" replace />} />
-          <Route path="/vote/*"        element={<Navigate to="/vote/discover" replace />} />
-          <Route path="*"              element={<Navigate to="/vote/discover" replace />} />
-        </Routes>
+        {routeContent}
       </ScrollArea>
 
-      {/* Vote footer — only on /vote/vote */}
       {pathname.includes("vote/vote") && (
         <VoteFooter
           isParticipating={prefs.is_participating}
@@ -405,21 +468,14 @@ export default function App() {
         />
       )}
 
-      {/* Tab bar pinned to bottom */}
       <TabBar
         votedSessionCount={state.votedSessionCount}
         isParticipating={prefs.is_participating}
       />
 
-      {/* Opt-out confirmation modal */}
       {state.showOptOutModal && (
-        <OptOutModal
-          onConfirm={handleConfirmOptOut}
-          onCancel={handleDismissOptOutModal}
-        />
+        <OptOutModal onConfirm={handleConfirmOptOut} onCancel={handleDismissOptOutModal} />
       )}
-
-      {/* Toast overlay */}
       <Toast message={state.toast} onDismiss={dismissToast} />
     </div>
   );
