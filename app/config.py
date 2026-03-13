@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/groupgo.db"
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "admin"
+    ADMIN_EMAIL: str = ""
+    ADMIN_NAME: str = "Admin"
     TMDB_API_KEY: str = ""
     SERPAPI_KEY: str = ""
     SERPAPI_RATE_LIMIT_HOURS: int = 12
