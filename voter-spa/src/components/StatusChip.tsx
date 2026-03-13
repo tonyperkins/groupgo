@@ -60,6 +60,7 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
     chipState === "voting"
       ? [
           { label: "Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
+          { label: "Clear selections", action: () => { onClearSelections(); onClose(); } },
           { label: "Opt out", action: () => { onOptOut(); onClose(); } },
         ]
       : chipState === "submitted"
