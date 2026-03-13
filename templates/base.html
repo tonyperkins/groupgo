@@ -529,6 +529,17 @@
         b.textContent = '●';
       });
     }
+    /* Keyboard support — active only when the PIN form is on the page */
+    document.addEventListener('keydown', function(e) {
+      if (!document.getElementById('gg-pin-input')) return;
+      if (e.key >= '0' && e.key <= '9') { ggPinPress(e.key); e.preventDefault(); }
+      else if (e.key === 'Backspace') { ggPinPress('⌫'); e.preventDefault(); }
+      else if (e.key === 'Enter') {
+        const btn = document.getElementById('gg-join-btn');
+        if (btn && !btn.disabled) { document.getElementById('gg-pin-form').submit(); }
+        e.preventDefault();
+      }
+    });
 
     /* Opt-out sheet toggle */
     function ggShowLeaveSheet() {
