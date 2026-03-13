@@ -45,7 +45,7 @@ def _identity_redirect(request: Request, db: Session) -> RedirectResponse:
         if secure_poll and secure_poll.access_uuid:
             return RedirectResponse(f"/join/{secure_poll.access_uuid}", status_code=302)
     if settings.is_production:
-        return RedirectResponse("/no-poll", status_code=302)
+        return RedirectResponse("/admin/login", status_code=302)
     return RedirectResponse("/identify", status_code=302)
 
 
