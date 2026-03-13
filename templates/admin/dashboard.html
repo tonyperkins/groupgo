@@ -108,26 +108,26 @@
       <div class="flex items-center gap-2 flex-shrink-0 flex-wrap xl:max-w-xs xl:justify-end">
         {% if poll.status == 'DRAFT' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Edit</a>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-id="{{ poll.group_id or '' }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="publishPollFromButton(this)" class="btn-primary text-xs">Publish</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'OPEN' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Movies</a>
           <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-xs">Times</a>
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-id="{{ poll.group_id or '' }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showInviteLinkFromButton(this)" class="btn-ghost text-xs">Invite Link</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="closePollFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'CLOSED' %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Declare Winner</a>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-id="{{ poll.group_id or '' }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="archivePollFromButton(this)" class="btn-ghost text-xs">Archive</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% else %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-ghost text-xs">View</a>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-id="{{ poll.group_id or '' }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% endif %}
@@ -176,7 +176,7 @@
 <div id="edit-group-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
   <div class="card p-6 w-full max-w-sm">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold text-white">Set Poll Group</h2>
+      <h2 class="text-lg font-bold text-white">Set Poll Groups</h2>
       <button type="button" onclick="closeEditGroupModal()" class="text-slate-500 hover:text-slate-300">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
@@ -184,13 +184,18 @@
     <div class="space-y-4">
       <div id="edit-group-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg"></div>
       <div>
-        <label class="block text-sm font-medium mb-2 text-slate-300">Group</label>
-        <select id="edit-group-select" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
-          <option value="">All members (no group filter)</option>
-        </select>
+        <label class="block text-sm font-medium mb-2 text-slate-300">Groups <span class="text-slate-500 font-normal">(select none for all members)</span></label>
+        <div id="edit-group-checkboxes" class="space-y-1.5 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2">
+          {% for g in groups %}
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" class="edit-poll-group-checkbox accent-indigo-500 w-4 h-4" value="{{ g.id }}"/>
+            <span class="text-sm text-white">{{ g.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
       </div>
       <div class="surface-muted p-3 text-xs text-slate-400 rounded-lg">
-        Only members of the selected group will be able to join and vote. Participation counts will update immediately.
+        Only members of the selected groups can join and vote. Select none to allow all members.
       </div>
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="closeEditGroupModal()" class="btn-ghost text-sm">Cancel</button>
@@ -241,10 +246,16 @@
         <div id="cal-selected" class="flex flex-wrap gap-1.5 mt-2 min-h-[1.5rem]"></div>
       </div>
       <div class="mb-4">
-        <label class="block text-sm font-medium mb-1" style="color:var(--text-secondary)">Group <span class="text-slate-500 font-normal">(optional)</span></label>
-        <select id="poll-group-id" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
-          <option value="">All members (no group filter)</option>
-        </select>
+        <label class="block text-sm font-medium mb-1" style="color:var(--text-secondary)">Groups <span class="text-slate-500 font-normal">(optional)</span></label>
+        <div id="new-poll-groups" class="space-y-1.5 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2">
+          {% for g in groups %}
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" class="new-poll-group-checkbox accent-indigo-500 w-4 h-4" value="{{ g.id }}"/>
+            <span class="text-sm text-white">{{ g.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Select none to allow all members.</p>
       </div>
       <div id="poll-create-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
       <div class="flex gap-2 justify-end">
@@ -310,23 +321,10 @@ function calRenderPills() {
   ).join('');
 }
 
-async function openNewPollModal() {
+function openNewPollModal() {
   calInit();
+  document.querySelectorAll('.new-poll-group-checkbox').forEach(cb => cb.checked = false);
   document.getElementById('new-poll-modal').classList.remove('hidden');
-  const sel = document.getElementById('poll-group-id');
-  sel.innerHTML = '<option value="">All members (no group filter)</option>';
-  try {
-    const resp = await fetch('/api/admin/groups');
-    if (resp.ok) {
-      const groups = await resp.json();
-      groups.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = g.name;
-        sel.appendChild(opt);
-      });
-    }
-  } catch(e) {}
 }
 calInit();
 
@@ -335,8 +333,7 @@ async function createPoll(e) {
   e.preventDefault();
   const title = document.getElementById('poll-title').value.trim();
   const dates = [..._calSelected].sort();
-  const groupVal = document.getElementById('poll-group-id').value;
-  const group_id = groupVal ? parseInt(groupVal) : null;
+  const group_ids = [...document.querySelectorAll('.new-poll-group-checkbox:checked')].map(cb => parseInt(cb.value));
   const errEl = document.getElementById('poll-create-error');
   errEl.classList.add('hidden');
   if (!title || !dates.length) {
@@ -346,7 +343,7 @@ async function createPoll(e) {
   }
   const resp = await fetch('/api/admin/polls', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title, target_dates: dates, group_id})
+    body: JSON.stringify({title, target_dates: dates, group_ids})
   });
   if (resp.ok) { window.location.reload(); }
   else { const d = await resp.json(); errEl.textContent = d.detail || 'Error creating poll.'; errEl.classList.remove('hidden'); }
@@ -415,31 +412,18 @@ function deletePollFromButton(button) {
 // ── Edit Group ───────────────────────────────────────────────────────────────
 let _editGroupPollId = null;
 
-async function showEditGroup(pollId, currentGroupId) {
+function showEditGroup(pollId, currentGroupIds) {
   _editGroupPollId = pollId;
-  const modal = document.getElementById('edit-group-modal');
-  const sel = document.getElementById('edit-group-select');
-  const err = document.getElementById('edit-group-error');
-  err.classList.add('hidden');
-  sel.innerHTML = '<option value="">All members (no group filter)</option>';
-  try {
-    const resp = await fetch('/api/admin/groups');
-    if (resp.ok) {
-      const groups = await resp.json();
-      groups.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = g.name;
-        if (String(g.id) === String(currentGroupId)) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
-  } catch(e) {}
-  modal.classList.remove('hidden');
+  const activeIds = (currentGroupIds || '').split(',').filter(Boolean).map(Number);
+  document.querySelectorAll('.edit-poll-group-checkbox').forEach(cb => {
+    cb.checked = activeIds.includes(parseInt(cb.value));
+  });
+  document.getElementById('edit-group-error').classList.add('hidden');
+  document.getElementById('edit-group-modal').classList.remove('hidden');
 }
 
 function showEditGroupFromButton(button) {
-  showEditGroup(Number(button.dataset.pollId), button.dataset.pollGroupId || '');
+  showEditGroup(Number(button.dataset.pollId), button.dataset.pollGroupIds || '');
 }
 
 function closeEditGroupModal() {
@@ -449,23 +433,22 @@ function closeEditGroupModal() {
 
 async function saveEditGroup() {
   if (!_editGroupPollId) return;
-  const sel = document.getElementById('edit-group-select');
   const err = document.getElementById('edit-group-error');
-  const group_id = sel.value ? parseInt(sel.value) : null;
+  const group_ids = [...document.querySelectorAll('.edit-poll-group-checkbox:checked')].map(cb => parseInt(cb.value));
   err.classList.add('hidden');
-  const resp = await fetch(`/api/admin/polls/${_editGroupPollId}`, {
-    method: 'PATCH',
+  const resp = await fetch(`/api/admin/polls/${_editGroupPollId}/groups`, {
+    method: 'PUT',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({group_id}),
+    body: JSON.stringify({group_ids}),
   });
   if (!resp.ok) {
     const d = await resp.json();
-    err.textContent = d.detail || 'Failed to update group.';
+    err.textContent = d.detail || 'Failed to update groups.';
     err.classList.remove('hidden');
     return;
   }
   closeEditGroupModal();
-  showToast('Poll group updated.', 'info');
+  showToast('Poll groups updated.', 'info');
   window.location.reload();
 }
 

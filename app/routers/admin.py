@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.db import get_db
 from app.middleware.auth import verify_admin, get_admin_user
-from app.models import Poll, PollDate, User, Group, Showtime
+from app.models import Poll, PollDate, User, Group, Showtime, UserGroup, PollGroup
 from app.services import movie_service, showtime_service, vote_service, theater_service
 from app.services.auth_service import (
     ADMIN_SESSION_COOKIE,
@@ -93,6 +93,12 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     ).all()
     open_polls = db.exec(select(Poll).where(Poll.status == "OPEN")).all()
     draft_poll = db.exec(select(Poll).where(Poll.status == "DRAFT")).first()
+    groups = db.exec(select(Group)).all()
+
+    all_pg = db.exec(select(PollGroup)).all()
+    poll_group_map: dict[int, list[int]] = {}
+    for pg in all_pg:
+        poll_group_map.setdefault(pg.poll_id, []).append(pg.group_id)
 
     poll_summaries = []
     for p in polls:
@@ -104,6 +110,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
             "event_count": len(events),
             "session_count": len(sessions),
             "participation": participation,
+            "group_ids": poll_group_map.get(p.id, [p.group_id] if p.group_id else []),
         })
 
     return templates.TemplateResponse(
@@ -114,6 +121,8 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
             "polls": poll_summaries,
             "open_poll_count": len(open_polls),
             "draft_poll": draft_poll,
+            "groups": groups,
+            "poll_group_map": poll_group_map,
         },
     )
 
@@ -195,6 +204,10 @@ async def admin_members(request: Request, db: Session = Depends(get_db)):
     users = db.exec(select(User).order_by(User.id)).all()
     groups = db.exec(select(Group)).all()
     group_map = {g.id: g.name for g in groups}
+    all_ug = db.exec(select(UserGroup)).all()
+    user_group_map: dict[int, list[int]] = {}
+    for ug in all_ug:
+        user_group_map.setdefault(ug.user_id, []).append(ug.group_id)
     return templates.TemplateResponse(
         request,
         "admin/members.html",
@@ -203,6 +216,7 @@ async def admin_members(request: Request, db: Session = Depends(get_db)):
             "users": users,
             "groups": groups,
             "group_map": group_map,
+            "user_group_map": user_group_map,
         },
     )
 
