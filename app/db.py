@@ -16,6 +16,27 @@ def get_db():
         yield session
 
 
+def _ensure_many_to_many_tables(db: Session):
+    """Idempotent migration: create user_groups/poll_groups if absent and backfill from legacy FK columns."""
+    db.exec(text("""CREATE TABLE IF NOT EXISTS user_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+        group_id INTEGER NOT NULL REFERENCES "group"(id) ON DELETE CASCADE,
+        UNIQUE(user_id, group_id)
+    )"""))  # type: ignore[call-overload]
+    db.exec(text("""INSERT OR IGNORE INTO user_groups (user_id, group_id)
+        SELECT id, group_id FROM user WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+    db.exec(text("""CREATE TABLE IF NOT EXISTS poll_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        poll_id INTEGER NOT NULL REFERENCES poll(id) ON DELETE CASCADE,
+        group_id INTEGER NOT NULL REFERENCES "group"(id) ON DELETE CASCADE,
+        UNIQUE(poll_id, group_id)
+    )"""))  # type: ignore[call-overload]
+    db.exec(text("""INSERT OR IGNORE INTO poll_groups (poll_id, group_id)
+        SELECT id, group_id FROM poll WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+    db.commit()
+
+
 SEED_THEATERS = [
     {
         "name": "Cinemark Cedar Park",
@@ -75,6 +96,9 @@ def init_db():
                     user.member_pin = generate_member_pin(db)
                     db.add(user)
             db.commit()
+
+        # Auto-migrate: ensure many-to-many join tables exist and are backfilled
+        _ensure_many_to_many_tables(db)
 
         # Seed theaters if table is empty
         existing_theaters = db.exec(select(Venue)).all()
