@@ -1218,6 +1218,23 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.patch("/api/admin/polls/{poll_id}")
+async def admin_update_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    verify_admin(request, db)
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    body = await request.json()
+    if "group_id" in body:
+        poll.group_id = body["group_id"] or None
+    if "title" in body and body["title"].strip():
+        poll.title = body["title"].strip()
+    poll.updated_at = datetime.now(timezone.utc).isoformat()
+    db.add(poll)
+    db.commit()
+    return {"id": poll.id, "title": poll.title, "group_id": poll.group_id}
+
+
 @router.post("/api/admin/polls/{poll_id}/publish")
 async def admin_publish_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
