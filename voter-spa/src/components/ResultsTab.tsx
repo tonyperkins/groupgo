@@ -24,6 +24,8 @@ function fmtDate(dateStr: string): string {
   }
 }
 
+const avatarColors = ["#22C55E", "#F59E0B", "#3B82F6", "#8B5CF6", "#EF4444", "#EC4899"];
+
 // ─── Group progress panel ────────────────────────────────────────────────────
 
 interface GroupProgressProps {
@@ -34,9 +36,6 @@ interface GroupProgressProps {
 
 function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) {
   const [expanded, setExpanded] = useState(false);
-
-  // Color palette — cycle through accent colors for voter avatars
-  const avatarColors = ["#22C55E", "#F59E0B", "#3B82F6", "#8B5CF6", "#EF4444", "#EC4899"];
 
   return (
     <div style={{
@@ -203,16 +202,22 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
         }} />
       </div>
 
-      {/* Voter name pills */}
+      {/* Voter initials bubbles */}
       {entry.voter_names.length > 0 && (
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {entry.voter_names.map((name, j) => (
-            <div key={j} style={{
-              background: C.surface, border: `1px solid ${C.border}`,
-              borderRadius: 99, padding: "3px 10px",
-              fontSize: 14, color: C.textMuted,
-            }}>{name}</div>
-          ))}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+          {entry.voter_names.map((name, j) => {
+            const color = avatarColors[j % avatarColors.length];
+            return (
+              <div key={j} title={name} style={{
+                width: 26, height: 26, borderRadius: "50%",
+                background: color,
+                border: `2px solid ${C.card}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontWeight: 800, color: "#000",
+                flexShrink: 0,
+              }}>{name[0]?.toUpperCase()}</div>
+            );
+          })}
         </div>
       )}
     </div>

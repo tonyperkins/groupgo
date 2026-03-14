@@ -6,6 +6,7 @@ export type TabId = "discover" | "vote" | "results";
 interface TabBarProps {
   votedSessionCount: number;
   isParticipating: boolean;
+  isFlexible: boolean;
 }
 
 const TABS: { id: TabId; icon: string; label: string; route: string }[] = [
@@ -14,7 +15,7 @@ const TABS: { id: TabId; icon: string; label: string; route: string }[] = [
   { id: "results",  icon: "🏆", label: "Results",  route: "/vote/results" },
 ];
 
-export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
+export function TabBar({ votedSessionCount, isParticipating, isFlexible }: TabBarProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -24,9 +25,10 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
     ? "vote"
     : "discover";
 
+  const effectiveVoteCount = isFlexible ? -1 : votedSessionCount;
   const badges: Record<TabId, number | null> = {
     discover: null,
-    vote:     votedSessionCount,
+    vote:     effectiveVoteCount,
     results:  null,
   };
 
@@ -62,7 +64,7 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
                 <div style={{
                   position: "absolute", top: -8, right: -10,
                   minWidth: 16, height: 16, borderRadius: 99,
-                  background: !isParticipating ? C.borderLight : badge > 0 ? C.accent : C.borderLight,
+                  background: !isParticipating ? C.borderLight : (badge > 0 || badge === -1) ? C.accent : C.borderLight,
                   border: `2px solid ${C.surface}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   padding: "0 3px",
@@ -70,8 +72,8 @@ export function TabBar({ votedSessionCount, isParticipating }: TabBarProps) {
                 }}>
                   <span style={{
                     fontSize: 9, fontWeight: 900, lineHeight: 1,
-                    color: !isParticipating ? C.textDim : badge > 0 ? "#000" : C.textDim,
-                  }}>{badge}</span>
+                    color: !isParticipating ? C.textDim : (badge > 0 || badge === -1) ? "#000" : C.textDim,
+                  }}>{badge === -1 ? "✓" : badge}</span>
                 </div>
               )}
             </div>

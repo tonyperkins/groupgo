@@ -1472,6 +1472,138 @@ async def admin_reopen_poll(
     return {"id": poll.id, "status": poll.status}
 
 
+@router.post("/api/admin/polls/{poll_id}/clear-votes")
+async def admin_clear_votes(
+    request: Request, poll_id: int, db: Session = Depends(get_db)
+):
+    """Delete all votes and reset all UserPollPreferences for this poll."""
+    verify_admin(request, db)
+    from app.models import Vote, UserPollPreference
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    votes = db.exec(select(Vote).where(Vote.poll_id == poll_id)).all()
+    for v in votes:
+        db.delete(v)
+
+    prefs = db.exec(select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)).all()
+    for pref in prefs:
+        pref.has_completed_voting = False
+        pref.is_flexible = False
+        db.add(pref)
+
+    db.commit()
+    return {"ok": True, "votes_cleared": len(votes)}
+
+
+@router.post("/api/admin/polls/{poll_id}/duplicate")
+async def admin_duplicate_poll(
+    request: Request, poll_id: int, db: Session = Depends(get_db)
+):
+    """Create a copy of an existing poll (title, groups, dates, movies — no votes/sessions)."""
+    verify_admin(request, db)
+    from app.models import PollEvent, PollDate, PollGroup
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    new_poll = Poll(
+        title=f"{poll.title} (copy)",
+        status="DRAFT",
+        group_id=poll.group_id,
+        description=poll.description,
+        updated_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db.add(new_poll)
+    db.commit()
+    db.refresh(new_poll)
+
+    for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all():
+        db.add(PollDate(poll_id=new_poll.id, date=pd.date))
+    for pg in db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all():
+        db.add(PollGroup(poll_id=new_poll.id, group_id=pg.group_id))
+    for pe in db.exec(select(PollEvent).where(PollEvent.poll_id == poll_id)).all():
+        db.add(PollEvent(poll_id=new_poll.id, event_id=pe.event_id, sort_order=pe.sort_order))
+    db.commit()
+
+    return {"id": new_poll.id, "title": new_poll.title, "status": new_poll.status}
+
+
+@router.get("/api/admin/polls/{poll_id}/voter-breakdown")
+async def admin_voter_breakdown(
+    request: Request, poll_id: int, db: Session = Depends(get_db)
+):
+    """Return each voter's individual session selections for this poll."""
+    verify_admin(request, db)
+    from app.models import Vote, UserPollPreference, Showtime, Event, PollEvent, PollGroup, UserGroup
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    # Get eligible users (reuse existing helper)
+    users = vote_service._get_poll_group_users(poll_id, db)
+
+    sessions = db.exec(
+        select(ShowSession).where(ShowSession.poll_id == poll_id, ShowSession.is_included == True)
+    ).all()
+    session_map = {s.id: s for s in sessions}
+
+    event_ids = list({s.event_id for s in sessions})
+    events = db.exec(select(EventModel).where(EventModel.id.in_(event_ids))).all() if event_ids else []
+    event_map = {e.id: e for e in events}
+
+    theater_ids = list({s.theater_id for s in sessions})
+    theaters = db.exec(select(VenueModel).where(VenueModel.id.in_(theater_ids))).all() if theater_ids else []
+    theater_map = {t.id: t.name for t in theaters}
+
+    result = []
+    for user in users:
+        pref = db.exec(
+            select(UserPollPreference).where(
+                UserPollPreference.user_id == user.id,
+                UserPollPreference.poll_id == poll_id,
+            )
+        ).first()
+        is_flexible = pref.is_flexible if pref else False
+        is_participating = pref.is_participating if pref else False
+        has_completed = pref.has_completed_voting if pref else False
+
+        votes = db.exec(
+            select(Vote).where(
+                Vote.user_id == user.id,
+                Vote.poll_id == poll_id,
+                Vote.target_type == "session",
+            )
+        ).all()
+        vote_map = {v.target_id: v.vote_value for v in votes}
+
+        picks = []
+        for s in sessions:
+            vote_val = vote_map.get(s.id, "abstain")
+            if vote_val == "can_do":
+                event = event_map.get(s.event_id)
+                picks.append({
+                    "session_id": s.id,
+                    "event_title": event.title if event else "?",
+                    "session_date": s.session_date,
+                    "session_time": s.session_time,
+                    "theater_name": theater_map.get(s.theater_id, "?"),
+                    "format": s.format,
+                })
+
+        result.append({
+            "user_id": user.id,
+            "name": user.name,
+            "is_participating": is_participating,
+            "is_flexible": is_flexible,
+            "has_completed_voting": has_completed,
+            "picks": picks,
+        })
+
+    return {"poll_id": poll_id, "voters": result}
+
+
 @router.delete("/api/admin/polls/{poll_id}")
 async def admin_delete_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)

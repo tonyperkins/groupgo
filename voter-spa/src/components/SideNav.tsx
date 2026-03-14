@@ -5,6 +5,7 @@ import type { TabId } from "./TabBar";
 interface SideNavProps {
   votedSessionCount: number;
   isParticipating: boolean;
+  isFlexible: boolean;
 }
 
 const TABS: { id: TabId; icon: string; label: string; route: string }[] = [
@@ -13,7 +14,7 @@ const TABS: { id: TabId; icon: string; label: string; route: string }[] = [
   { id: "results",  icon: "🏆", label: "Results",   route: "/vote/results" },
 ];
 
-export function SideNav({ votedSessionCount, isParticipating }: SideNavProps) {
+export function SideNav({ votedSessionCount, isParticipating, isFlexible }: SideNavProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -36,7 +37,7 @@ export function SideNav({ votedSessionCount, isParticipating }: SideNavProps) {
     }}>
       {TABS.map((tab) => {
         const isActive = tab.id === activeTab;
-        const badge = tab.id === "vote" ? votedSessionCount : null;
+        const rawBadge = tab.id === "vote" ? (isFlexible ? -1 : votedSessionCount) : null;
 
         return (
           <div
@@ -59,7 +60,7 @@ export function SideNav({ votedSessionCount, isParticipating }: SideNavProps) {
               color: isActive ? C.accent : C.textMuted,
               letterSpacing: "0.01em",
             }}>{tab.label}</span>
-            {badge !== null && badge > 0 && (
+            {rawBadge !== null && (rawBadge > 0 || rawBadge === -1) && (
               <div style={{
                 marginLeft: "auto",
                 minWidth: 20, height: 20, borderRadius: 99,
@@ -70,7 +71,7 @@ export function SideNav({ votedSessionCount, isParticipating }: SideNavProps) {
                 <span style={{
                   fontSize: 10, fontWeight: 900, lineHeight: 1,
                   color: !isParticipating ? C.textDim : "#000",
-                }}>{badge}</span>
+                }}>{rawBadge === -1 ? "✓" : rawBadge}</span>
               </div>
             )}
           </div>
