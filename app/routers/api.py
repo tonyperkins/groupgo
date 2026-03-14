@@ -1476,25 +1476,56 @@ async def admin_reopen_poll(
 async def admin_clear_votes(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    """Delete all votes and reset all UserPollPreferences for this poll."""
+    """Delete all votes and reset all UserPollPreferences for this poll.
+    Optionally email participating voters to re-vote (send_email: true in body)."""
     verify_admin(request, db)
     from app.models import Vote, UserPollPreference
+    from app.services import email_service
+    from app.services.security_service import build_poll_invite_url
+
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    should_email = bool(body.get("send_email", False))
+
+    prefs = db.exec(select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)).all()
+    participating_user_ids = {p.user_id for p in prefs if p.is_participating}
 
     votes = db.exec(select(Vote).where(Vote.poll_id == poll_id)).all()
     for v in votes:
         db.delete(v)
 
-    prefs = db.exec(select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)).all()
     for pref in prefs:
         pref.has_completed_voting = False
         pref.is_flexible = False
         db.add(pref)
 
     db.commit()
-    return {"ok": True, "votes_cleared": len(votes)}
+
+    emails_sent = 0
+    if should_email and participating_user_ids:
+        invite_url = build_poll_invite_url(poll, db)
+        users_to_notify = db.exec(
+            select(User).where(User.id.in_(participating_user_ids))
+        ).all()
+        for user in users_to_notify:
+            if user.email:
+                sent = email_service.send_revote_notification(
+                    to_address=user.email,
+                    voter_name=user.name,
+                    poll_title=poll.title,
+                    invite_url=invite_url,
+                )
+                if sent:
+                    emails_sent += 1
+
+    return {"ok": True, "votes_cleared": len(votes), "emails_sent": emails_sent}
 
 
 @router.post("/api/admin/polls/{poll_id}/duplicate")

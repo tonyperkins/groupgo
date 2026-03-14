@@ -146,6 +146,22 @@
 </div>
 {% endif %}
 
+<!-- Clear Votes Modal -->
+<div id="clear-votes-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-sm">
+    <h2 class="text-lg font-bold text-white mb-2">Clear all votes?</h2>
+    <p class="text-sm text-slate-400 mb-5">This removes every vote and resets voter completion status. The poll stays open.</p>
+    <label class="flex items-start gap-3 cursor-pointer mb-6 group">
+      <input id="clear-votes-email-cb" type="checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 flex-shrink-0" />
+      <span class="text-sm text-slate-300 leading-snug">Email voters who have joined to let them know they need to re-vote</span>
+    </label>
+    <div class="flex justify-end gap-3">
+      <button type="button" onclick="closeClearVotesModal()" class="btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="confirmClearVotes()" class="btn-primary text-sm" style="background:#ef4444;border-color:#ef4444">Clear Votes</button>
+    </div>
+  </div>
+</div>
+
 <!-- Voter Breakdown Modal -->
 <div id="voter-breakdown-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
   <div class="card p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
@@ -559,19 +575,37 @@ async function copyInviteLink() {
 
 
 // ── Clear Votes ───────────────────────────────────────────────────────────────
+let _clearVotesPollId = null;
+
 function clearVotesFromButton(button) {
-  const id = Number(button.dataset.pollId);
-  showConfirm('Clear all votes? This removes every vote and resets voter completion status. The poll stays open.', async () => {
-    const r = await fetch(`/api/admin/polls/${id}/clear-votes`, {method: 'POST'});
-    if (r.ok) {
-      const d = await r.json();
-      showToast(`Cleared ${d.votes_cleared} vote(s).`, 'info');
-      window.location.reload();
-    } else {
-      const d = await r.json();
-      showToast(d.detail || 'Error clearing votes.', 'error');
-    }
-  }, 'Clear Votes', true);
+  _clearVotesPollId = Number(button.dataset.pollId);
+  document.getElementById('clear-votes-email-cb').checked = false;
+  document.getElementById('clear-votes-modal').classList.remove('hidden');
+}
+
+function closeClearVotesModal() {
+  document.getElementById('clear-votes-modal').classList.add('hidden');
+  _clearVotesPollId = null;
+}
+
+async function confirmClearVotes() {
+  if (!_clearVotesPollId) return;
+  const sendEmail = document.getElementById('clear-votes-email-cb').checked;
+  closeClearVotesModal();
+  const r = await fetch(`/api/admin/polls/${_clearVotesPollId}/clear-votes`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({send_email: sendEmail}),
+  });
+  if (r.ok) {
+    const d = await r.json();
+    const emailNote = sendEmail ? ` · ${d.emails_sent} email(s) sent` : '';
+    showToast(`Cleared ${d.votes_cleared} vote(s)${emailNote}.`, 'info');
+    window.location.reload();
+  } else {
+    const d = await r.json();
+    showToast(d.detail || 'Error clearing votes.', 'error');
+  }
 }
 
 // ── Duplicate Poll ────────────────────────────────────────────────────────────
