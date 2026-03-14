@@ -590,9 +590,10 @@ function closeClearVotesModal() {
 
 async function confirmClearVotes() {
   if (!_clearVotesPollId) return;
+  const pollId = _clearVotesPollId;
   const sendEmail = document.getElementById('clear-votes-email-cb').checked;
   closeClearVotesModal();
-  const r = await fetch(`/api/admin/polls/${_clearVotesPollId}/clear-votes`, {
+  const r = await fetch(`/api/admin/polls/${pollId}/clear-votes`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({send_email: sendEmail}),
