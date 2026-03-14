@@ -402,7 +402,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
             <span style={{ fontWeight: 700, color: C.accent }}>
               {participation.fully_voted} member{participation.fully_voted !== 1 ? "s" : ""} voted.
             </span>
-            {" "}Click above to submit and add yours to influence the result.
+            {" "}Don't forget to submit your vote.
           </div>
         </div>
       )}
