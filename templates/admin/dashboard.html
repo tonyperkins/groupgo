@@ -109,6 +109,7 @@
         {% if poll.status == 'DRAFT' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Edit</a>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="publishPollFromButton(this)" class="btn-primary text-xs">Publish</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'OPEN' %}
@@ -117,17 +118,24 @@
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showInviteLinkFromButton(this)" class="btn-ghost text-xs">Invite Link</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="clearVotesFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800">Clear Votes</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="closePollFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'CLOSED' %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Declare Winner</a>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="archivePollFromButton(this)" class="btn-ghost text-xs">Archive</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% else %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-ghost text-xs">View</a>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% endif %}
@@ -137,6 +145,21 @@
   {% endfor %}
 </div>
 {% endif %}
+
+<!-- Voter Breakdown Modal -->
+<div id="voter-breakdown-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
+    <div class="flex items-center justify-between mb-4 gap-4 flex-shrink-0">
+      <h2 id="voter-breakdown-title" class="text-lg font-bold text-white">Voters</h2>
+      <button type="button" onclick="closeVoterBreakdown()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="voter-breakdown-body" class="overflow-y-auto space-y-3 flex-1 pr-1"></div>
+  </div>
+</div>
 
 <div id="invite-link-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
   <div class="card p-6 w-full max-w-xl">
@@ -534,5 +557,92 @@ async function copyInviteLink() {
   }
 }
 
+
+// ── Clear Votes ───────────────────────────────────────────────────────────────
+function clearVotesFromButton(button) {
+  const id = Number(button.dataset.pollId);
+  showConfirm('Clear all votes? This removes every vote and resets voter completion status. The poll stays open.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}/clear-votes`, {method: 'POST'});
+    if (r.ok) {
+      const d = await r.json();
+      showToast(`Cleared ${d.votes_cleared} vote(s).`, 'info');
+      window.location.reload();
+    } else {
+      const d = await r.json();
+      showToast(d.detail || 'Error clearing votes.', 'error');
+    }
+  }, 'Clear Votes', true);
+}
+
+// ── Duplicate Poll ────────────────────────────────────────────────────────────
+async function duplicatePoll(id) {
+  const r = await fetch(`/api/admin/polls/${id}/duplicate`, {method: 'POST'});
+  if (r.ok) {
+    const d = await r.json();
+    showToast(`Created "${d.title}" as DRAFT.`, 'info');
+    window.location.reload();
+  } else {
+    const d = await r.json();
+    showToast(d.detail || 'Error duplicating poll.', 'error');
+  }
+}
+function duplicatePollFromButton(button) { duplicatePoll(Number(button.dataset.pollId)); }
+
+// ── Voter Breakdown ───────────────────────────────────────────────────────────
+function closeVoterBreakdown() {
+  document.getElementById('voter-breakdown-modal').classList.add('hidden');
+}
+
+async function showVoterBreakdown(pollId, pollTitle) {
+  document.getElementById('voter-breakdown-title').textContent = `Voters — ${pollTitle}`;
+  const body = document.getElementById('voter-breakdown-body');
+  body.innerHTML = '<p class="text-slate-400 text-sm">Loading…</p>';
+  document.getElementById('voter-breakdown-modal').classList.remove('hidden');
+
+  const r = await fetch(`/api/admin/polls/${pollId}/voter-breakdown`);
+  if (!r.ok) { body.innerHTML = '<p class="text-red-400 text-sm">Failed to load.</p>'; return; }
+  const data = await r.json();
+
+  if (!data.voters.length) { body.innerHTML = '<p class="text-slate-400 text-sm">No voters.</p>'; return; }
+
+  const colors = ['#22C55E','#F59E0B','#3B82F6','#8B5CF6','#EF4444','#EC4899'];
+  body.innerHTML = data.voters.map((v, i) => {
+    const color = colors[i % colors.length];
+    const statusLabel = !v.is_participating ? 'Not joined'
+      : v.is_flexible ? '🔄 Flexible'
+      : v.has_completed_voting ? '✓ Done'
+      : '⏳ Pending';
+    const statusColor = !v.is_participating ? '#64748b'
+      : v.is_flexible ? '#F59E0B'
+      : v.has_completed_voting ? '#22C55E'
+      : '#94a3b8';
+    let picksHtml;
+    if (v.is_flexible) {
+      picksHtml = '<p class="text-slate-400 text-xs italic">Available for all showtimes</p>';
+    } else if (v.picks.length === 0) {
+      picksHtml = '<p class="text-slate-500 text-xs italic">No selections yet</p>';
+    } else {
+      picksHtml = v.picks.map(p => {
+        const parts = p.session_time.split(':');
+        const h = parseInt(parts[0]); const m = parts[1] || '00';
+        const ampm = h < 12 ? 'AM' : 'PM'; const h12 = h % 12 || 12;
+        const fmt = p.format !== 'Standard' ? ` <span style="color:#F59E0B;font-size:11px">${p.format}</span>` : '';
+        return `<div class="text-xs text-slate-300 py-0.5">${p.event_title} · ${h12}:${m} ${ampm}${fmt} · ${p.theater_name} · ${p.session_date}</div>`;
+      }).join('');
+    }
+    return `<div class="border border-slate-700 rounded-xl p-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#000;flex-shrink:0">${v.name[0].toUpperCase()}</div>
+        <span class="text-sm font-semibold text-white flex-1">${v.name}</span>
+        <span style="font-size:11px;font-weight:600;color:${statusColor}">${statusLabel}</span>
+      </div>
+      <div class="pl-9">${picksHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function showVoterBreakdownFromButton(button) {
+  showVoterBreakdown(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll');
+}
 </script>
 {% endblock %}

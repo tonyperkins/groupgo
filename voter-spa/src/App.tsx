@@ -413,6 +413,7 @@ export default function App() {
         <SideNav
           votedSessionCount={state.votedSessionCount}
           isParticipating={prefs.is_participating}
+          isFlexible={prefs.is_flexible}
         />
 
         {/* Center content column */}
@@ -484,6 +485,7 @@ export default function App() {
       <TabBar
         votedSessionCount={state.votedSessionCount}
         isParticipating={prefs.is_participating}
+        isFlexible={prefs.is_flexible}
       />
 
       {state.showOptOutModal && (

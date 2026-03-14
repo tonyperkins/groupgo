@@ -453,7 +453,7 @@ export function VoteTab({
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <span style={{ fontSize: FS.base, color: C.textMuted, flex: 1 }}>
-          {isFlexible ? "Flexible mode — all options" : "Mark what works for you"}
+          {isFlexible ? "Flexible mode — all options" : "Select what works for you"}
         </span>
         {votedSessionCount > 0 && !isFlexible && (
           <span style={{ fontSize: FS.base, color: C.green, fontWeight: 700 }}>
