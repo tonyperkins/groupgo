@@ -7,7 +7,7 @@ from sqlmodel import Session, select, create_engine, text
 from app.models import User
 from app.config import settings
 
-email = "perkins.tony@gmail.com"
+email = "EMAIL_REDACTED"
 
 # 1. Raw sqlite check
 db = sqlite3.connect(settings.DATABASE_URL.replace("sqlite:///", "").replace("./", "/app/"))

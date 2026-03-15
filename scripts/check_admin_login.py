@@ -9,7 +9,7 @@ from app.config import settings
 from sqlalchemy import create_engine
 from sqlmodel import create_engine as sm_create_engine
 
-email = "perkins.tony@gmail.com"
+email = "EMAIL_REDACTED"
 
 engine = sm_create_engine(settings.DATABASE_URL)
 with Session(engine) as db:

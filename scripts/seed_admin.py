@@ -6,7 +6,7 @@ from sqlmodel import Session, create_engine, select
 from app.models import User
 from app.config import settings
 
-email = sys.argv[1] if len(sys.argv) > 1 else "perkins.tony@gmail.com"
+email = sys.argv[1] if len(sys.argv) > 1 else "EMAIL_REDACTED"
 name = sys.argv[2] if len(sys.argv) > 2 else "Admin"
 
 engine = create_engine(settings.DATABASE_URL)
