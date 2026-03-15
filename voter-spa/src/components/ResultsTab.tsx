@@ -452,7 +452,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
                   background: C.accent, color: "#000", fontWeight: 700, fontSize: 14,
                   borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
                 }}
-              >{isEditing ? "Resubmit \u2192" : "Submit your vote \u2192"}</div>
+              >{isEditing ? "Resubmit →" : "Submit your vote →"}</div>
             </>
           ) : (
             <>
@@ -464,7 +464,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
                   borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
                   border: `1px solid ${C.accent}`,
                 }}
-              >Go to Vote tab \u2192</div>
+              >Go to Vote tab →</div>
             </>
           )}
         </div>
