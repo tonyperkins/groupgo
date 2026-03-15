@@ -358,6 +358,7 @@ export default function App() {
           hasCompletedVoting={prefs.has_completed_voting}
           isFlexible={prefs.is_flexible}
           isEditing={state.isEditing}
+          pollId={state.meData?.poll?.id ?? 0}
           onSessionVote={castSessionVote}
           onSetFlexible={handleSetFlexible}
           onJoin={handleJoin}

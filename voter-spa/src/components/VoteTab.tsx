@@ -413,6 +413,7 @@ export function VoteTab({
   hasCompletedVoting,
   isFlexible,
   isEditing,
+  pollId,
   onSessionVote,
   onSetFlexible,
   onJoin,
@@ -619,6 +620,7 @@ export function VoteTab({
             locked={cardLocked}
             submitted={isSubmitted}
             isLocked={isSubmitted}
+            pollId={pollId}
             onSessionVote={onSessionVote}
           />
         );
