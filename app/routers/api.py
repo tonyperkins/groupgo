@@ -842,8 +842,8 @@ async def admin_lookup_event(request: Request, db: Session = Depends(get_db)):
     verify_admin(request, db)
     from app.config import settings as _s
     import httpx as _httpx
-    if not _s.SERPAPI_KEY:
-        raise HTTPException(status_code=503, detail="SerpApi key not configured")
+    if not _s.GOOGLE_KG_API_KEY:
+        raise HTTPException(status_code=503, detail="Google KG key not configured")
     body = await request.json()
     title = (body.get("title") or "").strip()
     venue_name = (body.get("venue_name") or "").strip()
@@ -853,13 +853,11 @@ async def admin_lookup_event(request: Request, db: Session = Depends(get_db)):
     try:
         async with _httpx.AsyncClient(timeout=15) as client:
             r = await client.get(
-                "https://serpapi.com/search",
+                "https://kgsearch.googleapis.com/v1/entities:search",
                 params={
-                    "engine": "google",
-                    "q": query,
-                    "api_key": _s.SERPAPI_KEY,
-                    "hl": "en",
-                    "gl": "us",
+                    "query": query,
+                    "key": _s.GOOGLE_KG_API_KEY,
+                    "limit": 3,
                 },
             )
             r.raise_for_status()
@@ -868,20 +866,14 @@ async def admin_lookup_event(request: Request, db: Session = Depends(get_db)):
         return {"image_url": None, "website_url": None, "error": str(exc)}
     image_url = None
     website_url = None
-    kg = data.get("knowledge_graph", {})
-    if kg:
-        image_url = kg.get("thumbnail") or kg.get("image", {}).get("image") or None
-        website_url = kg.get("website") or None
-    if not image_url:
-        for r_item in data.get("organic_results", [])[:3]:
-            thumb = r_item.get("thumbnail") or r_item.get("rich_snippet", {}).get("top", {}).get("detected_extensions", {})
-            if isinstance(r_item.get("thumbnail"), str):
-                image_url = r_item["thumbnail"]
-                break
-    if not website_url:
-        organic = data.get("organic_results", [])
-        if organic:
-            website_url = organic[0].get("link") or None
+    for item in data.get("itemListElement", []):
+        result = item.get("result", {})
+        if not image_url:
+            image_url = (result.get("image") or {}).get("contentUrl") or None
+        if not website_url:
+            website_url = (result.get("detailedDescription") or {}).get("url") or result.get("url") or None
+        if image_url and website_url:
+            break
     return {"image_url": image_url, "website_url": website_url}
 
 

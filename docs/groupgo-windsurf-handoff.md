@@ -345,9 +345,16 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Completed
 
+### Session 2 — March 15, 2026
+- `app/config.py` — added `GOOGLE_KG_API_KEY: str = ""`
+- `app/routers/api.py` — `POST /api/admin/events/lookup` swapped from SerpApi to Google Knowledge Graph Search API (`kgsearch.googleapis.com/v1/entities:search`); extracts `image.contentUrl` and `detailedDescription.url` / `url` from KG results
+- `.env.example` — added `ADMIN_EMAIL`, `ADMIN_NAME`, `SMTP_*`, `GOOGLE_KG_API_KEY` placeholders
+- `.env.production.example` — added `GOOGLE_KG_API_KEY` placeholder
+- `.env.development` removed from git tracking; added to `.gitignore`
+
 ### Session 1 — March 2026 (branch: v2-generic-events)
 - `app/models.py` — `Event.is_movie()` property; `Showtime.theater_id` → `Optional[int]`
-- `app/routers/api.py` — `is_movie` in `_serialize_event()` and `_ser_result()`; `PATCH /api/admin/events/{id}`; `POST /api/admin/events/lookup` (⚠ uses SerpApi — needs swap to Google KG, see Pending #1)
+- `app/routers/api.py` — `is_movie` in `_serialize_event()` and `_ser_result()`; `PATCH /api/admin/events/{id}`; `POST /api/admin/events/lookup`
 - `app/routers/admin.py` — poll summaries include `dates` field; `PATCH /api/admin/polls/{id}` supports title/dates/group_id
 - `app/routers/voter.py` — `gg_browse_poll_id` always overwritten on `/join/{access_uuid}`
 - `app/tasks/fetch_tasks.py` — SerpApi gated on `is_movie()`
@@ -370,15 +377,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-#### 1. Bug: "Find" button uses SerpApi — swap to Google Knowledge Graph API
-- **File:** `app/routers/api.py` — `POST /api/admin/events/lookup`
-- The endpoint currently calls SerpApi for event enrichment. This burns the 100/month quota reserved for showtime scraping.
-- Replace with **Google Knowledge Graph Search API** (free tier, no billing required).
-  - Add `GOOGLE_KG_API_KEY` to `.env` and `app/config.py` settings
-  - Endpoint: `https://kgsearch.googleapis.com/v1/entities:search?query={title}&key={GOOGLE_KG_API_KEY}`
-  - Extract: `image_url` from `result.image.contentUrl`, `website_url` from `result.detailedDescription.url` or `result.url`
-  - On no results: return `{image_url: null, website_url: null}` (frontend already handles this gracefully)
-- To get a key: console.cloud.google.com → search "Knowledge Graph Search API" → Enable → Create API key. No billing account required.
+_Nothing pending._
 
 ---
 
@@ -389,42 +388,4 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ---
 
-You are continuing development on GroupGo (branch: v2-generic-events).
-Read docs/groupgo-windsurf-handoff.md before starting. Single focused task —
-do not touch anything outside the files listed.
-
----
-
-### Task 1 — Swap "Find" button from SerpApi to Google Knowledge Graph API
-File: app/routers/api.py — POST /api/admin/events/lookup
-File: app/config.py — add GOOGLE_KG_API_KEY setting
-
-The /api/admin/events/lookup endpoint currently calls SerpApi, which burns
-the 100/month quota reserved for showtime scraping. Replace it:
-
-1. In app/config.py, add:
-   GOOGLE_KG_API_KEY: str = ""
-
-2. In app/routers/api.py, replace the SerpApi call in admin_lookup_event
-   with a Google Knowledge Graph Search API call:
-   - URL: https://kgsearch.googleapis.com/v1/entities:search
-   - Params: query="{title} {venue_name}".strip(), key=GOOGLE_KG_API_KEY, limit=3
-   - Extract image_url from: result["image"]["contentUrl"] if present
-   - Extract website_url from: result["detailedDescription"]["url"] or result["url"] if present
-   - Iterate results and take the first that has either field
-   - Return {image_url, website_url} — nulls if nothing found
-   - If GOOGLE_KG_API_KEY is empty, return 503 with detail "Google KG key not configured"
-
-3. Do not touch the frontend — it already handles null image_url/website_url gracefully.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. Commit: `git add -A && git commit -m "fix: swap Find button enrichment from SerpApi to Google Knowledge Graph"`
-3. Push: `git push origin v2-generic-events`
+_Nothing pending._
