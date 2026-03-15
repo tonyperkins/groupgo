@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, FS } from "../tokens";
 import { VoterSession, VoterEvent } from "../api/voter";
 import { ShowtimeCard, SessionVote } from "./ShowtimeCard";
@@ -224,7 +224,17 @@ interface EventGroupProps {
 
 function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSessionVote }: EventGroupProps) {
   const hasConfirmedVote = sessions.some((s) => votes[`session:${s.id}`] === "can_do");
-  const [collapsed, setCollapsed] = useState(!hasConfirmedVote);
+  const [collapsed, setCollapsed] = useState(true);
+  const hasInitialized = useRef(false);
+
+  // Once votes load from the API (non-empty), set the initial collapsed state.
+  // After that, user controls it manually — don't override again.
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    if (Object.keys(votes).length === 0) return;
+    hasInitialized.current = true;
+    setCollapsed(!hasConfirmedVote);
+  }, [votes, hasConfirmedVote]);
 
   const thumbnailUrl = event.poster_url ?? event.image_url ?? null;
 
