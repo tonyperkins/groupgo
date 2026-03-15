@@ -1,6 +1,6 @@
 import { C, FS } from "../tokens";
 
-const SEGMENTS = ["Joined", "Voted", "Submitted"] as const;
+const SEGMENTS = ["Joined", "Selected", "Voted"] as const;
 
 interface ProgressBarProps {
   /** Number of segments filled (0–3). 1=joined, 2=voted (≥1 session or flexible), 3=submitted */

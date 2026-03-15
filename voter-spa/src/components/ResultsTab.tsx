@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C } from "../tokens";
-import { voterApi, ResultsResponse, ResultsEntry } from "../api/voter";
+import { voterApi, ResultsResponse, ResultsEntry, VoterSession, VoterEvent } from "../api/voter";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -263,11 +263,13 @@ interface ResultsTabProps {
   isEditing?: boolean;
   onJoin: () => void;
   onSubmitVote?: () => Promise<void> | void;
+  sessions?: VoterSession[];
+  events?: VoterEvent[];
 }
 
 const POLL_INTERVAL_MS = 15_000;
 
-export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote }: ResultsTabProps) {
+export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote, sessions = [], events = [] }: ResultsTabProps) {
   const navigate = useNavigate();
   const [data, setData] = useState<ResultsResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -430,21 +432,28 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
               <div style={{ fontSize: 13, color: C.textMuted }}>
                 {isEditing ? "You're editing — resubmit to update your vote." : `${personal_pick_keys.length} selection${personal_pick_keys.length !== 1 ? "s" : ""} — not submitted yet.`}
               </div>
-              {results.filter(isMyPick).slice(0, 3).map((entry) => (
-                <div key={`${entry.event.id}:${entry.session.id}`} style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "8px 10px",
-                  background: C.surface, borderRadius: 10,
-                  border: `1px solid ${C.border}`,
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{entry.event.title}</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>
-                      {fmt12h(entry.session.session_time)} · {fmtDate(entry.session.session_date)}
+              {personal_pick_keys.slice(0, 3).map((key) => {
+                const [eId, sId] = key.split(":").map(Number);
+                const session = sessions.find((s) => s.id === sId);
+                const event = events.find((e) => e.id === eId);
+                if (!session || !event) return null;
+                const venue = event.venue_name || session.theater_name || "";
+                return (
+                  <div key={key} style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "8px 10px",
+                    background: C.surface, borderRadius: 10,
+                    border: `1px solid ${C.border}`,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{event.title}</div>
+                      <div style={{ fontSize: 12, color: C.textMuted }}>
+                        {fmt12h(session.session_time)} · {fmtDate(session.session_date)}{venue ? ` · ${venue}` : ""}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {hasAnySelections && personal_pick_keys.length > 3 && (
                 <div style={{ fontSize: 12, color: C.textDim, paddingLeft: 2 }}>
                   +{personal_pick_keys.length - 3} more selections
