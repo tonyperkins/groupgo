@@ -413,7 +413,33 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. UX: MY PENDING VOTE — show picks list from raw session data, not standings
+- **Files:** `voter-spa/src/components/ResultsTab.tsx`, `voter-spa/src/App.tsx`
+- The MY PENDING VOTE picks list uses `results.filter(isMyPick)` but `results` only contains submitted votes, so unsubmitted picks never appear in the list even when `personal_pick_keys` is correct.
+- Fix: pass `sessions: VoterSession[]` and `events: VoterEvent[]` as props to `ResultsTab` from `App.tsx` (same data already passed to `VoteTab`). Build the pending picks list by matching `personal_pick_keys` against those sessions/events directly — no dependency on the standings results.
+- Display format per pick: event title, time, date, venue/theater. Same compact style as current.
+
+#### 2. UX: Progress bar labels — JOINED / SELECTED / VOTED
+- **File:** `voter-spa/src/components/ProgressBar.tsx`
+- Change `SEGMENTS` from `["Joined", "Voted", "Submitted"]` to `["Joined", "Selected", "Voted"]`
+- "Selected" = has picks but not submitted. "Voted" = submitted.
+- No logic changes needed — just the label strings.
+
+#### 3. Bug: Progress bar shows VOTED when voter is opted out
+- **File:** `voter-spa/src/App.tsx` — `progressStep()` function
+- When `is_participating = false` (opted out), `progressStep` can still return 2 or 3 if `votedSessionCount > 0` or `has_completed_voting = true` from a previous submission.
+- Fix: add an early return — if `!prefs.is_participating` return 1 (JOINED only, nothing further highlighted).
+- `progressStep` should be:
+  ```typescript
+  function progressStep(state: VoterState): number {
+    const prefs = state.meData?.preferences;
+    if (!prefs) return 0;
+    if (!prefs.is_participating) return 1;
+    if (prefs.has_completed_voting) return 3;
+    if (state.votedSessionCount > 0 || prefs.is_flexible) return 2;
+    return 1;
+  }
+  ```
 
 ---
 
@@ -424,4 +450,75 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: v2-generic-events).
+Read docs/groupgo-windsurf-handoff.md before starting. Three tasks across
+the voter SPA. Do not touch backend, admin templates, or auth.
+
+---
+
+### Task 1 — MY PENDING VOTE picks list from raw session data
+Files: voter-spa/src/components/ResultsTab.tsx
+       voter-spa/src/App.tsx
+
+The MY PENDING VOTE picks list uses results.filter(isMyPick) but results
+only contains submitted votes. Unsubmitted picks never appear.
+
+1. Add sessions and events props to ResultsTabProps:
+     sessions: VoterSession[];
+     events: VoterEvent[];
+
+2. In App.tsx, pass these to <ResultsTab>:
+     sessions={state.meData?.sessions ?? []}
+     events={state.meData?.events ?? []}
+
+3. In ResultsTab, build the pending picks list from sessions/events
+   directly using personal_pick_keys:
+   - Split each key on ":" to get eventId and sessionId
+   - Find the matching session from sessions prop
+   - Find the matching event from events prop
+   - Display: event title, fmt12h(session.session_time),
+     fmtDate(session.session_date), venue or theater name
+   - Keep same compact card style as current
+
+---
+
+### Task 2 — Progress bar labels
+File: voter-spa/src/components/ProgressBar.tsx
+
+Change SEGMENTS from:
+  ["Joined", "Voted", "Submitted"]
+To:
+  ["Joined", "Selected", "Voted"]
+
+One line change. No logic changes.
+
+---
+
+### Task 3 — Progress bar opted-out state fix
+File: voter-spa/src/App.tsx
+
+Replace progressStep function with:
+
+function progressStep(state: VoterState): number {
+  const prefs = state.meData?.preferences;
+  if (!prefs) return 0;
+  if (!prefs.is_participating) return 1;
+  if (prefs.has_completed_voting) return 3;
+  if (state.votedSessionCount > 0 || prefs.is_flexible) return 2;
+  return 1;
+}
+
+---
+
+### After completing all tasks
+
+1. Run `cd voter-spa && npm run build`
+2. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+      Skip if it went exactly as specified.
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+3. Commit: `git add -A && git commit -m "fix: pending picks list from raw sessions; progress bar labels + opted-out fix"`
+4. Push: `git push origin v2-generic-events`
