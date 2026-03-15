@@ -85,6 +85,7 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
     applyTheme(next);
     localStorage.setItem("gg_theme", next);
     setCurrentTheme(next);
+    onClose();
   }
 
   return createPortal(
