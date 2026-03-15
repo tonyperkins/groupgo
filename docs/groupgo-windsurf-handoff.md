@@ -419,7 +419,53 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Bug: Editing mode removes voter from Group Standings
+- **Files:** `app/models.py`, `app/services/vote_service.py`, `app/routers/api.py`
+- When a voter enters edit mode, `has_completed_voting` is set to `false`, removing them from the standings. Their previously submitted vote should remain visible in standings until they resubmit or cancel.
+- Fix: add `is_editing: bool = Field(default=False)` to `UserPollPreference` model.
+- Run: `ALTER TABLE userpollpreference ADD COLUMN is_editing BOOLEAN DEFAULT 0`
+- When edit starts: set `is_editing = true`, keep `has_completed_voting = true`
+- When resubmit: set `is_editing = false`, `has_completed_voting = true`
+- When cancel edit: set `is_editing = false`, `has_completed_voting = true` (no change to votes)
+- In scoring (`_load_result_inputs`): count voters where `has_completed_voting = true` regardless of `is_editing` — their last submitted votes still count during editing
+- Pass `is_editing` in the `/api/voter/me` preferences response so the SPA can derive `isEditing` from server state rather than local state (optional improvement — local state is fine for now if simpler)
+
+#### 2. UX: Cancel button next to Resubmit in Results tab MY PENDING VOTE
+- **File:** `voter-spa/src/components/ResultsTab.tsx`
+- When in editing state, show a "Cancel" ghost button alongside the "Resubmit →" button in MY PENDING VOTE section — same layout as the Vote tab footer (Resubmit amber full-width-ish, Cancel ghost beside it).
+- Cancel calls the same cancel handler as the Vote tab (switch `isEditing` back to false without changing votes).
+- Need to add `onCancelEdit?: () => void` prop to `ResultsTabProps` and wire from `App.tsx`.
+
+#### 3. UX: Group like event types in "In this poll" sidebar and Times page
+- **Files:** `templates/components/admin_movie_list.html`, `templates/admin/showtimes.html`
+- In the "In this poll" sidebar (`admin_movie_list.html`): sort/group events so movies appear first, then non-movies grouped by `event_type` (restaurant, concert, other). Visual separator or subtle label between groups.
+- In the Times page (`showtimes.html`): same ordering — movie event sections first, then non-movie sections grouped by type. No merging of cards — each event keeps its own section.
+
+#### 4. UX: All cached times table — show only when poll has movie events
+- **File:** `templates/admin/showtimes.html`
+- The "All cached times" flat table with time window filter is only useful for polls with movies (many auto-fetched showtimes to bulk-filter).
+- Hide the entire section when the poll has no movie-type events.
+- Show it as normal when at least one movie event exists.
+- Non-movie-only polls manage times entirely through the per-event sections.
+
+#### 5. UX: Poll action menu — better hierarchy
+- **File:** `templates/admin/dashboard.html`
+- Current layout is a flat grid of equal-weight buttons. Restructure into three tiers:
+  - **Navigation row:** Events, Times, Results — compact, tab-like styling
+  - **Utility actions:** Edit, Invite Link, Voters, Duplicate — collected into a "⋯" overflow dropdown to keep the card clean
+  - **Destructive actions:** Clear Votes, Close, Delete — visually separated with a divider, keep amber/red styling
+- Goal: reduce visual noise on the card, make destructive actions less prominent but still accessible.
+
+#### 6. UX: Dark/light theme toggle on voter app
+- **Files:** `voter-spa/src/App.tsx`, `voter-spa/src/tokens.ts`
+- Add a theme toggle inside the VOTING/DONE/EDITING status chip popover as a new row (e.g. "☀️ Light mode" / "🌙 Dark mode").
+- Store preference in `localStorage` key `gg_theme` (`"dark"` | `"light"`).
+- On app load, read `gg_theme` and apply theme class to root element.
+- Light theme: define an alternative color set in `tokens.ts` — do NOT just invert dark colors, design a proper readable light palette. Suggested light values:
+  - `bg`: `#F5F5F0`, `surface`: `#FFFFFF`, `card`: `#FAFAF8`
+  - `border`: `#E0DED8`, `text`: `#1A1A1A`, `textMuted`: `#6B6B80`, `textDim`: `#9A9AAE`
+  - Keep accent amber `#E8A020`, green, red, blue unchanged
+- Apply theme via CSS custom properties on `:root` so all components pick it up without prop drilling. Map `C.*` tokens to CSS vars.
 
 ---
 
@@ -430,4 +476,119 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: v2-generic-events).
+Read docs/groupgo-windsurf-handoff.md before starting. Six tasks across
+backend, admin templates, and voter SPA. Work in order. Follow all
+constraints in the doc.
+
+---
+
+### Task 1 — Bug: Editing mode removes voter from Group Standings
+Files: app/models.py, app/services/vote_service.py, app/routers/api.py
+
+Add is_editing: bool = Field(default=False) to UserPollPreference model.
+Run: ALTER TABLE userpollpreference ADD COLUMN is_editing BOOLEAN DEFAULT 0
+
+When edit starts (POST /api/voter/votes/complete with is_complete=false):
+  set is_editing = true, keep has_completed_voting = true
+
+When resubmit (POST /api/voter/votes/complete with is_complete=true):
+  set is_editing = false, has_completed_voting = true
+
+When cancel edit:
+  set is_editing = false, has_completed_voting = true (no vote changes)
+
+In _load_result_inputs in vote_service.py:
+  submitted_user_ids should include users where has_completed_voting = true
+  regardless of is_editing — their last submitted votes count during editing.
+
+Include is_editing in the preferences dict returned by get_user_poll_preferences
+so the SPA receives it in /api/voter/me.
+
+---
+
+### Task 2 — UX: Cancel button in Results tab MY PENDING VOTE
+File: voter-spa/src/components/ResultsTab.tsx
+      voter-spa/src/App.tsx
+
+Add onCancelEdit?: () => void to ResultsTabProps.
+In App.tsx pass onCancelEdit={handleCancelEdit} to <ResultsTab>
+  (same handler as cancel in VoteTab).
+In ResultsTab MY PENDING VOTE editing state:
+  Show Resubmit + Cancel side by side, same layout as VoteTab footer.
+
+---
+
+### Task 3 — UX: Group event types in sidebar and Times page
+Files: templates/components/admin_movie_list.html
+       templates/admin/showtimes.html
+
+In admin_movie_list.html "In this poll" sidebar:
+  Sort events — movies first, then non-movies grouped by event_type.
+  Add a subtle visual separator between movies and non-movies.
+
+In showtimes.html event sections:
+  Same ordering — movie sections first, then non-movie sections by type.
+  Each event keeps its own section — no merging.
+
+---
+
+### Task 4 — UX: Hide cached times table for non-movie polls
+File: templates/admin/showtimes.html
+
+Wrap the entire "All cached times" section in a check:
+  Only show when the poll contains at least one event where
+  event.event_type == "movie".
+Hide entirely for non-movie-only polls.
+
+---
+
+### Task 5 — UX: Poll action menu hierarchy
+File: templates/admin/dashboard.html
+
+Restructure the poll card action buttons into three tiers:
+1. Navigation row (Events, Times, Results) — compact tab-like styling,
+   always visible
+2. Utility overflow — Edit, Invite Link, Voters, Duplicate collected
+   into a "⋯" dropdown button
+3. Destructive — Clear Votes, Close, Delete with visual divider separating
+   them from the utility section, keep existing amber/red colors
+
+---
+
+### Task 6 — UX: Dark/light theme toggle
+Files: voter-spa/src/App.tsx, voter-spa/src/tokens.ts,
+       voter-spa/src/components/StatusChip.tsx (or wherever popover lives)
+
+1. In tokens.ts define light theme CSS custom properties alongside dark.
+   Map all C.* values to CSS vars (--gg-bg, --gg-surface, etc.).
+   Light palette: bg #F5F5F0, surface #FFFFFF, card #FAFAF8,
+   border #E0DED8, text #1A1A1A, textMuted #6B6B80, textDim #9A9AAE.
+   Keep accent/green/red/blue unchanged in both themes.
+
+2. On app load: read localStorage key gg_theme, apply "light" or "dark"
+   class to document.documentElement. Default to "dark".
+
+3. Add theme toggle row to the status chip popover:
+   "☀️ Light mode" / "🌙 Dark mode" — toggles and saves to localStorage.
+
+4. Update all component inline styles to use CSS vars instead of
+   direct C.* token values where needed for theme switching to work.
+   Note: this may be a large change — if too broad, implement CSS vars
+   for bg/surface/card/border/text colors only and leave accent colors
+   as direct values.
+
+---
+
+### After completing all tasks
+
+1. Run `cd voter-spa && npm run build`
+2. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+      Skip if it went exactly as specified.
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+3. Commit: `git add -A && git commit -m "feat: editing standings fix; cancel in results; event grouping; theme toggle; action menu hierarchy"`
+4. Push: `git push origin v2-generic-events`
