@@ -45,19 +45,31 @@
       </div>
     </div>
     {% if poll and poll.status in ('DRAFT', 'OPEN') %}
-    <button
-      id="del-movie-{{ event.id }}"
-      data-confirm-message="Remove {{ event.title }} from this poll?"
-      hx-delete="/api/admin/polls/{{ poll.id }}/movies/{{ event.id }}"
-      hx-target="#admin-movie-list"
-      hx-swap="outerHTML"
-      onclick="confirmHtmxButton(this); return false;"
-      hx-trigger="confirmed"
-      class="flex-shrink-0 text-slate-500 hover:text-red-400 transition-colors p-1">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-      </svg>
-    </button>
+    <div class="flex items-center gap-0.5 flex-shrink-0">
+      {% if event.is_custom_event %}
+      <button
+        onclick="enterEditMode({{ event.id }}, {{ event.event_type | tojson }}, {{ event.title | tojson }}, {{ (event.venue_name or '') | tojson }}, {{ (event.synopsis or '') | tojson }}, {{ (event.image_url or '') | tojson }}, {{ (event.external_url or '') | tojson }})"
+        title="Edit event"
+        class="text-slate-500 hover:text-indigo-400 transition-colors p-1">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+        </svg>
+      </button>
+      {% endif %}
+      <button
+        id="del-movie-{{ event.id }}"
+        data-confirm-message="Remove {{ event.title }} from this poll?"
+        hx-delete="/api/admin/polls/{{ poll.id }}/movies/{{ event.id }}"
+        hx-target="#admin-movie-list"
+        hx-swap="outerHTML"
+        onclick="confirmHtmxButton(this); return false;"
+        hx-trigger="confirmed"
+        class="text-slate-500 hover:text-red-400 transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
     {% endif %}
   </div>
   {% endfor %}

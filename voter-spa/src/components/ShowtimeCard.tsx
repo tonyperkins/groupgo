@@ -69,7 +69,7 @@ export function ShowtimeCard({
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
             <span style={{ fontSize: FS.base, color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>
-              {event.is_movie ? session.theater_name : (event.venue_name ?? session.theater_name)}
+              {event.is_movie ? session.theater_name : (event.venue_name ?? "")}
             </span>
             {event.is_movie && session.format !== "Standard" && (
               <span style={{

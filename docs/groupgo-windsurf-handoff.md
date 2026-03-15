@@ -438,79 +438,119 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 - Non-movie events get time slots added manually by admin. Same voter experience — event+time voting.
 - Voter-visible string "showtime" → "option"/"time" for non-movie events. TypeScript interfaces and component names stay as-is.
 
-### Current state (as of last code review)
+### Completed (branch: `v2-generic-events`)
 
-Several generalization pieces are already done in the codebase:
-- `movies.html` already shows "Events" in titles/breadcrumbs ✅
-- Manual showtime form already exists in `showtimes.html` ✅
-- `DiscoverTab` already has `isMovie` check and `EventTypeBadge` component ✅
-- `VoterEvent` TypeScript type already has `event_type`, `venue_name`, `image_url`, `external_url` ✅
-- `_serialize_event()` already includes all new fields except `is_movie` ✅
-- `ShowtimeCard` already has `isLocked` prop ✅
+| File | Change |
+|------|--------|
+| `app/models.py` | `Event.is_movie()` property |
+| `app/routers/api.py` | `is_movie` in `_serialize_event()` and `_ser_result()` |
+| `app/tasks/fetch_tasks.py` | SerpApi gated on `is_movie()` — no movies → skip |
+| `voter-spa/src/api/voter.ts` | `is_movie: boolean` on `VoterEvent` and `ResultsEntry.event` |
+| `voter-spa/src/components/ShowtimeCard.tsx` | `venue_name + time` for non-movies, format badge hidden |
+| `voter-spa/src/components/VoteTab.tsx` | Threads `event` prop to `ShowtimeCard` |
+| `voter-spa/src/components/ShowtimesTab.tsx` | Same event prop threading |
+| `voter-spa/src/components/ResultsTab.tsx` | `venue_name` for non-movies, format badge hidden |
+| `templates/admin/showtimes.html` | Step 2 label "Showtimes" → "Times"; SerpApi section hidden when no movies; "No movies" message shown; manual form hides Theater+Format for non-movie events, shows freeform Venue field instead |
+| `templates/admin/movies.html` | Warning badge and "No showtimes" card badge only shown for movie-type events |
 
-**Remaining work for V2:**
+### Pending — next session
 
-### `Event.is_movie()` helper
+#### 1. Bug: Invite link cookie not overwriting
+- **File:** `app/routers/voter.py` — the `/join/{access_uuid}` route
+- `gg_browse_poll_id` must be set **unconditionally** on every visit, even if already present.
+- Current "set if absent" behavior causes a voter following a second invite link to land on the previous poll.
+- Fix: always call `response.set_cookie("gg_browse_poll_id", poll_id, ...)` with no existence check.
 
-```python
-def is_movie(self) -> bool:
-    return self.event_type == "movie"
-```
+#### 2. Bug: Non-movie events showing theater name as location
+- **Files:** `voter-spa/src/components/DiscoverTab.tsx`, `voter-spa/src/components/ShowtimeCard.tsx`
+- When `event.is_movie === false`, location must always render as `event.venue_name`.
+- Never display the Showtime's `theater` / `theater_name` for non-movie events — it will be a movie theater (e.g. "Cinemark Cedar Park") which is meaningless for a restaurant or concert.
+- Audit both components and fix all display paths.
 
-Use everywhere to gate movie-specific logic. Never hardcode `event_type == "movie"` inline.
+#### 3. UX: Single-time events — inline display (no accordion)
+- **Files:** `voter-spa/src/components/DiscoverTab.tsx`, `voter-spa/src/components/ShowtimeCard.tsx` (or wherever expand/collapse lives)
+- If an event has exactly **1** showtime: render it inline in the card — no "1 time ▾" toggle.
+- If an event has **2 or more** showtimes: keep existing expand/collapse accordion behavior.
+- Applies to both DiscoverTab event cards and VoteTab showtime cards.
 
-### Backend changes (do first)
+#### 4. UX: Admin Times page — event-scoped sections
+- **File:** `templates/admin/showtimes.html` (HTMX — do **not** convert to React)
+- Replace the current layout (global fetch form + flat cached-times table) with **per-event collapsible sections**.
+- Each section:
+  - **Header:** event name + event type badge (Movie / Concert / Restaurant / etc.)
+  - **Movie events:** SerpApi fetch controls (theater selector, date selector, Fetch button) scoped to that event only
+  - **Non-movie events:** no fetch section
+  - **All events:** list of current cached/manual times for that event
+  - **Inline "Add time"** button that expands a small form:
+    - Date picker
+    - Time picker
+    - Movie events: theater dropdown + format dropdown (as today)
+    - Non-movie events: **no venue field** — use `event.venue_name` silently on the backend
+- Below all event sections: keep the existing "Cached times" table as a power-user override view, **collapsed by default**.
+- Backend endpoints unchanged — only UI wiring changes.
 
-1. Add `Event.is_movie()` helper.
-2. SerpApi fetch trigger — only fire if poll has at least one `is_movie()` event. If no movies, skip and mark job complete automatically.
-3. `POST /api/admin/polls/{poll_id}/showtimes/manual` — fields: `event_id`, `date`, `time`, `label` (optional, e.g. "Friday 7pm"), `theater_id` (optional).
-4. Update `_serialize_event()` — include `is_movie`, `venue_name`, `image_url`, `external_url`, `event_type` in voter-facing JSON.
+#### 5. UX: Manual add time — hide venue field for non-movie events
+- When the selected event `!is_movie`, hide the Venue / Location input in the manual add form.
+- The backend should use `event.venue_name` silently. No Showtime schema changes.
+- This is partly addressed by item 4 above but also applies to the existing standalone manual-add form.
 
-### Admin UI changes (do second)
+#### 6. UX: "Group" button on poll card → "Edit" (opens pre-populated edit dialog)
+- **File:** `templates/admin/dashboard.html` (poll card action buttons) + `app/routers/api.py` or `app/routers/admin.py` (PATCH endpoint)
+- The "Group" button on each poll card in the dashboard should be renamed **"Edit"**.
+- Clicking it opens the **existing poll creation dialog**, pre-populated with the poll's current values:
+  - Poll name / title
+  - Poll dates (PollDate records)
+  - Assigned group
+- On submit it calls `PATCH /api/admin/polls/{id}` with the updated fields (name, dates, group_id).
+- The `PATCH /api/admin/polls/{id}` endpoint already exists — verify it accepts name, dates, and group_id. Add support for any missing fields.
+- After a successful save the dialog closes and the poll card refreshes (HTMX swap or page reload).
+- The create flow is unchanged — "New Poll" still opens the same dialog in create mode (empty fields, POST).
+- No new dialog component needed — reuse what exists, just toggle create vs. edit mode based on whether a poll id is passed in.
 
-Rename what admin sees only — not routes, models, or URLs:
+#### 7. String cleanup (V2 generalization — carry-over)
 
-| Old | New |
-|-----|-----|
-| "Movies" (titles/breadcrumbs) | "Events" |
-| "Add Movie" | "Add Event" |
-| "Showtimes" (titles/breadcrumbs) | "Times" |
-| Step labels | "Events" / "Times" / "Review" |
+| File | What to fix |
+|------|-------------|
+| `templates/admin/dashboard.html` | Hero: "Plan the next movie night" → "Plan your next group event"; poll card stat "Movies" → "Events" |
+| `templates/admin/movies.html` | Step 2 progress chip: "Showtimes" → "Times" |
+| `templates/admin/showtimes.html` | Page title → "Fetch and refine times"; "All Movies" → "All Events"; "All Theaters" → "All Venues"; table col "Movie" → "Event"; table col "Theater" → "Venue" |
+| `templates/admin/results.html` | Step 1 "Movies" → "Events"; Step 2 "Showtimes" → "Times"; copy "movie and showtime combinations" → "event and time combinations" |
+| Poll action menu (admin poll card) | "Movies" chip → "Events" |
+| `voter-spa/src/components/DiscoverTab.tsx` | "SHOWTIMES" section label inside event card → "TIMES" |
 
-- `showtimes.html` — show SerpApi fetch UI only when poll has at least one movie. Non-movie-only polls skip to manual time slot entry.
-- Manual time slot form: Date, Time, Label (optional), Event (dropdown).
-- Event type badge in event list: pill showing "Movie" / "Restaurant" / "Concert" / "Bar" / "Other".
+#### 8. UX: Edit button on manual event cards in "In this poll" sidebar
+- **File:** `templates/admin/movies.html` (the "In this poll" sidebar)
+- Manual/non-movie event cards in the sidebar get a small **pencil/edit icon** (top-right, alongside the existing ✕ remove button).
+- Clicking it switches the left panel to the **Manual Entry / Other Event tab** and pre-populates all fields with the event's current values: event_type, title, venue_name, synopsis/description, image_url, external_url.
+- Submit button changes from "Add Event" → "Save Changes" when in edit mode.
+- On save: call `PATCH /api/admin/events/{id}` with updated fields. Close edit mode, refresh the sidebar card.
+- TMDB movie cards do **not** get an edit icon — they are read-only (sourced from TMDB).
+- Backend: verify or add `PATCH /api/admin/events/{id}` endpoint accepting the manual event fields.
 
-### Voter SPA changes (do third)
+#### 9. UX: Rename tabs on the Events / Add form
+- **File:** `templates/admin/movies.html`
+- "TMDB Movie" tab → **"Movie (TMDB)"**
+- "Manual Entry" tab → **"Other Event"**
 
-**String audit** — voter-visible text only:
-- "2 showtimes" → "2 options"
-- "tap to vote on showtimes" → "tap to vote"
-- Any voter-visible "showtime" → "option" or "time"
-
-**ShowtimeCard** when `event.is_movie === false`:
-- Primary metadata: `venue_name + time` (not `theater_name + format`)
-- Fallback to time only if `venue_name` null
-- Layout and toggle behavior identical
-
-**ResultsTab** when `event.is_movie === false`:
-- `venue_name` instead of theater name
-- Format badge hidden
-
-**DiscoverTab:**
-- Confirm `image_url` fallback renders correctly
-- No `image_url` → type-appropriate placeholder icon (fork = restaurant, music note = concert, etc.)
-- No broken image states
+#### 10. UX: "Find" button on Other Event form — auto-fills image + website via SerpApi
+- **File:** `templates/admin/movies.html` (manual entry / Other Event tab)
+- Add a **"Find →"** button inline to the right of the Title input field.
+- Behaviour:
+  1. On click: POST to a new backend endpoint `POST /api/admin/events/lookup` with `{title, venue_name, event_type}`.
+  2. Backend uses SerpApi (knowledge graph or organic search) to find the best match and return `{image_url, website_url}`. Uses existing `SERPAPI_KEY` env var.
+  3. On success: populate the Image URL and Website / Booking URL fields with the returned values. Do not auto-save — admin reviews and edits before submitting.
+  4. On failure / no results: show a small inline error "Nothing found — enter manually".
+- Add a **"Clear"** button (ghost, appears after a Find result is applied) that clears all fields **except Title**, so the admin can retry or fill manually without losing the title.
+- The Find button and Clear button are **hidden on the Movie (TMDB) tab** — TMDB already handles enrichment.
+- SerpApi quota note: this fires once per manual button click, not on keystrokes. Acceptable against the 100/month free tier.
+- **Future consideration (not in scope now):** Live-as-you-type autocomplete could be added later using Google Places Autocomplete API (requires billing-enabled GCP account + Places API key). DuckDuckGo Instant Answer API is a free fallback but only works for well-known entities. Not worth implementing until there's a clear need.
 
 ### What to NOT touch
 
 - Showtime table, model, columns
-- SerpApi fetch logic (only the trigger condition changes)
+- SerpApi fetch logic
 - Scoring algorithm
 - Auth system
 - TMDB search and enrichment
 - URL routes
 - TypeScript interface names, component names
-- FilterBar, EventGroup, ShowtimeCard component structure
-
-**Confirm plan and list every file to be modified before making any changes.**

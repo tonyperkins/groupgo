@@ -88,19 +88,23 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
     }}>
       {/* Banner / poster */}
       {imageUrl && (
-        <div style={{
-          width: "100%", aspectRatio: isMovie ? "2/3" : "16/7",
-          maxHeight: isMovie ? 280 : 160,
-          overflow: "hidden", flexShrink: 0,
-          background: C.surface,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
+        <div
+          id={`img-wrap-${event.id}`}
+          style={{
+            width: "100%", aspectRatio: isMovie ? "2/3" : "16/7",
+            maxHeight: isMovie ? 280 : 160,
+            overflow: "hidden", flexShrink: 0,
+            background: C.surface,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
           <img
             src={imageUrl}
             alt={event.title}
-            style={{
-              width: "100%", height: "100%",
-              objectFit: isMovie ? "cover" : "cover",
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            onError={(e) => {
+              const wrap = (e.currentTarget as HTMLImageElement).parentElement;
+              if (wrap) wrap.style.display = "none";
             }}
           />
         </div>
@@ -228,8 +232,35 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
           </div>
         )}
 
-        {/* Showtimes collapsible card — shown when sessions are available */}
-        {eventSessions.length > 0 && (
+        {/* Times section — inline for single session, accordion for multiple */}
+        {eventSessions.length === 1 && (() => {
+          const s = eventSessions[0];
+          return (
+            <div style={{
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderRadius: 10, padding: "9px 12px",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: FS.base, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted, flexShrink: 0 }}>TIME</span>
+              <span style={{ fontSize: FS.md, fontWeight: 700, color: C.accent, flexShrink: 0, minWidth: 76 }}>
+                {fmt12h(s.session_time)}
+              </span>
+              <span style={{ fontSize: FS.sm, color: C.textMuted }}>{fmtDate(s.session_date)}</span>
+              <span style={{ fontSize: FS.base, color: C.textMuted, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {isMovie ? s.theater_name : (event.venue_name ?? "")}
+              </span>
+              {isMovie && s.format !== "Standard" && (
+                <span style={{
+                  flexShrink: 0, fontSize: FS.sm, fontWeight: 700, letterSpacing: "0.06em",
+                  color: C.accent, background: C.accentDim,
+                  borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap",
+                }}>{s.format}</span>
+              )}
+            </div>
+          );
+        })()}
+
+        {eventSessions.length > 1 && (
           <div style={{
             background: C.surface, border: `1px solid ${C.border}`,
             borderRadius: 10, overflow: "hidden",
@@ -247,7 +278,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
                 fontSize: FS.base, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted,
               }}>TIMES</span>
               <span style={{ fontSize: FS.sm, color: C.textDim }}>
-                {eventSessions.length} time{eventSessions.length !== 1 ? "s" : ""} &nbsp;{showtimesOpen ? "▴" : "▾"}
+                {eventSessions.length} times &nbsp;{showtimesOpen ? "▴" : "▾"}
               </span>
             </div>
 
@@ -266,9 +297,9 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
                             {fmt12h(s.session_time)}
                           </span>
                           <span style={{ fontSize: FS.base, color: C.textMuted, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {s.theater_name}
+                            {isMovie ? s.theater_name : (event.venue_name ?? "")}
                           </span>
-                          {s.format !== "Standard" && (
+                          {isMovie && s.format !== "Standard" && (
                             <span style={{
                               flexShrink: 0, fontSize: FS.sm, fontWeight: 700, letterSpacing: "0.06em",
                               color: C.accent, background: C.accentDim,
@@ -291,7 +322,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
                       background: C.accentGlow,
                     }}
                   >
-                    🎟️ Enter PIN to pick your showtimes →
+                    🎟️ Enter PIN to pick your times →
                   </a>
                 )}
               </>

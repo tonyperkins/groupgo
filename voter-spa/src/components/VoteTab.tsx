@@ -277,8 +277,26 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
         }}>▾</span>
       </div>
 
-      {/* Sessions grouped by date */}
+      {/* Sessions grouped by date — inline if only 1 session, accordion otherwise */}
       {!collapsed && (() => {
+        if (sessions.length === 1) {
+          const session = sessions[0];
+          const rawVote = votes[`session:${session.id}`] as SessionVote | undefined;
+          return (
+            <div style={{ borderTop: `1px solid ${C.border}` }}>
+              <ShowtimeCard
+                session={session}
+                event={event}
+                eventTitle=""
+                vote={rawVote ?? null}
+                locked={locked}
+                submitted={submitted}
+                isLocked={isLocked}
+                onVote={onSessionVote}
+              />
+            </div>
+          );
+        }
         const byDate = new Map<string, VoterSession[]>();
         for (const s of sessions) {
           const arr = byDate.get(s.session_date) ?? [];

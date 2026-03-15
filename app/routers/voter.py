@@ -138,12 +138,8 @@ async def secure_join_page(request: Request, access_uuid: str, db: Session = Dep
             status_code=403,
         )
 
-    # If already authenticated for this poll, go straight to SPA
-    current_user = get_current_user_optional(request, db)
-    if current_user and get_secure_poll_id(request) == poll.id:
-        return RedirectResponse("/vote/movies", status_code=302)
-
-    # Set browse-mode cookie so SPA can load without PIN, then redirect to browse
+    # Always set browse-mode cookie unconditionally so following a new invite link
+    # overwrites any stale gg_browse_poll_id from a previous poll.
     response = RedirectResponse("/vote/movies", status_code=302)
     response.set_cookie(
         "gg_browse_poll_id",
