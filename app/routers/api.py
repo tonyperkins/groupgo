@@ -423,8 +423,8 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
                 "theater_name": theater_map.get(r["session"].theater_id, ""),
                 "booking_url": r["session"].booking_url,
             },
-            "voter_names": [v["user"].name for v in r.get("voters", [])],
-            "voter_count": len(r.get("voters", [])),
+            "voter_names": [v["user"].name for v in r.get("supporters", [])],
+            "voter_count": len(r.get("supporters", [])),
         }
 
     prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
