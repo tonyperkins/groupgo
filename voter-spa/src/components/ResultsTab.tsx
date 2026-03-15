@@ -85,8 +85,9 @@ function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) 
             return (
               <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 6,
-                background: C.surface, borderRadius: 99, padding: "4px 10px",
-                border: `1px solid ${v.fully_voted ? color + "40" : C.border}`,
+                background: v.fully_voted ? color + "18" : C.surface,
+                borderRadius: 99, padding: "4px 10px",
+                border: `1px solid ${v.fully_voted ? color + "60" : C.border}`,
               }}>
                 <div style={{
                   width: 18, height: 18, borderRadius: "50%",
@@ -95,7 +96,7 @@ function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) 
                   fontSize: 9, fontWeight: 800,
                   color: v.fully_voted ? "#000" : C.textDim,
                 }}>{v.name[0].toUpperCase()}</div>
-                <span style={{ fontSize: 13, color: v.fully_voted ? C.text : C.textDim }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: v.fully_voted ? C.text : C.textDim }}>
                   {v.name}
                 </span>
                 {!v.fully_voted && (

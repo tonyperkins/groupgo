@@ -43,7 +43,7 @@ export function ShowtimeCard({
     onVote(session.id, isConfirmed ? "cant_do" : "can_do");
   }
 
-  const borderColor = isLocked ? "#1E1E2E" : isConfirmed ? C.green : C.border;
+  const borderColor = isConfirmed ? C.green : C.border;
   const cardOpacity = isLocked ? 0.65 : locked ? 0.4 : 1;
 
   return (
@@ -95,17 +95,18 @@ export function ShowtimeCard({
           <div
             style={{
               width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-              background: isLocked
-                ? (isConfirmed ? "#2E2E4A" : C.surface)
-                : (isConfirmed ? C.greenDim : C.surface),
-              border: `1px solid ${isLocked ? "#52527A" : isConfirmed ? C.green : C.borderTap}`,
+              background: isConfirmed
+                ? (isLocked ? C.locked : "rgba(34,197,94,0.18)")
+                : C.surface,
+              border: `1px solid ${isConfirmed ? C.green : C.borderLight}`,
+              color: isConfirmed ? C.green : C.textDim,
               display: "flex", alignItems: "center", justifyContent: "center",
               pointerEvents: "none",
-              fontSize: FS.base,
-              color: isConfirmed ? (isLocked ? "#52527A" : C.green) : "transparent",
+              fontWeight: 800,
+              fontSize: FS.lg,
               transition: "background 0.15s, border-color 0.15s",
             }}
-          >✓</div>
+          >{isConfirmed ? "✓" : ""}</div>
         </div>
       </div>
     </div>

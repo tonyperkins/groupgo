@@ -498,18 +498,18 @@ export function VoteTab({
       {/* ── Submitted info card ──────────────────────────────────── */}
       {isSubmitted && (
         <div style={{
-          background: "#16161F",
-          border: "1px solid #2A2A3E",
+          background: C.card,
+          border: `1px solid ${C.border}`,
           borderRadius: 14,
           padding: "12px 14px",
           display: "flex", alignItems: "flex-start", gap: 10,
         }}>
           <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔒</span>
           <div>
-            <div style={{ fontSize: FS.base, fontWeight: 700, color: "#9A9AAE", lineHeight: 1.4 }}>
+            <div style={{ fontSize: FS.base, fontWeight: 700, color: C.text, lineHeight: 1.4 }}>
               Your vote is locked in
             </div>
-            <div style={{ fontSize: FS.sm, color: "#5A5A6E", marginTop: 3, lineHeight: 1.4 }}>
+            <div style={{ fontSize: FS.sm, color: C.textMuted, marginTop: 3, lineHeight: 1.4 }}>
               Tap ✓ DONE above to change your selections or opt out.
             </div>
           </div>
