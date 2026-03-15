@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from app.db import get_db
 from app.middleware.identity import get_current_user, get_current_user_optional, get_secure_poll_id, is_secure_entry
 from app.middleware.auth import verify_admin
-from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession, UserGroup, PollGroup
+from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession, Vote as VoteModel, UserGroup, PollGroup
 from app.services import vote_service, movie_service, showtime_service, theater_service
 from app.services.security_service import (
     build_poll_invite_url,
@@ -400,7 +400,6 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
     # Build personal_pick_keys from the user's own raw votes directly —
     # not from calculate_user_results which uses the submitted-only vote_lookup.
     # This ensures unsubmitted selections still show in MY PENDING VOTE.
-    from app.models import Vote as VoteModel
     user_votes = db.exec(
         select(VoteModel).where(
             VoteModel.poll_id == poll.id,
@@ -413,7 +412,7 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
 
     # Get all sessions in this poll to match event+session pairs
     all_sessions = db.exec(
-        select(Showtime).where(Showtime.poll_id == poll.id, Showtime.is_included == True)
+        select(ShowSession).where(ShowSession.poll_id == poll.id, ShowSession.is_included == True)
     ).all()
 
     personal_pick_keys = {
