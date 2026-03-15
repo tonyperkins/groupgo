@@ -10,6 +10,23 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0A0A0F">
+    <style>
+      /* Default dark theme CSS vars — overridden by applyTheme() in tokens.ts */
+      :root {
+        --gg-bg:          #0A0A0F;
+        --gg-surface:     #111118;
+        --gg-card:        #16161F;
+        --gg-border:      #252535;
+        --gg-borderLight: #333348;
+        --gg-borderTap:   #4A4A6E;
+        --gg-text:        #F0EEE8;
+        --gg-textMuted:   #9A9AAE;
+        --gg-textDim:     #6A6A80;
+        --gg-locked:      #2A2A3E;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--gg-bg); }
+    </style>
     <script type="module" crossorigin src="/static/voter/assets/index-BDMY5FeB.js"></script>
   </head>
   <body>
