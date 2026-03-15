@@ -21,7 +21,7 @@ pip install -r requirements.txt
 
 3. Start the FastAPI dev server:
 ```powershell
-uvicorn app.main:app --reload --port 8001
+python -m uvicorn app.main:app --reload --port 8001
 ```
 
 4. The admin portal is at http://localhost:8001/admin (HTTP Basic Auth — see `.env.development` for credentials).

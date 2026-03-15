@@ -150,7 +150,7 @@ class Showtime(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     event_id: int = Field(foreign_key="events.id")
-    theater_id: int = Field(foreign_key="theaters.id")  # FK to Venue (theaters table)
+    theater_id: Optional[int] = Field(default=None, foreign_key="theaters.id")  # FK to Venue (theaters table)
     poll_id: int = Field(foreign_key="polls.id")
     session_date: str  # YYYY-MM-DD
     session_time: str  # HH:MM (24h)

@@ -26,7 +26,7 @@
     <a href="/admin/polls/{{ poll.id }}/movies" class="step-chip">
       <span class="step-index">1</span>
       <span class="step-copy">
-        <span class="step-label">Movies</span>
+        <span class="step-label">Events</span>
         <span class="step-meta">Curated shortlist</span>
       </span>
     </a>
@@ -60,6 +60,7 @@
 </section>
 
 <!-- Fetch Showtimes Card -->
+{% set movie_events = events | selectattr('event_type', 'equalto', 'movie') | list %}
 <div class="card p-5 sm:p-6 mb-6">
   <div class="section-heading mb-4">
     <div>
@@ -68,9 +69,9 @@
     </div>
   </div>
 
-  {% if not events %}
-  <div class="bg-amber-900/30 border border-amber-700 text-amber-300 text-sm px-4 py-3 rounded-2xl mb-4">
-    ⚠ Add movies to this poll first before fetching showtimes.
+  {% if not movie_events %}
+  <div class="bg-slate-800/60 border border-slate-700 text-slate-400 text-sm px-4 py-3 rounded-2xl">
+    No movies in this poll — add time slots manually using the form below.
   </div>
   {% else %}
 
@@ -82,7 +83,7 @@
           class="w-4 h-4 rounded accent-indigo-500" onchange="onMovieAllToggle(this)"/>
         <span class="text-sm text-white font-medium">All movies</span>
       </label>
-      {% for e in events %}
+      {% for e in movie_events %}
       <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500 transition-colors">
         <input type="checkbox" name="movie" value="{{ e.id }}" checked
           class="w-4 h-4 rounded accent-indigo-500" onchange="onMovieCheckboxChange()"/>
@@ -165,21 +166,27 @@
     <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
 
     <div>
-      <label class="text-xs text-slate-400 mb-1 block">Movie</label>
-      <select name="event_id" class="input-base">
+      <label class="text-xs text-slate-400 mb-1 block">Event</label>
+      <select name="event_id" id="manual-event-select" class="input-base" onchange="onManualEventChange()">
         {% for e in events %}
-        <option value="{{ e.id }}">{{ e.title }}</option>
+        <option value="{{ e.id }}" data-event-type="{{ e.event_type }}">{{ e.title }}</option>
         {% endfor %}
       </select>
     </div>
 
-    <div>
+    <div id="manual-theater-field">
       <label class="text-xs text-slate-400 mb-1 block">Theater</label>
       <select name="theater_id" class="input-base">
         {% for t in theaters %}
         <option value="{{ t.id }}">{{ t.name }}</option>
         {% endfor %}
       </select>
+    </div>
+
+    <div id="manual-venue-field" class="hidden">
+      <label class="text-xs text-slate-400 mb-1 block">Venue / Location <span class="text-slate-600">(optional)</span></label>
+      <input type="text" name="venue_override" placeholder="e.g. Uchiko Austin"
+        class="input-base w-full text-white placeholder:text-slate-500"/>
     </div>
 
     <div>
@@ -205,7 +212,7 @@
       </select>
     </div>
 
-    <div>
+    <div id="manual-format-field">
       <label class="text-xs text-slate-400 mb-1 block">Format</label>
       <select name="format" class="input-base">
         <option value="Standard">Standard</option>
@@ -429,6 +436,16 @@ function openManualDatePicker() {
 
 document.addEventListener('DOMContentLoaded', () => filterSessions());
 document.addEventListener('DOMContentLoaded', () => syncManualShowtimeToggle());
+document.addEventListener('DOMContentLoaded', () => onManualEventChange());
+
+function onManualEventChange() {
+  const sel = document.getElementById('manual-event-select');
+  if (!sel) return;
+  const isMovie = sel.options[sel.selectedIndex]?.dataset.eventType === 'movie';
+  document.getElementById('manual-theater-field')?.classList.toggle('hidden', !isMovie);
+  document.getElementById('manual-venue-field')?.classList.toggle('hidden', isMovie);
+  document.getElementById('manual-format-field')?.classList.toggle('hidden', !isMovie);
+}
 
 async function checkSerpApi() {
   const badge = document.getElementById('serpapi-status-badge');

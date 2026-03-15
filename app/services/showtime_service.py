@@ -280,22 +280,22 @@ def get_sessions_grouped(
 def add_manual_session(
     poll_id: int,
     event_id: int,
-    theater_id: int,
+    theater_id: int | None,
     session_date: str,
     session_time: str,
     fmt: str,
     db: Session,
 ) -> Showtime:
-    existing = db.exec(
-        select(Showtime).where(
-            Showtime.event_id == event_id,
-            Showtime.theater_id == theater_id,
-            Showtime.poll_id == poll_id,
-            Showtime.session_date == session_date,
-            Showtime.session_time == session_time,
-            Showtime.format == fmt,
-        )
-    ).first()
+    conditions = [
+        Showtime.event_id == event_id,
+        Showtime.poll_id == poll_id,
+        Showtime.session_date == session_date,
+        Showtime.session_time == session_time,
+        Showtime.format == fmt,
+    ]
+    if theater_id is not None:
+        conditions.append(Showtime.theater_id == theater_id)
+    existing = db.exec(select(Showtime).where(*conditions)).first()
     if existing:
         raise ValueError("Duplicate session")
 
