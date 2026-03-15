@@ -6,7 +6,7 @@ description: Full implementation session. Pulls latest, reads the handoff doc, i
 ## Step 1 — Pull latest
 
 ```bash
-git pull origin master
+git pull origin v2-generic-events
 ```
 
 If this fails, stop and report the error. Do not proceed with a stale codebase.
@@ -64,7 +64,7 @@ In `docs/groupgo-windsurf-handoff.md`:
 ```bash
 git add -A
 git commit -m "feat: [brief summary of what was implemented]"
-git push origin master
+git push origin v2-generic-events
 ```
 
 Then tell the user what was completed and confirm the push succeeded.
