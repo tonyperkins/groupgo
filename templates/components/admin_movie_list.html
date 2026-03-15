@@ -18,8 +18,16 @@
   {% endif %}
 {% endif %}
 <div class="stack-list">
-  {% for event in events %}
+  {% set sidebar_movies = events | selectattr('event_type', 'equalto', 'movie') | list %}
+  {% set sidebar_non_movies = events | rejectattr('event_type', 'equalto', 'movie') | list %}
+  {% set sidebar_sorted = sidebar_movies + sidebar_non_movies %}
+  {% set ns = namespace(showed_separator=false) %}
+  {% for event in sidebar_sorted %}
   {% set is_movie_event = event.event_type == 'movie' %}
+  {% if not is_movie_event and not ns.showed_separator and sidebar_movies | length > 0 %}
+  {% set ns.showed_separator = true %}
+  <div class="border-t border-slate-700/60 my-2"></div>
+  {% endif %}
   {% set has_sessions = event_ids_with_sessions is not defined or event.id in event_ids_with_sessions or not is_movie_event %}
   <div class="list-card p-4 flex items-center gap-4 {{ 'opacity-60' if not has_sessions else '' }}">
     {% if event.poster_path %}

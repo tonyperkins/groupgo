@@ -22,6 +22,7 @@ export interface VoterPreferences {
   is_flexible: boolean;
   has_completed_voting: boolean;
   is_participating: boolean;
+  is_editing: boolean;
   opt_out_reason: string | null;
 }
 

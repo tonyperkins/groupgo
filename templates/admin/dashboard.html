@@ -118,21 +118,43 @@
           <button type="button" data-poll-id="{{ poll.id }}" onclick="publishPollFromButton(this)" class="btn-primary text-xs">Publish</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'OPEN' %}
+          <!-- Tier 1: Navigation -->
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Events</a>
           <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-xs">Times</a>
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
-          <button type="button"
-            data-poll-id="{{ poll.id }}"
-            data-poll-title="{{ poll.title }}"
-            data-poll-dates="{{ item.dates | join(',') }}"
-            data-poll-group-ids="{{ item.group_ids | join(',') }}"
-            onclick="openEditPollModalFromButton(this)" class="btn-ghost text-xs">Edit</button>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showInviteLinkFromButton(this)" class="btn-ghost text-xs">Invite Link</button>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="clearVotesFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800">Clear Votes</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="closePollFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+          <!-- Tier 2: Utility overflow -->
+          <div class="relative" id="overflow-menu-{{ poll.id }}">
+            <button type="button" onclick="toggleOverflowMenu('{{ poll.id }}')" class="btn-ghost text-xs" title="More actions">⋯</button>
+            <div id="overflow-dropdown-{{ poll.id }}" class="hidden absolute right-0 top-full mt-1 z-30 bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[160px] py-1">
+              <button type="button"
+                data-poll-id="{{ poll.id }}"
+                data-poll-title="{{ poll.title }}"
+                data-poll-dates="{{ item.dates | join(',') }}"
+                data-poll-group-ids="{{ item.group_ids | join(',') }}"
+                onclick="openEditPollModalFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Edit</button>
+              <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+                onclick="showInviteLinkFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Invite Link</button>
+              <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+                onclick="showVoterBreakdownFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Voters</button>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="duplicatePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Duplicate</button>
+              <!-- Tier 3: Destructive -->
+              <div class="border-t border-slate-700 my-1"></div>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="clearVotesFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-amber-400 hover:bg-slate-700">Clear Votes</button>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="closePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-amber-400 hover:bg-slate-700">Close</button>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="deletePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-slate-700">Delete</button>
+            </div>
+          </div>
         {% elif poll.status == 'CLOSED' %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Declare Winner</a>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
@@ -749,5 +771,21 @@ async function showVoterBreakdown(pollId, pollTitle) {
 function showVoterBreakdownFromButton(button) {
   showVoterBreakdown(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll');
 }
+
+// ── Overflow menu ─────────────────────────────────────────────────────────────
+function toggleOverflowMenu(pollId) {
+  const dropdown = document.getElementById('overflow-dropdown-' + pollId);
+  if (!dropdown) return;
+  const isHidden = dropdown.classList.contains('hidden');
+  // Close all other open dropdowns first
+  document.querySelectorAll('[id^="overflow-dropdown-"]').forEach(d => d.classList.add('hidden'));
+  if (isHidden) dropdown.classList.remove('hidden');
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('[id^="overflow-menu-"]')) {
+    document.querySelectorAll('[id^="overflow-dropdown-"]').forEach(d => d.classList.add('hidden'));
+  }
+});
 </script>
 {% endblock %}

@@ -91,9 +91,13 @@ def mark_voting_complete(user_id: int, poll_id: int, is_complete: bool, db: Sess
         )
     ).first()
     if pref:
-        pref.has_completed_voting = is_complete
         if is_complete:
+            pref.has_completed_voting = True
+            pref.is_editing = False
             pref.is_participating = True
+        else:
+            pref.is_editing = True
+            # keep has_completed_voting=True so voter stays in standings during edit
         pref.updated_at = _now()
         db.add(pref)
     else:
@@ -101,6 +105,7 @@ def mark_voting_complete(user_id: int, poll_id: int, is_complete: bool, db: Sess
             user_id=user_id,
             poll_id=poll_id,
             has_completed_voting=is_complete,
+            is_editing=not is_complete,
             is_participating=is_complete,
             updated_at=_now(),
         )
@@ -182,6 +187,7 @@ def get_user_poll_preferences(user_id: int, poll_id: int, db: Session) -> dict:
         "is_flexible": pref.is_flexible if pref else False,
         "has_completed_voting": pref.has_completed_voting if pref else False,
         "is_participating": pref.is_participating if pref else False,
+        "is_editing": pref.is_editing if pref else False,
         "opt_out_reason": pref.opt_out_reason if pref else None,
     }
 

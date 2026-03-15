@@ -203,6 +203,7 @@ class UserPollPreference(SQLModel, table=True):
     is_flexible: bool = Field(default=False)
     has_completed_voting: bool = Field(default=False)
     is_participating: bool = Field(default=False)
+    is_editing: bool = Field(default=False)
     opt_out_reason: Optional[str] = Field(default=None)
     joined_at: Optional[str] = Field(default=None)  # set when is_participating first becomes True
     updated_at: str = Field(default_factory=_now)

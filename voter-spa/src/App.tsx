@@ -371,6 +371,7 @@ export default function App() {
           isEditing={state.isEditing}
           onJoin={handleJoin}
           onSubmitVote={handleSubmit}
+          onCancelEdit={handleCancelEdit}
           sessions={state.meData?.sessions ?? []}
           events={state.meData?.events ?? []}
         />

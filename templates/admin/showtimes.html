@@ -60,9 +60,11 @@
 </section>
 
 {% set movie_events = events | selectattr('event_type', 'equalto', 'movie') | list %}
+{% set non_movie_events = events | rejectattr('event_type', 'equalto', 'movie') | list %}
+{% set sorted_events = movie_events + non_movie_events %}
 
 <!-- Per-event sections -->
-{% for ev in events %}
+{% for ev in sorted_events %}
 {% set ev_sessions = sessions | selectattr('event_id', 'equalto', ev.id) | list %}
 {% set ev_is_movie = ev.event_type == 'movie' %}
 <div class="card mb-4 overflow-hidden" id="event-section-{{ ev.id }}">
@@ -259,7 +261,8 @@
 </div>
 {% endfor %}
 
-<!-- All times table (power-user view, collapsed by default) -->
+<!-- All times table (power-user view, collapsed by default — only shown for polls with movie events) -->
+{% if movie_events %}
 <div class="card overflow-hidden mb-4">
   <button type="button"
     class="w-full flex items-center justify-between gap-4 p-5 text-left"
@@ -306,6 +309,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% endblock %}
 

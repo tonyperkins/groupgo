@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { C, FS } from "../tokens";
+import { C, FS, applyTheme } from "../tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,17 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
         ]
       : [];
 
+  const [currentTheme, setCurrentTheme] = useState<"dark" | "light">(
+    () => (localStorage.getItem("gg_theme") as "dark" | "light") ?? "dark"
+  );
+
+  function toggleTheme() {
+    const next = currentTheme === "dark" ? "light" : "dark";
+    applyTheme(next);
+    localStorage.setItem("gg_theme", next);
+    setCurrentTheme(next);
+  }
+
   return createPortal(
     <>
       {/* Dim overlay */}
@@ -118,6 +129,19 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
             {item.label}
           </div>
         ))}
+        <div
+          onClick={toggleTheme}
+          style={{
+            padding: "14px 18px",
+            fontSize: FS.base,
+            fontWeight: 700,
+            color: C.textMuted,
+            cursor: "pointer",
+            borderTop: `1px solid ${C.border}`,
+          }}
+        >
+          {currentTheme === "dark" ? "☀️ Light mode" : "🌙 Dark mode"}
+        </div>
       </div>
     </>,
     document.body

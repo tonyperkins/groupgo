@@ -263,13 +263,14 @@ interface ResultsTabProps {
   isEditing?: boolean;
   onJoin: () => void;
   onSubmitVote?: () => Promise<void> | void;
+  onCancelEdit?: () => void;
   sessions?: VoterSession[];
   events?: VoterEvent[];
 }
 
 const POLL_INTERVAL_MS = 15_000;
 
-export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote, sessions = [], events = [] }: ResultsTabProps) {
+export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote, onCancelEdit, sessions = [], events = [] }: ResultsTabProps) {
   const navigate = useNavigate();
   const [data, setData] = useState<ResultsResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -459,13 +460,25 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
                   +{personal_pick_keys.length - 3} more selections
                 </div>
               )}
-              <div
-                onClick={onSubmitVote ? async () => { await onSubmitVote(); fetchResults(); } : () => navigate("/vote/vote")}
-                style={{
-                  background: C.accent, color: "#000", fontWeight: 700, fontSize: 14,
-                  borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
-                }}
-              >{isEditing ? "Resubmit →" : "Submit your vote →"}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div
+                  onClick={onSubmitVote ? async () => { await onSubmitVote(); fetchResults(); } : () => navigate("/vote/vote")}
+                  style={{
+                    flex: 1, background: C.accent, color: "#000", fontWeight: 700, fontSize: 14,
+                    borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
+                  }}
+                >{isEditing ? "Resubmit →" : "Submit your vote →"}</div>
+                {isEditing && onCancelEdit && (
+                  <div
+                    onClick={onCancelEdit}
+                    style={{
+                      background: "transparent", color: C.textMuted, fontWeight: 600, fontSize: 14,
+                      borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
+                      border: `1px solid ${C.border}`,
+                    }}
+                  >Cancel</div>
+                )}
+              </div>
             </>
           ) : (
             <>
