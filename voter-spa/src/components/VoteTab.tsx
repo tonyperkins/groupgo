@@ -12,6 +12,7 @@ interface VoteTabProps {
   hasCompletedVoting: boolean;
   isFlexible: boolean;
   isEditing: boolean;
+  pollId: number;
   onSessionVote: (sessionId: number, vote: SessionVote) => void;
   onSetFlexible: (flexible: boolean) => void;
   onJoin: () => void;
@@ -219,22 +220,39 @@ interface EventGroupProps {
   locked: boolean;
   submitted: boolean;
   isLocked: boolean;
+  pollId: number;
   onSessionVote: (sessionId: number, vote: SessionVote) => void;
 }
 
-function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSessionVote }: EventGroupProps) {
+function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSessionVote, pollId }: EventGroupProps) {
   const hasConfirmedVote = sessions.some((s) => votes[`session:${s.id}`] === "can_do");
-  const [collapsed, setCollapsed] = useState(true);
-  const hasInitialized = useRef(false);
+  const storageKey = `gg_collapsed_${pollId}_${event.id}`;
 
-  // Once votes load from the API (non-empty), set the initial collapsed state.
-  // After that, user controls it manually — don't override again.
+  const getInitialCollapsed = () => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored !== null) return stored === "true";
+    // Before votes load we don't know yet — default collapsed
+    return true;
+  };
+
+  const [collapsed, setCollapsedState] = useState(getInitialCollapsed);
+  const votesLoaded = useRef(false);
+
+  // Once votes load for the first time, set collapsed based on whether
+  // there's a selection — but only if the user hasn't manually toggled yet
   useEffect(() => {
-    if (hasInitialized.current) return;
+    if (votesLoaded.current) return;
     if (Object.keys(votes).length === 0) return;
-    hasInitialized.current = true;
-    setCollapsed(!hasConfirmedVote);
-  }, [votes, hasConfirmedVote]);
+    votesLoaded.current = true;
+    if (localStorage.getItem(storageKey) === null) {
+      setCollapsedState(!hasConfirmedVote);
+    }
+  }, [votes, hasConfirmedVote, storageKey]);
+
+  const setCollapsed = (val: boolean) => {
+    localStorage.setItem(storageKey, String(val));
+    setCollapsedState(val);
+  };
 
   const thumbnailUrl = event.poster_url ?? event.image_url ?? null;
 

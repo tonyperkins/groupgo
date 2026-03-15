@@ -394,13 +394,56 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 0. URGENT: Finish pollId wiring for localStorage accordion state (partially implemented)
+- **Files:** `voter-spa/src/components/VoteTab.tsx`, `voter-spa/src/App.tsx`
+- `EventGroupProps` and `VoteTabProps` already have `pollId: number` added, and `EventGroup` already uses `localStorage` keyed by `gg_collapsed_{pollId}_{eventId}`. The wiring is incomplete — TypeScript will error on build.
+- Three things needed to complete it:
+  1. Add `pollId` to VoteTab's destructured props in the function signature
+  2. Pass `pollId={pollId}` to the `<EventGroup>` component at its call site (~line 613)
+  3. In `App.tsx`, pass `pollId={state.meData?.poll?.id ?? 0}` to every `<VoteTab>` usage
+- Then run `cd voter-spa && npm run build` and verify clean build before committing.
 
 ---
 
 ## Implementation Prompt
 
 > **Windsurf:** Copy everything below this line and use it as your task prompt.
+> When all tasks are done, follow the cleanup instructions at the very end.
+
+---
+
+You are continuing development on GroupGo (branch: v2-generic-events).
+Read docs/groupgo-windsurf-handoff.md before starting. Single focused task —
+finish incomplete wiring from a partial implementation.
+
+### Task — Finish pollId wiring in VoteTab
+
+Files: voter-spa/src/components/VoteTab.tsx
+       voter-spa/src/App.tsx
+
+EventGroupProps and VoteTabProps already have pollId: number.
+EventGroup already uses localStorage keyed by gg_collapsed_{pollId}_{eventId}.
+The prop is not yet wired through. Complete the wiring:
+
+1. In VoteTab.tsx: add pollId to the VoteTab function destructured props
+2. In VoteTab.tsx: pass pollId={pollId} to the <EventGroup> component (~line 613)
+3. In App.tsx: pass pollId={state.meData?.poll?.id ?? 0} to every <VoteTab> usage
+
+---
+
+### After completing all tasks
+
+1. Run `cd voter-spa && npm run build` — fix any TypeScript errors before proceeding
+2. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Under each completed item, add a brief implementation note if anything
+      differed from spec — format: `> ℹ️ [one or two sentences]`
+      Skip if it went exactly as specified.
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+3. Commit: `git add -A && git commit -m "fix: wire pollId for localStorage accordion state persistence"`
+4. Push: `git push origin v2-generic-events`> **Windsurf:** Copy everything below this line and use it as your task prompt.
 > When all tasks are done, follow the cleanup instructions at the very end.
 
 ---
