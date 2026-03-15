@@ -61,6 +61,7 @@
         data-synopsis="{{ (event.synopsis or '') | e }}"
         data-image-url="{{ (event.image_url or '') | e }}"
         data-external-url="{{ (event.external_url or '') | e }}"
+        data-booking-url="{{ (event.booking_url or '') | e }}"
         onclick="enterEditMode(this)"
         title="Edit event"
         class="text-slate-500 hover:text-indigo-400 transition-colors p-1">

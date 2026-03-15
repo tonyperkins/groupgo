@@ -413,7 +413,7 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
         return {
             "rank": r["rank"],
             "score": r["score"],
-            "event": {"id": r["event"].id, "title": r["event"].title, "is_movie": r["event"].is_movie(), "venue_name": getattr(r["event"], "venue_name", None)},
+            "event": {"id": r["event"].id, "title": r["event"].title, "is_movie": r["event"].is_movie(), "venue_name": getattr(r["event"], "venue_name", None), "booking_url": getattr(r["event"], "booking_url", None), "event_type": getattr(r["event"], "event_type", "movie")},
             "session": {
                 "id": r["session"].id,
                 "session_date": r["session"].session_date,
@@ -515,6 +515,7 @@ def _serialize_event(event) -> dict:
         "is_movie": event.is_movie(),
         "image_url": getattr(event, "image_url", None),
         "external_url": getattr(event, "external_url", None),
+        "booking_url": getattr(event, "booking_url", None),
         "venue_name": getattr(event, "venue_name", None),
     }
 
@@ -831,6 +832,8 @@ async def admin_update_event(request: Request, event_id: int, db: Session = Depe
         event.image_url = body["image_url"] or None
     if "external_url" in body:
         event.external_url = body["external_url"] or None
+    if "booking_url" in body:
+        event.booking_url = body["booking_url"] or None
     db.add(event)
     db.commit()
     db.refresh(event)

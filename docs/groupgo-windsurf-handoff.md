@@ -347,6 +347,16 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Completed
 
+### Session 4 — March 15, 2026
+- `app/models.py` — added `booking_url: Optional[str]` to `Event` model
+- `app/routers/api.py` — `booking_url` added to `_serialize_event()` and `_ser_result()` (with `event_type`); `PATCH /api/admin/events/{id}` handles `booking_url`
+- `voter-spa/src/api/voter.ts` — `booking_url` added to `VoterEvent`; `booking_url` and `event_type` added to `ResultsEntry.event`
+- `templates/admin/movies.html` — "Booking / Tickets URL" field added to Other Event form; pre-populated in edit mode; included in PATCH payload
+- `templates/components/admin_movie_list.html` — `data-booking-url` added to edit button
+- `voter-spa/src/components/ResultsTab.tsx` — CTA replaced: uses `event.booking_url` (not session), shown only when CLOSED + booking_url set, label smart by event_type
+- `voter-spa/src/components/VoteTab.tsx` — accordion defaults collapsed (expands if voter has can_do votes); location filter uses `venue_name` for non-movies; single-session inline path now shows date header
+> ℹ️ Schema change: `ALTER TABLE events ADD COLUMN booking_url VARCHAR` — run on production after deploy.
+
 ### Session 3 — March 15, 2026
 - `templates/components/admin_movie_list.html` — edit button: replaced inline `tojson` onclick args with `data-*` attributes to prevent JS syntax errors from special characters in event data
 - `templates/admin/movies.html` — `enterEditMode` updated to accept a single `btn` element and read `btn.dataset.*` instead of positional arguments
@@ -384,36 +394,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-#### 1. Results CTA — booking URL + smart label by event type
-- **Files:** `app/models.py`, `app/routers/api.py`, `templates/admin/movies.html`, `voter-spa/src/components/ResultsTab.tsx`, `voter-spa/src/api/voter.ts`
-- The CTA button on Results tab currently uses `session.booking_url` (showtime-level). Change to use a new `booking_url` field on the **Event** model instead.
-- Add `booking_url: Optional[str]` to the `Event` model (separate from `external_url` which is the website). Run `ALTER TABLE events ADD COLUMN booking_url VARCHAR`.
-- Add `booking_url` to the Other Event form in `movies.html` — optional field, below Website URL. Also add to the edit mode form. Label: "Booking / Tickets URL".
-- In `_serialize_event()` and `_ser_result()` in `api.py`, include `booking_url` on the event object.
-- In `ResultsTab.tsx`: show the CTA only when `winner.event.booking_url` is set AND poll status is `CLOSED` (winner declared). Hide entirely otherwise.
-- CTA label derived from `event.event_type`:
-  - `movie` → "Get Tickets →"
-  - `restaurant` → "Make a Reservation →"
-  - `concert` → "Get Tickets →"
-  - `bar` → "Get Directions →"
-  - anything else → "Book Now →"
-- Remove the existing `session.booking_url` CTA logic — replace entirely with event-level booking URL.
-
-#### 2. Bug: Vote tab accordion defaults to expanded on page load
-- **File:** `voter-spa/src/components/VoteTab.tsx`
-- On page reload, all event accordions default to expanded. Should default to **collapsed**, expanding only if the voter has at least one `can_do` selection within that event.
-- Check the `collapsed` state initialization in the `EventGroup` component or wherever accordion state is managed.
-
-#### 3. Bug: Location filter missing non-movie venue names
-- **File:** `voter-spa/src/components/VoteTab.tsx`
-- `locationOptions` is built from `sessions.map((s) => s.theater_name)` — line ~387. For non-movie events, `theater_name` is empty/null, so they don't appear in the filter.
-- Fix: for each session, use `event.venue_name` when `event.is_movie === false`, otherwise use `s.theater_name`. Apply the same logic to the filter comparison at line ~397.
-- The `event` prop is already available in `EventGroup` — thread it through as needed.
-
-#### 4. Bug: Non-movie single-time events missing date header in Vote tab
-- **File:** `voter-spa/src/components/VoteTab.tsx`
-- When an event has exactly 1 session, it renders inline without a date header (line ~282). This means non-movie events with a single time show no date, unlike movie events with multiple showtimes which show date group headers.
-- Fix: even for the single-session path, render a date header above the inline card using `session.session_date`. Use the same date formatting and styling as the multi-session date headers.
+_Nothing pending._
 
 ---
 
@@ -518,104 +499,5 @@ Use session.session_date formatted the same way as the grouped path.
       with: `_Nothing pending._`
 3. Commit: `git add -A && git commit -m "feat: booking URL CTA; accordion collapsed default; location filter fix; date header fix"`
 4. Push: `git push origin v2-generic-events`
-- **File:** `templates/components/admin_movie_list.html`, `templates/admin/movies.html`
-- `enterEditMode(...)` is called inline via `onclick` with 7 `| tojson` arguments. Any special character in event data (apostrophes, quotes, newlines) breaks JS with "Unexpected end of input".
-- Fix: replace inline `onclick` arguments with `data-*` attributes on the button. Read them in JS via `btn.dataset.*` inside `enterEditMode`.
-- Pattern for button in `admin_movie_list.html`:
-  ```html
-  <button
-    data-event-id="{{ event.id }}"
-    data-event-type="{{ event.event_type }}"
-    data-title="{{ event.title | e }}"
-    data-venue="{{ (event.venue_name or '') | e }}"
-    data-synopsis="{{ (event.synopsis or '') | e }}"
-    data-image-url="{{ (event.image_url or '') | e }}"
-    data-external-url="{{ (event.external_url or '') | e }}"
-    onclick="enterEditMode(this)"
-    class="[keep existing classes]">✏️</button>
-  ```
-- Update `enterEditMode` in `movies.html` to accept a single `btn` element and read `btn.dataset.*` instead of positional arguments.
 
-#### 2. UX: "No times" badge on manual events with no time slots
-- **File:** `templates/components/admin_movie_list.html`
-- Non-movie events with zero time slots show no warning — admin has no indication voters won't see the event in the Vote tab.
-- Add an amber "No times" badge on non-movie event cards when they have no included showtimes.
-- Use the same pattern as the existing "No showtimes" badge on movie events.
-
----
-
-## Implementation Prompt
-
-> **Windsurf:** Copy everything below this line and use it as your task prompt.
-> When all tasks are done, follow the cleanup instructions at the very end.
-
----
-
-You are continuing development on GroupGo (branch: v2-generic-events).
-Read docs/groupgo-windsurf-handoff.md before starting. Two focused tasks
-on the admin Events page. Do not touch auth, scoring, voter SPA, or TMDB.
-
----
-
-### Task 1 — Bug: Edit button JS syntax error on manual event cards
-Files: templates/components/admin_movie_list.html
-       templates/admin/movies.html
-
-The pencil edit button calls enterEditMode() inline with 7 tojson arguments.
-Special characters in event data (apostrophes, quotes, newlines) break the
-JS with "Unexpected end of input".
-
-Fix by moving all data to data-* attributes on the button element.
-
-In admin_movie_list.html, change the pencil button to use data-* attributes:
-  data-event-id="{{ event.id }}"
-  data-event-type="{{ event.event_type }}"
-  data-title="{{ event.title | e }}"
-  data-venue="{{ (event.venue_name or '') | e }}"
-  data-synopsis="{{ (event.synopsis or '') | e }}"
-  data-image-url="{{ (event.image_url or '') | e }}"
-  data-external-url="{{ (event.external_url or '') | e }}"
-  onclick="enterEditMode(this)"
-
-In movies.html, update enterEditMode to accept a single btn element:
-  function enterEditMode(btn) {
-    const eventId = btn.dataset.eventId;
-    const eventType = btn.dataset.eventType;
-    const title = btn.dataset.title;
-    const venueName = btn.dataset.venue;
-    const synopsis = btn.dataset.synopsis;
-    const imageUrl = btn.dataset.imageUrl;
-    const externalUrl = btn.dataset.externalUrl;
-    // rest of function unchanged
-  }
-
----
-
-### Task 2 — UX: "No times" badge on manual events with no time slots
-File: templates/components/admin_movie_list.html
-
-Non-movie events with zero time slots need an amber "No times" badge so
-admins know the event won't appear in the voter Vote tab.
-Use the same pattern as the existing "No showtimes" badge on movie events.
-Show only when: event.event_type != "movie" AND event has no included showtimes.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Under each completed item, add a brief implementation note if ANY of
-      the following are true — format: `> ℹ️ [one or two sentences]`:
-      - You touched files not listed in the original task spec
-      - You used a workaround or solved it differently than described
-      - A schema change was made (ALTER TABLE, model field, migration script)
-      - You noticed a related bug or gap but didn't fix it
-      - Something needs a follow-up (prod deployment step, env var, etc.)
-      Skip the note entirely if the task went exactly as specified.
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: edit button JS safety via data-* attrs; no-times badge for manual events"`
-4. Push: `git push origin v2-generic-events`
+_Nothing pending._

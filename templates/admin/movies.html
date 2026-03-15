@@ -133,8 +133,13 @@
             class="input-base w-full text-white placeholder:text-slate-400"/>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Website / Booking URL</label>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Website URL</label>
           <input type="url" name="external_url" placeholder="https://..."
+            class="input-base w-full text-white placeholder:text-slate-400"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Booking / Tickets URL</label>
+          <input type="url" name="booking_url" placeholder="https://..."
             class="input-base w-full text-white placeholder:text-slate-400"/>
         </div>
         <div id="manual-event-error" class="text-red-400 text-sm hidden"></div>
@@ -183,6 +188,7 @@ function enterEditMode(btn) {
   form.description.value = btn.dataset.synopsis || '';
   form.image_url.value = btn.dataset.imageUrl || '';
   form.external_url.value = btn.dataset.externalUrl || '';
+  form.booking_url.value = btn.dataset.bookingUrl || '';
   document.getElementById('manual-panel-title').textContent = 'Edit Event';
   document.getElementById('manual-submit-btn').textContent = 'Save Changes';
   document.getElementById('manual-cancel-btn').classList.remove('hidden');
@@ -272,6 +278,7 @@ document.getElementById('manual-event-form').addEventListener('submit', async fu
     description: form.description.value.trim() || null,
     image_url: form.image_url.value.trim() || null,
     external_url: form.external_url.value.trim() || null,
+    booking_url: form.booking_url.value.trim() || null,
   };
 
   if (!data.title) {

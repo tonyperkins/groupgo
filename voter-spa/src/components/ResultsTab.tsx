@@ -371,14 +371,14 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
           <div style={{ fontSize: 15, fontWeight: 900, color: C.accent }}>
             {winner.voter_count}/{totalVoters} <span style={{ fontSize: 13, fontWeight: 400, color: C.textMuted }}>members available</span>
           </div>
-          {winner.session.booking_url && (
-            <a href={winner.session.booking_url} target="_blank" rel="noopener noreferrer" style={{
+          {winner.event.booking_url && (
+            <a href={winner.event.booking_url} target="_blank" rel="noopener noreferrer" style={{
               display: "block", marginTop: 4,
               background: C.accent, color: "#000",
               borderRadius: 12, padding: "12px 18px",
               textAlign: "center", fontSize: 16, fontWeight: 700,
               textDecoration: "none",
-            }}>Get Tickets &#x2192;</a>
+            }}>{winner.event.event_type === "restaurant" ? "Make a Reservation \u2192" : winner.event.event_type === "bar" ? "Get Directions \u2192" : "Get Tickets \u2192"}</a>
           )}
         </div>
       )}
@@ -506,17 +506,16 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
       ))}
 
       {/* ── Bottom CTA ──────────────────────────────────────────── */}
-      {results.length > 0 && (
-        <div style={{
+      {isClosed && winner && winner.event.booking_url && (
+        <a href={winner.event.booking_url} target="_blank" rel="noopener noreferrer" style={{
+          display: "block",
           background: C.accent, color: "#000",
           borderRadius: 14, padding: "13px 18px",
           textAlign: "center", fontSize: 14, fontWeight: 700,
-          letterSpacing: "0.02em", cursor: "pointer",
+          letterSpacing: "0.02em", textDecoration: "none",
         }}>
-          {results[0].session.booking_url
-            ? `Get Tickets for #1 →`
-            : `#1 · ${results[0].event.title}`}
-        </div>
+          {winner.event.event_type === "restaurant" ? "Make a Reservation \u2192" : winner.event.event_type === "bar" ? "Get Directions \u2192" : "Get Tickets \u2192"}
+        </a>
       )}
     </div>
   );

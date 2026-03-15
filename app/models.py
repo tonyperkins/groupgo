@@ -112,7 +112,8 @@ class Event(SQLModel, table=True):
     # Generic event fields — default to "movie" so existing rows are unaffected
     event_type: str = Field(default="movie")           # "movie"|"restaurant"|"concert"|"bar"|"other"
     image_url: Optional[str] = Field(default=None)     # generic image (used when poster_path is None)
-    external_url: Optional[str] = Field(default=None)  # website / booking link
+    external_url: Optional[str] = Field(default=None)  # website link
+    booking_url: Optional[str] = Field(default=None)   # tickets / reservation link
     venue_name: Optional[str] = Field(default=None)    # freeform location (no Venue FK needed)
     created_at: str = Field(default_factory=_now)
 
