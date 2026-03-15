@@ -397,11 +397,30 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
     participation = vote_service.get_participation(poll.id, db)
     theater_map = {t.id: t.name for t in theater_service.get_all_theaters(db)}
 
-    # Set of "event_id:session_id" strings for the current user's picks.
-    # Compared by value in the React component, not object identity.
+    # Build personal_pick_keys from the user's own raw votes directly —
+    # not from calculate_user_results which uses the submitted-only vote_lookup.
+    # This ensures unsubmitted selections still show in MY PENDING VOTE.
+    from app.models import Vote as VoteModel
+    user_votes = db.exec(
+        select(VoteModel).where(
+            VoteModel.poll_id == poll.id,
+            VoteModel.user_id == user.id,
+        )
+    ).all()
+    # Build a lookup of the user's own session votes
+    user_session_votes = {v.target_id: v.vote_value for v in user_votes if v.target_type == "session"}
+    user_event_votes = {v.target_id: v.vote_value for v in user_votes if v.target_type == "event"}
+
+    # Get all sessions in this poll to match event+session pairs
+    all_sessions = db.exec(
+        select(Showtime).where(Showtime.poll_id == poll.id, Showtime.is_included == True)
+    ).all()
+
     personal_pick_keys = {
-        f"{r['event'].id}:{r['session'].id}"
-        for r in personal_results["ranked"]
+        f"{s.event_id}:{s.id}"
+        for s in all_sessions
+        if user_session_votes.get(s.id) == "can_do"
+        and user_event_votes.get(s.event_id, "yes") != "no"
     }
 
     # Distinguish the two empty states:

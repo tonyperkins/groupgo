@@ -427,6 +427,9 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted }}>MY PENDING VOTE</div>
           {hasAnySelections ? (
             <>
+              <div style={{ fontSize: 13, color: C.textMuted }}>
+                {isEditing ? "You're editing — resubmit to update your vote." : `${personal_pick_keys.length} selection${personal_pick_keys.length !== 1 ? "s" : ""} — not submitted yet.`}
+              </div>
               {results.filter(isMyPick).slice(0, 3).map((entry) => (
                 <div key={`${entry.event.id}:${entry.session.id}`} style={{
                   display: "flex", alignItems: "center", gap: 8,
