@@ -56,7 +56,20 @@ In `docs/groupgo-windsurf-handoff.md`:
 
 1. Move all items from `## Pending — Next Session` into `## Completed`
    under a new entry: `### Session — [today's date]`
-2. Replace everything after the blockquote in `## Implementation Prompt`
+
+2. Under each completed item, add a brief implementation note if ANY of
+   the following are true:
+   - You touched files not listed in the original task spec
+   - You used a workaround or solved it differently than described
+   - A schema change was made (ALTER TABLE, model field change, migration)
+   - You noticed a related bug or gap but didn't fix it
+   - Something might need a follow-up (prod deployment step, env var, etc.)
+
+   Format: `> ℹ️ [one or two sentences max]`
+
+   Skip the note entirely if the task went exactly as specified with no surprises.
+
+3. Replace everything after the blockquote in `## Implementation Prompt`
    with: `_Nothing pending._`
 
 ## Step 7 — Commit and push
