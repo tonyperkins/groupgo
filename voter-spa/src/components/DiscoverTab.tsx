@@ -245,7 +245,7 @@ function EventCard({ event, sessions, joinUrl }: EventCardProps) {
             >
               <span style={{
                 fontSize: FS.base, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted,
-              }}>SHOWTIMES</span>
+              }}>TIMES</span>
               <span style={{ fontSize: FS.sm, color: C.textDim }}>
                 {eventSessions.length} time{eventSessions.length !== 1 ? "s" : ""} &nbsp;{showtimesOpen ? "▴" : "▾"}
               </span>

@@ -7,18 +7,18 @@
   <span class="sep">›</span>
   <span class="active">{{ poll.title }}</span>
   <span class="sep">›</span>
-  <span class="current">Showtimes</span>
+  <span class="current">Times</span>
 </nav>
 
 <section class="page-hero mb-6">
   <span class="page-eyebrow">Poll setup</span>
   <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
     <div>
-      <h1 class="page-title text-white">Fetch and refine showtimes</h1>
+      <h1 class="page-title text-white">Fetch and refine times</h1>
       <p class="page-subtitle mt-3">Bring in the real schedule, review the fetched sessions, and decide which combinations are allowed into the poll before voters see them.</p>
     </div>
     <div class="cta-row">
-      <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-sm">← Movies</a>
+      <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-sm">← Events</a>
       <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-sm">Results →</a>
     </div>
   </div>
@@ -64,7 +64,7 @@
 <div class="card p-5 sm:p-6 mb-6">
   <div class="section-heading mb-4">
     <div>
-      <h2 class="section-title">Fetch showtimes from Google</h2>
+      <h2 class="section-title">Fetch times from Google</h2>
       <p class="section-description">Choose which theaters and dates to fetch, then review the cached results below.</p>
     </div>
   </div>
@@ -263,7 +263,7 @@
 <div class="card p-5 sm:p-6">
   <div class="section-heading mb-4">
     <div>
-      <h2 class="section-title">Cached showtimes ({{ sessions | length }})</h2>
+      <h2 class="section-title">Cached times ({{ sessions | length }})</h2>
       <p class="section-description">Review fetched sessions, hide anything you do not want voters to consider, and remove bad data when necessary.</p>
     </div>
   </div>

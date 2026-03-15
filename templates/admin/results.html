@@ -15,7 +15,7 @@
   <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
     <div>
       <h1 class="page-title text-white">Review the best combinations</h1>
-      <p class="page-subtitle mt-3">Track the strongest movie and showtime pairings, see who has finished voting, and declare the official plan once the poll is closed.</p>
+      <p class="page-subtitle mt-3">Track the strongest event and time pairings, see who has finished voting, and declare the official plan once the poll is closed.</p>
     </div>
     <div class="cta-row">
       <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
@@ -44,14 +44,14 @@
     <a href="/admin/polls/{{ poll.id }}/movies" class="step-chip">
       <span class="step-index">1</span>
       <span class="step-copy">
-        <span class="step-label">Movies</span>
+        <span class="step-label">Events</span>
         <span class="step-meta">Curate the shortlist</span>
       </span>
     </a>
     <a href="/admin/polls/{{ poll.id }}/showtimes" class="step-chip">
       <span class="step-index">2</span>
       <span class="step-copy">
-        <span class="step-label">Showtimes</span>
+        <span class="step-label">Times</span>
         <span class="step-meta">Review included sessions</span>
       </span>
     </a>
@@ -142,7 +142,7 @@
 <div class="section-heading mb-4">
   <div>
     <h2 class="section-title">Overall results</h2>
-    <p class="section-description">These rankings show the strongest movie and showtime combinations that have received explicit support from the group.</p>
+    <p class="section-description">These rankings show the strongest event and time combinations that have received explicit support from the group.</p>
   </div>
   {% if results.ranked %}
   <span class="soft-pill soft-pill-strong">{{ results.ranked | length }} ranked</span>
