@@ -42,13 +42,26 @@
           No showtimes
         </span>
         {% endif %}
+        {% if not is_movie_event and event_ids_with_sessions is defined and event.id not in event_ids_with_sessions %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 border border-amber-700/50 font-medium">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.007v.008H12v-.008z"/><path stroke-linecap="round" stroke-linejoin="round" d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 001.636 2.875h16.214a1.914 1.914 0 001.636-2.875L13.637 3.59a1.914 1.914 0 00-3.274 0z"/></svg>
+          No times
+        </span>
+        {% endif %}
       </div>
     </div>
     {% if poll and poll.status in ('DRAFT', 'OPEN') %}
     <div class="flex items-center gap-0.5 flex-shrink-0">
       {% if event.is_custom_event %}
       <button
-        onclick="enterEditMode({{ event.id }}, {{ event.event_type | tojson }}, {{ event.title | tojson }}, {{ (event.venue_name or '') | tojson }}, {{ (event.synopsis or '') | tojson }}, {{ (event.image_url or '') | tojson }}, {{ (event.external_url or '') | tojson }})"
+        data-event-id="{{ event.id }}"
+        data-event-type="{{ event.event_type }}"
+        data-title="{{ event.title | e }}"
+        data-venue="{{ (event.venue_name or '') | e }}"
+        data-synopsis="{{ (event.synopsis or '') | e }}"
+        data-image-url="{{ (event.image_url or '') | e }}"
+        data-external-url="{{ (event.external_url or '') | e }}"
+        onclick="enterEditMode(this)"
         title="Edit event"
         class="text-slate-500 hover:text-indigo-400 transition-colors p-1">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

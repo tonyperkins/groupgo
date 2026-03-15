@@ -174,15 +174,15 @@ function switchTab(tab) {
   document.getElementById('tab-manual').classList.toggle('text-slate-400', tab !== 'manual');
 }
 
-function enterEditMode(eventId, eventType, title, venueName, description, imageUrl, externalUrl) {
-  _editEventId = eventId;
+function enterEditMode(btn) {
+  _editEventId = btn.dataset.eventId;
   const form = document.getElementById('manual-event-form');
-  form.event_type.value = eventType || 'other';
-  form.title.value = title || '';
-  form.venue_name.value = venueName || '';
-  form.description.value = description || '';
-  form.image_url.value = imageUrl || '';
-  form.external_url.value = externalUrl || '';
+  form.event_type.value = btn.dataset.eventType || 'other';
+  form.title.value = btn.dataset.title || '';
+  form.venue_name.value = btn.dataset.venue || '';
+  form.description.value = btn.dataset.synopsis || '';
+  form.image_url.value = btn.dataset.imageUrl || '';
+  form.external_url.value = btn.dataset.externalUrl || '';
   document.getElementById('manual-panel-title').textContent = 'Edit Event';
   document.getElementById('manual-submit-btn').textContent = 'Save Changes';
   document.getElementById('manual-cancel-btn').classList.remove('hidden');

@@ -347,6 +347,11 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Completed
 
+### Session 3 — March 15, 2026
+- `templates/components/admin_movie_list.html` — edit button: replaced inline `tojson` onclick args with `data-*` attributes to prevent JS syntax errors from special characters in event data
+- `templates/admin/movies.html` — `enterEditMode` updated to accept a single `btn` element and read `btn.dataset.*` instead of positional arguments
+- `templates/components/admin_movie_list.html` — added amber "No times" badge on non-movie event cards with no included time slots (same pattern as "No showtimes" badge on movie events)
+
 ### Session 2 — March 15, 2026
 - `app/config.py` — added `GOOGLE_KG_API_KEY: str = ""`
 - `app/routers/api.py` — `POST /api/admin/events/lookup` swapped from SerpApi to Google Knowledge Graph Search API (`kgsearch.googleapis.com/v1/entities:search`); extracts `image.contentUrl` and `detailedDescription.url` / `url` from KG results
@@ -379,29 +384,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-#### 1. Bug: Edit button on manual event cards throws JS syntax error
-- **File:** `templates/components/admin_movie_list.html`, `templates/admin/movies.html`
-- `enterEditMode(...)` is called inline via `onclick` with 7 `| tojson` arguments. Any special character in event data (apostrophes, quotes, newlines in synopsis) breaks JS with "Unexpected end of input".
-- Fix: replace inline `onclick` arguments with `data-*` attributes on the button. Read them in JS via `btn.dataset.*` inside `enterEditMode`.
-- Pattern for the button in `admin_movie_list.html`:
-  ```html
-  <button
-    data-event-id="{{ event.id }}"
-    data-event-type="{{ event.event_type }}"
-    data-title="{{ event.title | e }}"
-    data-venue="{{ (event.venue_name or '') | e }}"
-    data-synopsis="{{ (event.synopsis or '') | e }}"
-    data-image-url="{{ (event.image_url or '') | e }}"
-    data-external-url="{{ (event.external_url or '') | e }}"
-    onclick="enterEditMode(this)">✏️</button>
-  ```
-- Update `enterEditMode` in `movies.html` to accept a single `btn` element and read `btn.dataset.*` instead of positional arguments.
-
-#### 2. UX: "No times" badge on manual event cards with no time slots
-- **File:** `templates/components/admin_movie_list.html`
-- Non-movie events with zero time slots show no warning — admin has no indication voters won't see the event in Vote tab.
-- Add an amber "No times" badge on non-movie event cards when they have no included showtimes.
-- Use the same pattern as the existing "No showtimes" badge on movie events.
+_Nothing pending._
 
 ---
 
@@ -412,67 +395,4 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ---
 
-You are continuing development on GroupGo (branch: v2-generic-events).
-Read docs/groupgo-windsurf-handoff.md before starting. Two focused tasks
-on the admin Events page. Do not touch auth, scoring, voter SPA, or TMDB.
-
----
-
-### Task 1 — Bug: Edit button JS syntax error on manual event cards
-Files: templates/components/admin_movie_list.html
-       templates/admin/movies.html
-
-The pencil edit button calls enterEditMode() inline with 7 tojson arguments.
-Special characters in event data (apostrophes, quotes, newlines) break the
-JS with "Unexpected end of input".
-
-Fix by moving all data to data-* attributes on the button element:
-
-In admin_movie_list.html, change the pencil button to:
-  <button
-    data-event-id="{{ event.id }}"
-    data-event-type="{{ event.event_type }}"
-    data-title="{{ event.title | e }}"
-    data-venue="{{ (event.venue_name or '') | e }}"
-    data-synopsis="{{ (event.synopsis or '') | e }}"
-    data-image-url="{{ (event.image_url or '') | e }}"
-    data-external-url="{{ (event.external_url or '') | e }}"
-    onclick="enterEditMode(this)"
-    class="[keep existing classes]">✏️</button>
-
-In movies.html, update enterEditMode to accept a single btn element:
-  function enterEditMode(btn) {
-    const eventId = btn.dataset.eventId;
-    const eventType = btn.dataset.eventType;
-    const title = btn.dataset.title;
-    const venueName = btn.dataset.venue;
-    const synopsis = btn.dataset.synopsis;
-    const imageUrl = btn.dataset.imageUrl;
-    const externalUrl = btn.dataset.externalUrl;
-    // rest of function unchanged
-  }
-
----
-
-### Task 2 — UX: "No times" badge on manual events with no time slots
-File: templates/components/admin_movie_list.html
-
-Non-movie events with zero time slots need an amber "No times" badge so
-admins know the event won't appear in the voter Vote tab.
-
-Use the same pattern as the existing "No showtimes" badge on movie events.
-Show the badge only when: event.event_type != "movie" AND the event has
-no included showtimes in this poll.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: edit button JS safety via data-* attrs; no-times badge for manual events"`
-4. Push: `git push origin v2-generic-events`
+_Nothing pending._
