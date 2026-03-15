@@ -384,7 +384,36 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Results CTA — booking URL + smart label by event type
+- **Files:** `app/models.py`, `app/routers/api.py`, `templates/admin/movies.html`, `voter-spa/src/components/ResultsTab.tsx`, `voter-spa/src/api/voter.ts`
+- The CTA button on Results tab currently uses `session.booking_url` (showtime-level). Change to use a new `booking_url` field on the **Event** model instead.
+- Add `booking_url: Optional[str]` to the `Event` model (separate from `external_url` which is the website). Run `ALTER TABLE events ADD COLUMN booking_url VARCHAR`.
+- Add `booking_url` to the Other Event form in `movies.html` — optional field, below Website URL. Also add to the edit mode form. Label: "Booking / Tickets URL".
+- In `_serialize_event()` and `_ser_result()` in `api.py`, include `booking_url` on the event object.
+- In `ResultsTab.tsx`: show the CTA only when `winner.event.booking_url` is set AND poll status is `CLOSED` (winner declared). Hide entirely otherwise.
+- CTA label derived from `event.event_type`:
+  - `movie` → "Get Tickets →"
+  - `restaurant` → "Make a Reservation →"
+  - `concert` → "Get Tickets →"
+  - `bar` → "Get Directions →"
+  - anything else → "Book Now →"
+- Remove the existing `session.booking_url` CTA logic — replace entirely with event-level booking URL.
+
+#### 2. Bug: Vote tab accordion defaults to expanded on page load
+- **File:** `voter-spa/src/components/VoteTab.tsx`
+- On page reload, all event accordions default to expanded. Should default to **collapsed**, expanding only if the voter has at least one `can_do` selection within that event.
+- Check the `collapsed` state initialization in the `EventGroup` component or wherever accordion state is managed.
+
+#### 3. Bug: Location filter missing non-movie venue names
+- **File:** `voter-spa/src/components/VoteTab.tsx`
+- `locationOptions` is built from `sessions.map((s) => s.theater_name)` — line ~387. For non-movie events, `theater_name` is empty/null, so they don't appear in the filter.
+- Fix: for each session, use `event.venue_name` when `event.is_movie === false`, otherwise use `s.theater_name`. Apply the same logic to the filter comparison at line ~397.
+- The `event` prop is already available in `EventGroup` — thread it through as needed.
+
+#### 4. Bug: Non-movie single-time events missing date header in Vote tab
+- **File:** `voter-spa/src/components/VoteTab.tsx`
+- When an event has exactly 1 session, it renders inline without a date header (line ~282). This means non-movie events with a single time show no date, unlike movie events with multiple showtimes which show date group headers.
+- Fix: even for the single-session path, render a date header above the inline card using `session.session_date`. Use the same date formatting and styling as the multi-session date headers.
 
 ---
 
@@ -395,7 +424,100 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: v2-generic-events).
+Read docs/groupgo-windsurf-handoff.md before starting. Four tasks across
+backend, admin templates, and voter SPA. Follow all constraints in the doc.
+
+---
+
+### Task 1 — Results CTA: event-level booking URL + smart label
+Files: app/models.py, app/routers/api.py,
+       templates/admin/movies.html,
+       voter-spa/src/components/ResultsTab.tsx,
+       voter-spa/src/api/voter.ts
+
+1. Add `booking_url: Optional[str] = Field(default=None)` to the Event
+   model in app/models.py.
+   Run: ALTER TABLE events ADD COLUMN booking_url VARCHAR
+
+2. In app/routers/api.py, add `booking_url` to _serialize_event() and
+   _ser_result() event objects.
+
+3. In voter-spa/src/api/voter.ts, add `booking_url: string | null` to
+   the VoterEvent interface and ResultsEntry.event.
+
+4. In templates/admin/movies.html:
+   - Add optional "Booking / Tickets URL" field to the Other Event form,
+     below Website URL
+   - Include in edit mode pre-population
+   - Include in the PATCH /api/admin/events/{id} submission
+
+5. In voter-spa/src/components/ResultsTab.tsx:
+   - Show the CTA button ONLY when winner.event.booking_url is set
+     AND poll status is CLOSED
+   - Replace the existing session.booking_url CTA logic entirely
+   - CTA label by event_type:
+       movie | concert  → "Get Tickets →"
+       restaurant       → "Make a Reservation →"
+       bar              → "Get Directions →"
+       anything else    → "Book Now →"
+
+---
+
+### Task 2 — Vote tab accordion defaults to collapsed on load
+File: voter-spa/src/components/VoteTab.tsx
+
+On page reload all event accordions are expanded. Change default to
+collapsed. An event should auto-expand only if the voter already has
+at least one can_do vote within that event's sessions.
+Find the collapsed state initialization in EventGroup and fix the default.
+
+---
+
+### Task 3 — Location filter missing non-movie venue names
+File: voter-spa/src/components/VoteTab.tsx
+
+locationOptions (~line 387) uses sessions.map(s => s.theater_name).
+For non-movie events theater_name is empty so they're excluded.
+
+Fix: derive location display value per session:
+  const locationLabel = (s: VoterSession, e: VoterEvent) =>
+    e.is_movie ? s.theater_name : (e.venue_name ?? "")
+
+Use this in locationOptions (dedup + sort, exclude empty strings) and
+in the filter comparison (~line 397).
+The event context is available in EventGroup — thread as needed.
+
+---
+
+### Task 4 — Non-movie single-time events missing date header
+File: voter-spa/src/components/VoteTab.tsx
+
+When sessions.length === 1 the inline path (~line 282) skips the date
+header. Add a date header above the inline ShowtimeCard using the same
+formatting and styling as the multi-session date group headers.
+Use session.session_date formatted the same way as the grouped path.
+
+---
+
+### After completing all tasks
+
+1. Run `cd voter-spa && npm run build` (SPA files changed)
+2. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Under each completed item, add a brief implementation note if ANY
+      of the following are true — format: `> ℹ️ [one or two sentences]`:
+      - You touched files not listed in the original task spec
+      - You used a workaround or solved it differently than described
+      - A schema change was made (ALTER TABLE, model field, migration)
+      - You noticed a related bug or gap but didn't fix it
+      - Something needs a follow-up (prod deployment step, env var, etc.)
+      Skip the note entirely if the task went exactly as specified.
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+3. Commit: `git add -A && git commit -m "feat: booking URL CTA; accordion collapsed default; location filter fix; date header fix"`
+4. Push: `git push origin v2-generic-events`
 - **File:** `templates/components/admin_movie_list.html`, `templates/admin/movies.html`
 - `enterEditMode(...)` is called inline via `onclick` with 7 `| tojson` arguments. Any special character in event data (apostrophes, quotes, newlines) breaks JS with "Unexpected end of input".
 - Fix: replace inline `onclick` arguments with `data-*` attributes on the button. Read them in JS via `btn.dataset.*` inside `enterEditMode`.
