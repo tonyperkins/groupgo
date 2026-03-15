@@ -347,6 +347,10 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Completed
 
+### Session 5 — March 15, 2026
+- `voter-spa/src/components/VoteTab.tsx` — `pollId` wired into `VoteTab` destructured props; passed to `<EventGroup>` call site; accordion open/close state now persisted to `localStorage` keyed by `gg_collapsed_{pollId}_{eventId}`
+- `voter-spa/src/App.tsx` — `pollId={state.meData?.poll?.id ?? 0}` passed to `<VoteTab>`
+
 ### Session 4 — March 15, 2026
 - `app/models.py` — added `booking_url: Optional[str]` to `Event` model
 - `app/routers/api.py` — `booking_url` added to `_serialize_event()` and `_ser_result()` (with `event_type`); `PATCH /api/admin/events/{id}` handles `booking_url`
@@ -394,14 +398,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-#### 0. URGENT: Finish pollId wiring for localStorage accordion state (partially implemented)
-- **Files:** `voter-spa/src/components/VoteTab.tsx`, `voter-spa/src/App.tsx`
-- `EventGroupProps` and `VoteTabProps` already have `pollId: number` added, and `EventGroup` already uses `localStorage` keyed by `gg_collapsed_{pollId}_{eventId}`. The wiring is incomplete — TypeScript will error on build.
-- Three things needed to complete it:
-  1. Add `pollId` to VoteTab's destructured props in the function signature
-  2. Pass `pollId={pollId}` to the `<EventGroup>` component at its call site (~line 613)
-  3. In `App.tsx`, pass `pollId={state.meData?.poll?.id ?? 0}` to every `<VoteTab>` usage
-- Then run `cd voter-spa && npm run build` and verify clean build before committing.
+_Nothing pending._
 
 ---
 
@@ -411,136 +408,5 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 > When all tasks are done, follow the cleanup instructions at the very end.
 
 ---
-
-You are continuing development on GroupGo (branch: v2-generic-events).
-Read docs/groupgo-windsurf-handoff.md before starting. Single focused task —
-finish incomplete wiring from a partial implementation.
-
-### Task — Finish pollId wiring in VoteTab
-
-Files: voter-spa/src/components/VoteTab.tsx
-       voter-spa/src/App.tsx
-
-EventGroupProps and VoteTabProps already have pollId: number.
-EventGroup already uses localStorage keyed by gg_collapsed_{pollId}_{eventId}.
-The prop is not yet wired through. Complete the wiring:
-
-1. In VoteTab.tsx: add pollId to the VoteTab function destructured props
-2. In VoteTab.tsx: pass pollId={pollId} to the <EventGroup> component (~line 613)
-3. In App.tsx: pass pollId={state.meData?.poll?.id ?? 0} to every <VoteTab> usage
-
----
-
-### After completing all tasks
-
-1. Run `cd voter-spa && npm run build` — fix any TypeScript errors before proceeding
-2. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Under each completed item, add a brief implementation note if anything
-      differed from spec — format: `> ℹ️ [one or two sentences]`
-      Skip if it went exactly as specified.
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-3. Commit: `git add -A && git commit -m "fix: wire pollId for localStorage accordion state persistence"`
-4. Push: `git push origin v2-generic-events`> **Windsurf:** Copy everything below this line and use it as your task prompt.
-> When all tasks are done, follow the cleanup instructions at the very end.
-
----
-
-You are continuing development on GroupGo (branch: v2-generic-events).
-Read docs/groupgo-windsurf-handoff.md before starting. Four tasks across
-backend, admin templates, and voter SPA. Follow all constraints in the doc.
-
----
-
-### Task 1 — Results CTA: event-level booking URL + smart label
-Files: app/models.py, app/routers/api.py,
-       templates/admin/movies.html,
-       voter-spa/src/components/ResultsTab.tsx,
-       voter-spa/src/api/voter.ts
-
-1. Add `booking_url: Optional[str] = Field(default=None)` to the Event
-   model in app/models.py.
-   Run: ALTER TABLE events ADD COLUMN booking_url VARCHAR
-
-2. In app/routers/api.py, add `booking_url` to _serialize_event() and
-   _ser_result() event objects.
-
-3. In voter-spa/src/api/voter.ts, add `booking_url: string | null` to
-   the VoterEvent interface and ResultsEntry.event.
-
-4. In templates/admin/movies.html:
-   - Add optional "Booking / Tickets URL" field to the Other Event form,
-     below Website URL
-   - Include in edit mode pre-population
-   - Include in the PATCH /api/admin/events/{id} submission
-
-5. In voter-spa/src/components/ResultsTab.tsx:
-   - Show the CTA button ONLY when winner.event.booking_url is set
-     AND poll status is CLOSED
-   - Replace the existing session.booking_url CTA logic entirely
-   - CTA label by event_type:
-       movie | concert  → "Get Tickets →"
-       restaurant       → "Make a Reservation →"
-       bar              → "Get Directions →"
-       anything else    → "Book Now →"
-
----
-
-### Task 2 — Vote tab accordion defaults to collapsed on load
-File: voter-spa/src/components/VoteTab.tsx
-
-On page reload all event accordions are expanded. Change default to
-collapsed. An event should auto-expand only if the voter already has
-at least one can_do vote within that event's sessions.
-Find the collapsed state initialization in EventGroup and fix the default.
-
----
-
-### Task 3 — Location filter missing non-movie venue names
-File: voter-spa/src/components/VoteTab.tsx
-
-locationOptions (~line 387) uses sessions.map(s => s.theater_name).
-For non-movie events theater_name is empty so they're excluded.
-
-Fix: derive location display value per session:
-  const locationLabel = (s: VoterSession, e: VoterEvent) =>
-    e.is_movie ? s.theater_name : (e.venue_name ?? "")
-
-Use this in locationOptions (dedup + sort, exclude empty strings) and
-in the filter comparison (~line 397).
-The event context is available in EventGroup — thread as needed.
-
----
-
-### Task 4 — Non-movie single-time events missing date header
-File: voter-spa/src/components/VoteTab.tsx
-
-When sessions.length === 1 the inline path (~line 282) skips the date
-header. Add a date header above the inline ShowtimeCard using the same
-formatting and styling as the multi-session date group headers.
-Use session.session_date formatted the same way as the grouped path.
-
----
-
-### After completing all tasks
-
-1. Run `cd voter-spa && npm run build` (SPA files changed)
-2. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Under each completed item, add a brief implementation note if ANY
-      of the following are true — format: `> ℹ️ [one or two sentences]`:
-      - You touched files not listed in the original task spec
-      - You used a workaround or solved it differently than described
-      - A schema change was made (ALTER TABLE, model field, migration)
-      - You noticed a related bug or gap but didn't fix it
-      - Something needs a follow-up (prod deployment step, env var, etc.)
-      Skip the note entirely if the task went exactly as specified.
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-3. Commit: `git add -A && git commit -m "feat: booking URL CTA; accordion collapsed default; location filter fix; date header fix"`
-4. Push: `git push origin v2-generic-events`
 
 _Nothing pending._
