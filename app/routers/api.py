@@ -1576,13 +1576,16 @@ async def admin_clear_votes(
     should_email = bool(body.get("send_email", False))
 
     prefs = db.exec(select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)).all()
+    submitted_prefs = [p for p in prefs if p.is_participating and p.has_completed_voting]
+    submitted_user_ids = {p.user_id for p in submitted_prefs}
     participating_user_ids = {p.user_id for p in prefs if p.is_participating}
 
     votes = db.exec(select(Vote).where(Vote.poll_id == poll_id)).all()
     for v in votes:
-        db.delete(v)
+        if v.user_id in submitted_user_ids:
+            db.delete(v)
 
-    for pref in prefs:
+    for pref in submitted_prefs:
         pref.has_completed_voting = False
         pref.is_flexible = False
         db.add(pref)

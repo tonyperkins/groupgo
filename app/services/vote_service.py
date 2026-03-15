@@ -319,23 +319,30 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
         )
     ).all()
 
+    prefs = db.exec(
+        select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
+    ).all()
+    flexible_user_ids = {p.user_id for p in prefs if p.is_flexible}
+    unavailable_user_ids = {p.user_id for p in prefs if not p.is_participating}
+    # Only count votes from users who have actually submitted (not in-progress editing)
+    submitted_user_ids = {
+        p.user_id for p in prefs
+        if p.is_participating and p.has_completed_voting
+    } | flexible_user_ids
+
     votes = db.exec(
         select(Vote).where(Vote.poll_id == poll_id)
     ).all()
     vote_lookup: dict[tuple, str] = {
-        (v.target_type, v.target_id, v.user_id): v.vote_value for v in votes
+        (v.target_type, v.target_id, v.user_id): v.vote_value
+        for v in votes
+        if v.user_id in submitted_user_ids
     }
 
     # Synthesize movie-level votes from showtime votes (replaces explicit event votes)
     synthesized_movie_votes = _synthesize_movie_votes(sessions, vote_lookup, user_ids, event_ids)
     # Merge: synthesized takes precedence for event-type keys
     merged_vote_lookup = {**vote_lookup, **synthesized_movie_votes}
-
-    prefs = db.exec(
-        select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
-    ).all()
-    flexible_user_ids = {p.user_id for p in prefs if p.is_flexible}
-    unavailable_user_ids = {p.user_id for p in prefs if not p.is_participating}
 
     candidates = []
     for event in events:

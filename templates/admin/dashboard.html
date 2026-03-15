@@ -172,7 +172,7 @@
     <h2 class="text-lg font-bold text-white mb-2">Clear all votes?</h2>
     <p class="text-sm text-slate-400 mb-5">This removes every vote and resets voter completion status. The poll stays open.</p>
     <label class="flex items-start gap-3 cursor-pointer mb-6 group">
-      <input id="clear-votes-email-cb" type="checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 flex-shrink-0" />
+      <input id="clear-votes-email-cb" type="checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 flex-shrink-0" checked />
       <span class="text-sm text-slate-300 leading-snug">Email voters who have joined to let them know they need to re-vote</span>
     </label>
     <div class="flex justify-end gap-3">
@@ -649,7 +649,7 @@ let _clearVotesPollId = null;
 
 function clearVotesFromButton(button) {
   _clearVotesPollId = Number(button.dataset.pollId);
-  document.getElementById('clear-votes-email-cb').checked = false;
+  document.getElementById('clear-votes-email-cb').checked = true;
   document.getElementById('clear-votes-modal').classList.remove('hidden');
 }
 

@@ -224,26 +224,71 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
   );
 }
 
+// ─── Live pulse dot ───────────────────────────────────────────────────────────
+
+const pulseStyle = `
+@keyframes gg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes gg-flash {
+  0% { opacity: 1; background: #fff; }
+  100% { opacity: 1; background: #E8A020; }
+}
+.gg-pulse-dot { animation: gg-pulse 2s ease-in-out infinite; }
+.gg-pulse-dot.flash { animation: gg-flash 0.5s ease-out forwards; }
+`;
+
+function LiveDot({ flashing }: { flashing: boolean }) {
+  return (
+    <>
+      <style>{pulseStyle}</style>
+      <span
+        className={`gg-pulse-dot${flashing ? " flash" : ""}`}
+        style={{
+          display: "inline-block",
+          width: 8, height: 8, borderRadius: "50%",
+          background: C.accent, flexShrink: 0,
+        }}
+      />
+    </>
+  );
+}
+
 // ─── ResultsTab ───────────────────────────────────────────────────────────────
 
 interface ResultsTabProps {
   isParticipating: boolean;
   hasCompletedVoting: boolean;
+  isEditing?: boolean;
   onJoin: () => void;
+  onSubmitVote?: () => void;
 }
 
 const POLL_INTERVAL_MS = 15_000;
 
-export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: ResultsTabProps) {
+export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote }: ResultsTabProps) {
   const navigate = useNavigate();
   const [data, setData] = useState<ResultsResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [filter, setFilter] = useState<"all" | "mine">("all");
+  const [standingsCollapsed, setStandingsCollapsed] = useState(true);
+  const [dotFlashing, setDotFlashing] = useState(false);
+  const prevResultsRef = useRef<string>("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function fetchResults() {
     voterApi.getResultsJson()
-      .then((d) => { setData(d); setLoadError(false); })
+      .then((d) => {
+        const newKey = JSON.stringify(d.results.map((r) => `${r.event.id}:${r.session.id}:${r.score}`));
+        if (prevResultsRef.current && prevResultsRef.current !== newKey) {
+          setDotFlashing(true);
+          setTimeout(() => setDotFlashing(false), 600);
+        }
+        prevResultsRef.current = newKey;
+        setData(d);
+        setLoadError(false);
+      })
       .catch(() => setLoadError(true));
   }
 
@@ -255,10 +300,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
     };
   }, []);
 
-  // Re-fetch immediately when participation state changes (join / opt-out)
-  useEffect(() => {
-    fetchResults();
-  }, [isParticipating]);
+  useEffect(() => { fetchResults(); }, [isParticipating]);
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (!data && !loadError) {
@@ -292,25 +334,23 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
   const winner = isClosed && results.length > 0 ? results[0] : null;
   const pickKeySet = new Set(personal_pick_keys);
   const totalVoters = participation.total_voters;
+  const hasSubmitted = hasCompletedVoting && !isEditing;
+  const hasAnySelections = personal_pick_keys.length > 0;
 
-  // MY PICK comparison: by (event_id:session_id) string, not object identity
   function isMyPick(entry: ResultsEntry): boolean {
     return pickKeySet.has(`${entry.event.id}:${entry.session.id}`);
   }
 
-  const filtered = filter === "mine"
-    ? results.filter(isMyPick)
-    : results;
-
-  // ── Empty states — two distinct variants ─────────────────────────────────
-  //   1. no_valid_options=false, results=[] → no one has voted yet
-  //   2. no_valid_options=true              → votes exist but no combo satisfies everyone
+  const filtered = filter === "mine" ? results.filter(isMyPick) : results;
   const isEmpty = results.length === 0;
+
+  // Expand standings once voter has submitted
+  const standingsDefaultExpanded = hasSubmitted;
 
   return (
     <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
 
-      {/* ── Preview-mode join CTA nudge ─────────────────────────── */}
+      {/* ── Preview-mode join CTA ────────────────────────────────── */}
       {!isParticipating && (
         <div style={{
           background: C.card, border: `1px solid ${C.accent}`,
@@ -319,24 +359,17 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
         }}>
           <span style={{ fontSize: 20, flexShrink: 0 }}>👋</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.accent, marginBottom: 2 }}>
-              You're not in the vote yet
-            </div>
-            <div style={{ fontSize: 15, color: C.textMuted }}>
-              Join to influence these standings.
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.accent, marginBottom: 2 }}>You're not in the vote yet</div>
+            <div style={{ fontSize: 15, color: C.textMuted }}>Join to influence these standings.</div>
           </div>
-          <div
-            onClick={onJoin}
-            style={{
-              background: C.accent, color: "#000", fontSize: 14, fontWeight: 700,
-              padding: "6px 14px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
-            }}
-          >Join</div>
+          <div onClick={onJoin} style={{
+            background: C.accent, color: "#000", fontSize: 14, fontWeight: 700,
+            padding: "6px 14px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
+          }}>Join</div>
         </div>
       )}
 
-      {/* Poll-closed banner */}
+      {/* ── Poll-closed banner ───────────────────────────────────── */}
       {isClosed && (
         <div style={{
           background: C.accentDim, border: `1px solid ${C.accent}`,
@@ -351,7 +384,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
         </div>
       )}
 
-      {/* Winner card */}
+      {/* ── Winner card ──────────────────────────────────────────── */}
       {winner && (
         <div style={{
           background: `linear-gradient(135deg, rgba(232,160,32,0.15), ${C.card})`,
@@ -383,140 +416,179 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, onJoin }: Resu
         </div>
       )}
 
-      {/* Group progress ──────────────────────────────────────── */}
-      <GroupProgress
-        voters={participation.voters}
-        totalVoters={totalVoters}
-        fullyVoted={participation.fully_voted}
-      />
-
-      {/* ── Others voted but I haven't nudge ───────────────────── */}
-      {isParticipating && !hasCompletedVoting && participation.fully_voted > 0 && (
+      {/* ── MY PENDING VOTE — shown only when OPEN ───────────────── */}
+      {!isClosed && isParticipating && !hasSubmitted && (
         <div style={{
-          background: C.card, border: `1px solid ${C.accent}`,
-          borderRadius: 12, padding: "10px 14px",
-          display: "flex", alignItems: "center", gap: 10,
+          background: C.card, border: `1px solid ${C.border}`,
+          borderRadius: 14, padding: "14px",
+          display: "flex", flexDirection: "column", gap: 10,
         }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>👋</span>
-          <div style={{ fontSize: 14, color: C.textMuted }}>
-            <span style={{ fontWeight: 700, color: C.accent }}>
-              {participation.fully_voted} member{participation.fully_voted !== 1 ? "s" : ""} voted.
-            </span>
-            {" "}Don't forget to submit your vote.
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted }}>MY PENDING VOTE</div>
+          {hasAnySelections ? (
+            <>
+              {results.filter(isMyPick).slice(0, 3).map((entry) => (
+                <div key={`${entry.event.id}:${entry.session.id}`} style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px",
+                  background: C.surface, borderRadius: 10,
+                  border: `1px solid ${C.border}`,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{entry.event.title}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>
+                      {fmt12h(entry.session.session_time)} · {fmtDate(entry.session.session_date)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {hasAnySelections && personal_pick_keys.length > 3 && (
+                <div style={{ fontSize: 12, color: C.textDim, paddingLeft: 2 }}>
+                  +{personal_pick_keys.length - 3} more selections
+                </div>
+              )}
+              <div
+                onClick={onSubmitVote ?? (() => navigate("/vote/vote"))}
+                style={{
+                  background: C.accent, color: "#000", fontWeight: 700, fontSize: 14,
+                  borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
+                }}
+              >{isEditing ? "Resubmit \u2192" : "Submit your vote \u2192"}</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, color: C.textMuted }}>You haven't picked anything yet.</div>
+              <div
+                onClick={() => navigate("/vote/vote")}
+                style={{
+                  background: C.surface, color: C.accent, fontWeight: 700, fontSize: 14,
+                  borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
+                  border: `1px solid ${C.accent}`,
+                }}
+              >Go to Vote tab \u2192</div>
+            </>
+          )}
         </div>
       )}
 
-      {/* ── Section label + filter ──────────────────────────────── */}
+      {/* ── GROUP STANDINGS ──────────────────────────────────────── */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "2px 2px 0",
+        background: C.card, border: `1px solid ${C.border}`,
+        borderRadius: 14, overflow: "hidden",
       }}>
-        <span style={{
-          fontSize: 15, fontWeight: 700, color: C.textMuted, letterSpacing: "0.1em",
-        }}>GROUP STANDINGS</span>
-
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          {!isClosed && (
-            <span style={{ fontSize: 14, color: C.textDim, marginRight: 4 }}>live &middot; updates every 15s</span>
-          )}
-          {/* Filter pills — only shown when user is participating and has picks */}
-          {isParticipating && personal_pick_keys.length > 0 && (
-            <>
+        {/* Header */}
+        <div
+          onClick={() => setStandingsCollapsed((x) => !x)}
+          style={{
+            padding: "12px 14px", display: "flex", alignItems: "center", gap: 8,
+            cursor: "pointer",
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted, flex: 1 }}>
+            GROUP STANDINGS
+          </span>
+          {!isClosed && <LiveDot flashing={dotFlashing} />}
+          {/* Filter pills */}
+          {isParticipating && hasSubmitted && personal_pick_keys.length > 0 && (
+            <div style={{ display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
               {(["all", "mine"] as const).map((val) => (
                 <div
                   key={val}
                   onClick={() => setFilter(val)}
                   style={{
-                    fontSize: 13, fontWeight: 700, cursor: "pointer",
-                    padding: "5px 14px", borderRadius: 99,
-                    background: filter === val ? C.accent : C.card,
+                    fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    padding: "4px 12px", borderRadius: 99,
+                    background: filter === val ? C.accent : C.surface,
                     color: filter === val ? "#000" : C.textMuted,
                     border: `1px solid ${filter === val ? C.accent : C.border}`,
                   }}
-                >{val === "all" ? "All" : "My Picks"}</div>
+                >{val === "all" ? "All" : "Mine"}</div>
               ))}
-            </>
+            </div>
           )}
+          <span style={{ fontSize: 13, color: C.textDim, marginLeft: 4 }}>
+            {(standingsDefaultExpanded || !standingsCollapsed) ? "▴" : "▾"}
+          </span>
         </div>
+
+        {/* Expanded content — open by default if voter has submitted, otherwise toggle */}
+        {(standingsDefaultExpanded || !standingsCollapsed) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 10px 10px" }}>
+              {/* Participation row */}
+              <GroupProgress
+                voters={participation.voters}
+                totalVoters={totalVoters}
+                fullyVoted={participation.fully_voted}
+              />
+
+              {/* Empty: no submitted votes yet */}
+              {isEmpty && !no_valid_options && (
+                <div style={{
+                  background: C.surface, borderRadius: 12, padding: "28px 16px",
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>🍿</div>
+                  <div style={{ fontSize: 14, color: C.textMuted }}>No votes submitted yet — be the first.</div>
+                </div>
+              )}
+
+              {/* Empty: no valid combo */}
+              {isEmpty && no_valid_options && has_any_votes && (
+                <div style={{
+                  background: C.surface, borderRadius: 12, padding: "28px 16px",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+                }}>
+                  <span style={{ fontSize: 28 }}>😕</span>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>No valid combinations yet</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
+                    No single showtime works for the whole group. Try adjusting or switching on flexible mode.
+                  </div>
+                  <div
+                    onClick={() => navigate("/vote/showtimes")}
+                    style={{
+                      marginTop: 4, background: C.accent, color: "#000",
+                      fontWeight: 700, fontSize: 12,
+                      borderRadius: 8, padding: "7px 18px", cursor: "pointer",
+                    }}
+                  >Adjust Showtimes →</div>
+                </div>
+              )}
+
+              {/* Mine filter empty */}
+              {filter === "mine" && filtered.length === 0 && results.length > 0 && (
+                <div style={{
+                  background: C.surface, borderRadius: 12, padding: "20px 16px", textAlign: "center",
+                }}>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>None of your picks are in the top results yet.</div>
+                </div>
+              )}
+
+              {/* Ranked cards */}
+              {filtered.map((entry) => (
+                <RankedCard
+                  key={`${entry.event.id}:${entry.session.id}`}
+                  entry={entry}
+                  totalVoters={totalVoters}
+                  isMyPick={isMyPick(entry)}
+                  isTop={entry.rank === 1}
+                  showAllFilter={filter === "all"}
+                />
+              ))}
+
+              {/* Bottom CTA */}
+              {isClosed && winner && winner.event.booking_url && (
+                <a href={winner.event.booking_url} target="_blank" rel="noopener noreferrer" style={{
+                  display: "block",
+                  background: C.accent, color: "#000",
+                  borderRadius: 14, padding: "13px 18px",
+                  textAlign: "center", fontSize: 14, fontWeight: 700,
+                  letterSpacing: "0.02em", textDecoration: "none",
+                }}>
+                  {winner.event.event_type === "restaurant" ? "Make a Reservation \u2192" : winner.event.event_type === "bar" ? "Get Directions \u2192" : "Get Tickets \u2192"}
+                </a>
+              )}
+            </div>
+          )}
       </div>
-
-      {/* ── Empty state 1: no one has voted yet ─────────────────── */}
-      {isEmpty && !no_valid_options && (
-        <div style={{
-          background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 14, padding: "40px 24px",
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-        }}>
-          <span style={{ fontSize: 36 }}>🍿</span>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>No votes yet</div>
-          <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
-            Standings will appear here as your group starts voting.
-          </div>
-        </div>
-      )}
-
-      {/* ── Empty state 2: votes exist but no valid combination ─── */}
-      {isEmpty && no_valid_options && has_any_votes && (
-        <div style={{
-          background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 14, padding: "40px 24px",
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-        }}>
-          <span style={{ fontSize: 36 }}>😕</span>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
-            No valid combinations yet
-          </div>
-          <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 1.6 }}>
-            Everyone's voted, but no single showtime works for the whole group. Try adjusting your showtimes or switching on flexible mode.
-          </div>
-          <div
-            onClick={() => navigate("/vote/showtimes")}
-            style={{
-              marginTop: 4, background: C.accent, color: "#000",
-              fontWeight: 700, fontSize: 12,
-              borderRadius: 8, padding: "7px 18px", cursor: "pointer",
-            }}
-          >Adjust Showtimes →</div>
-        </div>
-      )}
-
-      {/* ── "My Picks" filter: empty ─────────────────────────────── */}
-      {filter === "mine" && filtered.length === 0 && results.length > 0 && (
-        <div style={{
-          background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 14, padding: "28px 20px", textAlign: "center",
-        }}>
-          <div style={{ fontSize: 12, color: C.textMuted }}>
-            None of your picks are in the top results yet.
-          </div>
-        </div>
-      )}
-
-      {/* ── Ranked result cards ──────────────────────────────────── */}
-      {filtered.map((entry) => (
-        <RankedCard
-          key={`${entry.event.id}:${entry.session.id}`}
-          entry={entry}
-          totalVoters={totalVoters}
-          isMyPick={isMyPick(entry)}
-          isTop={entry.rank === 1}
-          showAllFilter={filter === "all"}
-        />
-      ))}
-
-      {/* ── Bottom CTA ──────────────────────────────────────────── */}
-      {isClosed && winner && winner.event.booking_url && (
-        <a href={winner.event.booking_url} target="_blank" rel="noopener noreferrer" style={{
-          display: "block",
-          background: C.accent, color: "#000",
-          borderRadius: 14, padding: "13px 18px",
-          textAlign: "center", fontSize: 14, fontWeight: 700,
-          letterSpacing: "0.02em", textDecoration: "none",
-        }}>
-          {winner.event.event_type === "restaurant" ? "Make a Reservation \u2192" : winner.event.event_type === "bar" ? "Get Directions \u2192" : "Get Tickets \u2192"}
-        </a>
-      )}
     </div>
   );
 }
