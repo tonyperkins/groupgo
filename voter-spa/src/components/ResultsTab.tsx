@@ -302,6 +302,10 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
 
   useEffect(() => { fetchResults(); }, [isParticipating]);
 
+  useEffect(() => {
+    if (hasCompletedVoting && !isEditing) setStandingsCollapsed(false);
+  }, [hasCompletedVoting, isEditing]);
+
   // ── Loading state ──────────────────────────────────────────────────────────
   if (!data && !loadError) {
     return (
@@ -343,9 +347,6 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
 
   const filtered = filter === "mine" ? results.filter(isMyPick) : results;
   const isEmpty = results.length === 0;
-
-  // Expand standings once voter has submitted
-  const standingsDefaultExpanded = hasSubmitted;
 
   return (
     <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -506,12 +507,12 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
             </div>
           )}
           <span style={{ fontSize: 13, color: C.textDim, marginLeft: 4 }}>
-            {(standingsDefaultExpanded || !standingsCollapsed) ? "▴" : "▾"}
+            {!standingsCollapsed ? "▴" : "▾"}
           </span>
         </div>
 
         {/* Expanded content — open by default if voter has submitted, otherwise toggle */}
-        {(standingsDefaultExpanded || !standingsCollapsed) && (
+        {!standingsCollapsed && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 10px 10px" }}>
               {/* Participation row */}
               <GroupProgress

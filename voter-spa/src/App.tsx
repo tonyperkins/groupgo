@@ -368,7 +368,9 @@ export default function App() {
         <ResultsTab
           isParticipating={prefs.is_participating}
           hasCompletedVoting={prefs.has_completed_voting}
+          isEditing={state.isEditing}
           onJoin={handleJoin}
+          onSubmitVote={handleSubmit}
         />
       } />
       <Route path="/vote/movies"    element={<Navigate to="/vote/discover" replace />} />
