@@ -35,7 +35,7 @@ interface GroupProgressProps {
 }
 
 function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   return (
     <div style={{
@@ -51,7 +51,7 @@ function GroupProgress({ voters, totalVoters, fullyVoted }: GroupProgressProps) 
         }}
       >
         <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1 }}>
-          Group progress
+          Who's voted
         </span>
         {/* Stacked avatar row */}
         <div style={{ display: "flex" }}>

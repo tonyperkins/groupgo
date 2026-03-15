@@ -347,6 +347,9 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Completed
 
+### Session 8 — March 15, 2026
+- `voter-spa/src/components/ResultsTab.tsx` — `GroupProgress`: renamed label "Group progress" → "Who's voted"; changed `useState(false)` → `useState(true)` so it defaults to collapsed
+
 ### Session 7 — March 15, 2026
 - `app/routers/api.py` — `_ser_result()`: `voter_count` fixed from `r.get("score", 0)` to `len(r.get("voters", []))` — score and voter count are different values
 - `voter-spa/src/components/ResultsTab.tsx` — `standingsCollapsed` init changed to `useState(true)`; added `useEffect` to auto-expand when `hasCompletedVoting && !isEditing`; removed `standingsDefaultExpanded` variable and all references; chevron and body visibility now driven solely by `!standingsCollapsed`
@@ -410,15 +413,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-#### 1. UX: Simplify Group Progress section on Results tab
-- **File:** `voter-spa/src/components/ResultsTab.tsx` — `GroupProgress` component
-- Voter initials pills are already on result cards showing who picked what. Group Progress is now mainly useful for full names and pending status.
-- Changes:
-  - Rename "Group progress" label → **"Who's voted"**
-  - Default to **collapsed** always (currently `useState(false)` = expanded by default)
-  - When expanded: keep the existing name + pending pill list as-is — it's good
-  - The stacked avatar bubbles in the header are great — keep them
-  - Muted/hollow avatar for voters who haven't submitted yet is correct — keep it
+_Nothing pending._
 
 ---
 
@@ -429,30 +424,4 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ---
 
-You are continuing development on GroupGo (branch: v2-generic-events).
-Read docs/groupgo-windsurf-handoff.md before starting. Single small task.
-
----
-
-### Task 1 — Simplify Group Progress section
-File: voter-spa/src/components/ResultsTab.tsx
-
-In the GroupProgress component:
-1. Change the label "Group progress" → "Who's voted"
-2. Change useState(false) → useState(true) so it defaults to collapsed
-
-That's it — everything else in the component stays exactly as-is.
-
----
-
-### After completing all tasks
-
-1. Run `cd voter-spa && npm run build`
-2. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-3. Commit: `git add -A && git commit -m "ux: simplify Group Progress — rename, default collapsed"`
-4. Push: `git push origin v2-generic-events`
+_Nothing pending._
