@@ -405,7 +405,23 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Bug: voter_count shows score instead of voter count (3/2 bug)
+- **File:** `app/routers/api.py` — results serialization (~line 427)
+- `voter_count` is set to `r.get("score", 0)` — this is the approval score, not voter count.
+- Fix: change to `len(r.get("voters", []))`.
+
+#### 2. Bug: GROUP STANDINGS collapsed state logic is broken
+- **File:** `voter-spa/src/components/ResultsTab.tsx`
+- `standingsCollapsed` is initialized to `true` but `standingsDefaultExpanded` overrides it unconditionally when `hasSubmitted = true`, making the toggle non-functional.
+- Fix: remove `standingsDefaultExpanded`. Initialize `useState` correctly:
+  - `useState(!hasSubmitted)` — collapsed when no submitted votes, expanded when submitted
+  - The toggle should work normally after that with no override logic.
+
+#### 3. Bug: `isEditing` and `onSubmitVote` not passed to ResultsTab from App.tsx
+- **File:** `voter-spa/src/App.tsx`
+- `ResultsTab` accepts `isEditing` and `onSubmitVote` props but App.tsx doesn't pass them.
+- Fix: pass `isEditing={state.isEditing}` and `onSubmitVote={handleSubmitVote}` to `<ResultsTab>`.
+- Check what the submit handler is called in App.tsx (likely `handleComplete` or similar) and pass it.
 
 ---
 
@@ -416,4 +432,58 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: v2-generic-events).
+Read docs/groupgo-windsurf-handoff.md before starting. Three targeted fixes
+to the Results tab. Do not touch auth, scoring algorithm, or admin templates.
+
+---
+
+### Task 1 — Bug: voter_count shows score not voter count
+File: app/routers/api.py
+
+Find the results serialization (~line 427):
+  "voter_count": r.get("score", 0),
+
+Change to:
+  "voter_count": len(r.get("voters", [])),
+
+---
+
+### Task 2 — Bug: GROUP STANDINGS collapsed state broken
+File: voter-spa/src/components/ResultsTab.tsx
+
+standingsCollapsed is initialized to true but standingsDefaultExpanded
+overrides it unconditionally, breaking the toggle.
+
+Fix:
+1. Remove the standingsDefaultExpanded variable entirely
+2. Change useState(true) to useState(!hasSubmitted) so it initializes
+   correctly — collapsed when voter hasn't submitted, expanded when they have
+3. Update the JSX to use only standingsCollapsed (not standingsDefaultExpanded)
+   for both the chevron direction and the body visibility
+
+---
+
+### Task 3 — Bug: isEditing and onSubmitVote not passed to ResultsTab
+File: voter-spa/src/App.tsx
+
+ResultsTab accepts isEditing and onSubmitVote but App.tsx doesn't pass them.
+Find the <ResultsTab> usage and add:
+  isEditing={state.isEditing}  (or however isEditing is tracked in state)
+  onSubmitVote={handleComplete} (or whatever the submit handler is called)
+
+Check App.tsx to find the correct names before patching.
+
+---
+
+### After completing all tasks
+
+1. Run `cd voter-spa && npm run build`
+2. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+3. Commit: `git add -A && git commit -m "fix: voter_count bug; standings collapsed state; isEditing prop wiring"`
+4. Push: `git push origin v2-generic-events`
