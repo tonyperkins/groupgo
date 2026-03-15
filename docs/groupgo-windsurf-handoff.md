@@ -200,7 +200,7 @@ POST   /api/admin/polls/{id}/declare-winner
 DELETE /api/admin/polls/{id}
 POST   /api/admin/showtimes/fetch
 GET    /api/admin/jobs/{id}/json
-POST   /api/admin/events/lookup          # SerpApi enrichment for manual events
+POST   /api/admin/events/lookup          # Google Knowledge Graph enrichment for manual events
 PATCH  /api/admin/events/{id}            # edit manual event fields
 GET/POST/DELETE /api/admin/groups
 GET/POST/PATCH/DELETE /api/admin/users
@@ -356,7 +356,8 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 ## Gotchas
 
 - No migrations — `ALTER TABLE` or drop+recreate for schema changes
-- SerpApi free tier = 100 searches/month — `/api/admin/events/lookup` uses this; button click only, never keystrokes
+- SerpApi free tier = 100 searches/month — reserved for showtime scraping only, do not use for event enrichment
+- Google Knowledge Graph API (`GOOGLE_KG_API_KEY` env var) used for the "Find" button on the Other Event form. Free tier, no billing required — enable at console.cloud.google.com, search "Knowledge Graph Search API"
 - `access_uuid` regeneration immediately invalidates all existing voter links
 - HTMX vote endpoints (`/api/votes/*`) are deprecated — do not extend
 - `is_included` on Showtime controls voter visibility
@@ -459,10 +460,11 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 - **File:** `templates/admin/movies.html`
 - "TMDB Movie" → "Movie (TMDB)", "Manual Entry" → "Other Event"
 
-#### 9. "Find" button — auto-fill via SerpApi
+#### 9. "Find" button — auto-fill via Google Knowledge Graph API
 - **File:** `templates/admin/movies.html` + `app/routers/api.py`
 - "Find →" inline right of Title field (Other Event tab only).
 - `POST /api/admin/events/lookup {title, venue_name, event_type}` → `{image_url, website_url}`
+- Backend uses Google Knowledge Graph Search API (`GOOGLE_KG_API_KEY` env var), NOT SerpApi
 - Populates fields on success. "Nothing found — enter manually" on failure.
 - "Clear" button (ghost, post-Find): clears all fields except Title.
 - Button click only — no keypress search.
@@ -574,12 +576,14 @@ File: templates/admin/movies.html
 
 ---
 
-### Task 8 — UX: "Find" button — auto-fill via SerpApi
+### Task 8 — UX: "Find" button — auto-fill via Google Knowledge Graph API
 File: templates/admin/movies.html + app/routers/api.py
 
 - "Find →" button inline right of Title field, Other Event tab only
 - POST /api/admin/events/lookup with {title, venue_name, event_type}
-- Backend: SerpApi search → return {image_url, website_url}
+- Backend: call Google Knowledge Graph Search API (use GOOGLE_KG_API_KEY env var — NOT SerpApi)
+  - Endpoint: https://kgsearch.googleapis.com/v1/entities:search?query={title}&key={key}
+  - Extract: image (result.image.contentUrl) and website (result.detailedDescription.url or result.url)
 - On success: populate Image URL + Website URL fields (do not auto-save)
 - On failure: "Nothing found — enter manually" inline below title
 - "Clear" button (ghost, appears after Find): clears all fields except Title
