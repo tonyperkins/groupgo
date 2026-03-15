@@ -1,6 +1,7 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select
