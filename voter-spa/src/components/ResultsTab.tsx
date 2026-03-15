@@ -161,8 +161,8 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
             {entry.event.title}
           </div>
           <div style={{ fontSize: 15, color: C.textMuted }}>
-            {fmt12h(entry.session.session_time)} · {entry.session.theater_name}
-            {entry.session.format !== "Standard" && (
+            {fmt12h(entry.session.session_time)} · {entry.event.is_movie ? entry.session.theater_name : (entry.event.venue_name ?? entry.session.theater_name)}
+            {entry.event.is_movie && entry.session.format !== "Standard" && (
               <span style={{
                 marginLeft: 6, fontSize: 12, fontWeight: 700,
                 color: C.accent, background: C.accentDim,

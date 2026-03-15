@@ -321,6 +321,7 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
                     <div key={session.id} style={{ borderTop: `1px solid ${C.border}` }}>
                       <ShowtimeCard
                         session={session}
+                        event={event}
                         eventTitle=""
                         vote={rawVote ?? null}
                         locked={locked}

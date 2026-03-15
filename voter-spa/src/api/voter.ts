@@ -38,6 +38,7 @@ export interface VoterEvent {
   genres: string[];
   poster_url: string | null;
   event_type: string;
+  is_movie: boolean;
   image_url: string | null;
   external_url: string | null;
   venue_name: string | null;
@@ -74,7 +75,7 @@ export interface ResultsEntry {
   score: number;
   voter_count: number;
   voter_names: string[];
-  event: { id: number; title: string };
+  event: { id: number; title: string; is_movie: boolean; venue_name: string | null };
   session: {
     id: number;
     session_date: string;

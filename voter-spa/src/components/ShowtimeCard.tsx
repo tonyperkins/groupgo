@@ -1,10 +1,11 @@
 import { C, FS } from "../tokens";
-import { VoterSession } from "../api/voter";
+import { VoterSession, VoterEvent } from "../api/voter";
 
 export type SessionVote = "can_do" | "cant_do" | "abstain";
 
 interface ShowtimeCardProps {
   session: VoterSession;
+  event: VoterEvent;
   eventTitle: string;
   vote: SessionVote | null;
   /** locked: tab-level lock (not participating); submitted: voting complete */
@@ -26,6 +27,7 @@ function fmt12h(time24: string): string {
 
 export function ShowtimeCard({
   session,
+  event,
   eventTitle,
   vote,
   locked,
@@ -67,9 +69,9 @@ export function ShowtimeCard({
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
             <span style={{ fontSize: FS.base, color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>
-              {session.theater_name}
+              {event.is_movie ? session.theater_name : (event.venue_name ?? session.theater_name)}
             </span>
-            {session.format !== "Standard" && (
+            {event.is_movie && session.format !== "Standard" && (
               <span style={{
                 flexShrink: 0, fontSize: FS.sm, fontWeight: 700,
                 color: C.accent, background: C.accentDim,

@@ -116,6 +116,9 @@ class Event(SQLModel, table=True):
     venue_name: Optional[str] = Field(default=None)    # freeform location (no Venue FK needed)
     created_at: str = Field(default_factory=_now)
 
+    def is_movie(self) -> bool:
+        return self.event_type == "movie"
+
 
 class PollEvent(SQLModel, table=True):
     __tablename__ = "poll_events"

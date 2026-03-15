@@ -6,7 +6,7 @@
 
 ## What This Project Is
 
-GroupGo is a family movie-night coordinator. An admin curates a shortlist of movies + showtimes, publishes a poll, and family members vote from their phones. The app surfaces the optimal movie+showtime combination based on approval voting with veto power.
+GroupGo is a family movie-night coordinator — and in V2, a generic group activity planner. An admin curates a shortlist of events + time slots, publishes a poll, and group members vote from their phones. The app surfaces the optimal event+time combination based on approval voting with veto power.
 
 **Live URL:** https://groupgo.org (Cloudflare Tunnel → self-hosted Docker on Portainer)
 
@@ -31,27 +31,28 @@ groupgo/
 │   ├── models.py               # SQLModel ORM models (source of truth)
 │   ├── templates_config.py     # Jinja2 env + custom filters
 │   ├── middleware/
-│   │   ├── auth.py             # HTTP Basic Auth for admin (verify_admin)
+│   │   ├── auth.py             # Cookie-based admin auth (magic link)
 │   │   └── identity.py         # Cookie-based voter identity helpers
 │   ├── routers/
 │   │   ├── admin.py            # Admin page routes (Jinja2)
 │   │   ├── voter.py            # Voter page routes + SPA serving
-│   │   └── api.py              # All JSON + HTMX API endpoints (~1480 lines)
+│   │   └── api.py              # All JSON + HTMX API endpoints
 │   ├── services/
 │   │   ├── vote_service.py     # Core voting logic, scoring, participation
 │   │   ├── movie_service.py    # TMDB search + poll event queries
 │   │   ├── showtime_service.py # Session grouping, SerpApi parsing
 │   │   ├── theater_service.py  # Theater CRUD
+│   │   ├── auth_service.py     # Magic link + admin session management
 │   │   └── security_service.py # Tokens, PINs, cookies, invite URLs
 │   └── tasks/
 │       └── fetch_tasks.py      # Async SerpApi showtime fetch jobs
 ├── voter-spa/                  # React SPA (Vite + TypeScript)
 │   ├── src/
-│   │   ├── App.tsx             # Root — handles browse/active/results states
+│   │   ├── App.tsx
 │   │   ├── api/
-│   │   │   ├── client.ts       # fetch wrapper (credentials: include)
-│   │   │   ├── voter.ts        # VoterMeResponse type + voterApi
-│   │   │   └── votes.ts        # votesApi (cast, flexible, complete, participation)
+│   │   │   ├── client.ts
+│   │   │   ├── voter.ts
+│   │   │   └── votes.ts
 │   │   ├── components/
 │   │   │   ├── AppHeader.tsx
 │   │   │   ├── TabBar.tsx
@@ -61,28 +62,27 @@ groupgo/
 │   │   │   ├── ResultsTab.tsx
 │   │   │   ├── StatusChip.tsx
 │   │   │   ├── VoteFooter.tsx
+│   │   │   ├── SideNav.tsx
 │   │   │   ├── OptOutModal.tsx
 │   │   │   ├── ScrollArea.tsx
 │   │   │   └── Toast.tsx
-│   │   └── tokens.ts           # Color constants (C.bg, C.accent, etc.)
+│   │   └── tokens.ts
 │   └── package.json
 ├── static/voter/               # Built SPA output (committed, served by FastAPI)
 ├── templates/
-│   ├── admin/                  # Admin Jinja2 templates
+│   ├── admin/
 │   ├── voter/
-│   │   ├── join_poll.html      # PIN entry page (Jinja2 — keep, part of auth flow)
-│   │   ├── no_poll.html        # Shown when no active poll
-│   │   └── identify.html      # Legacy dev-only identity picker
-│   └── components/             # HTMX partials (admin only — voter ones deprecated)
+│   │   ├── join_poll.html      # PIN entry (Jinja2 — keep, part of auth flow)
+│   │   ├── no_poll.html
+│   │   └── identify.html      # Legacy dev-only
+│   └── components/             # HTMX partials (admin only)
 ├── docs/
 │   ├── groupgo-windsurf-handoff.md  # ← this file
-│   ├── groupgo-voter-flow-spec.md   # Original voter flow spec (reference)
-│   └── groupgo-voter-flow.jsx       # Original 25-screen React mockup (reference)
-├── scripts/                    # One-off debug/maintenance scripts
-├── .env                        # Active env file (gitignored)
-├── .env.development            # Dev settings template
-├── .env.production             # Production settings (gitignored)
-├── .env.production.example     # Production settings template (committed)
+│   ├── groupgo-voter-flow-spec.md
+│   └── groupgo-voter-flow.jsx
+├── .env                        # Active env (gitignored)
+├── .env.development
+├── .env.production.example
 ├── docker-compose.yml
 ├── Dockerfile
 └── requirements.txt
@@ -99,24 +99,25 @@ User          id, name, token, member_pin(4-digit str), is_admin, role,
               email, group_id(FK→Group), created_at
 
 Poll          id, title, status(DRAFT|OPEN|CLOSED|ARCHIVED),
-              access_uuid(UUID str — invite token),
-              group_id(FK→Group — filters which users can vote),
+              access_uuid(UUID str), group_id(FK→Group),
               voting_closes_at, winner_event_id, winner_session_id,
               created_at, updated_at
 
-PollDate      poll_id, date(YYYY-MM-DD)   (target dates for the poll)
+PollDate      poll_id, date(YYYY-MM-DD)
 
 Event         id, tmdb_id, title, year, synopsis, poster_path, trailer_key,
               tmdb_rating, runtime_mins, genres(JSON), rating,
               event_type, image_url, external_url, venue_name, is_custom_event
 
-PollEvent     poll_id, event_id, sort_order   (junction table)
+PollEvent     poll_id, event_id, sort_order
 
-Theater(Venue) id, name, address, website_url, serpapi_query, is_active
+Venue         id, name, address, website_url, serpapi_query, is_active,
+              latitude, longitude, google_place_id
+              (__tablename__ = "theaters" for migration compat)
 
 Showtime      id, event_id, theater_id, poll_id, session_date(YYYY-MM-DD),
               session_time(HH:MM), format, booking_url,
-              is_custom, is_included(bool — admin toggles visibility)
+              is_custom, is_included
 
 Vote          id, user_id, poll_id, target_type(event|session), target_id,
               vote_value(yes|no|abstain|can_do|cant_do), veto_reason
@@ -126,177 +127,390 @@ UserPollPreference  user_id, poll_id, is_flexible, has_completed_voting,
 
 FetchJob      id(UUID), poll_id, total_tasks, completed_tasks, status,
               last_error, finished_at
+
+MagicLinkToken  token, user_id, purpose, expires_at, used_at
+AuthSession     id, user_id, session_type, device_hint, expires_at,
+                last_active_at, revoked_at
 ```
 
-**Important:** SQLite + `CREATE TABLE IF NOT EXISTS`. No migration tool. Adding columns to an existing DB requires `ALTER TABLE ... ADD COLUMN` run directly against the SQLite file, or dropping the file and re-seeding for dev.
+**No Alembic.** Adding columns = `ALTER TABLE x ADD COLUMN y TYPE DEFAULT z` against the SQLite file, or drop + recreate for dev.
 
 ---
 
-## Voter Flow (Current — March 2026)
+## Auth System
 
-```
-1. Admin publishes poll → access_uuid generated
-2. Admin clicks "Invite Link" → copies /join/{access_uuid}
-3. Voter opens link → /join/{uuid} sets gg_browse_poll_id cookie → redirects to /vote/movies
-4. SPA loads → GET /api/voter/me returns state="browse" (no PIN required)
-5. Voter sees Discover tab + golden "Join to Vote" banner
-6. Voter clicks "Join to Vote" → navigates to /join/{uuid}/enter (PIN entry page)
-7. Voter enters 4-digit PIN → POST /join/{uuid}/enter
-   - Validates PIN against users.member_pin
-   - Validates user.group_id == poll.group_id (if poll has a group)
-   - Sets gg_poll_session cookie (JWT: poll_id + user_id)
-   - Clears gg_browse_poll_id cookie
-   - Redirects to /vote/movies
-8. SPA loads → GET /api/voter/me returns state="active" with full user + votes
-9. Voter browses Discover tab → votes movies → votes showtimes → submits
-```
+### Admin auth (magic link)
+- Admin requests login link via email → `auth_service.send_admin_magic_link()`
+- In production: sends via Gmail SMTP (`SMTP_*` env vars)
+- In development: logs link to stdout with `━━ MAGIC LINK ━━` banner
+- Token: single-use UUID, 15-minute TTL, purpose-scoped
+- Session: 30-day cookie (`gg_admin_session`), server-side `AuthSession` record
+- `auth_service.get_admin_user_from_session()` validates on every admin request
 
-### Auth cookies
+### Voter auth (PIN)
+- Voter opens `/join/{access_uuid}` → `gg_browse_poll_id` cookie set → browse mode
+- Voter enters 4-digit PIN → `gg_poll_session` JWT cookie (poll_id + user_id)
+- PIN validates against `users.member_pin` + group membership check
 
-| Cookie | Contents | Set by | Used by |
-|--------|----------|--------|---------|
-| `gg_poll_session` | JWT {poll_id, user_id} | PIN submit (`/join/{uuid}/enter`) | `get_secure_poll_id`, `get_current_user` |
-| `gg_browse_poll_id` | poll_id (int string) | `/join/{uuid}` GET | `_get_browse_poll_id` in voter.py + api.py |
-| `token` | user token (legacy) | `/identify` (dev only) | `get_current_user` fallback |
+| Cookie | Contents | State |
+|--------|----------|-------|
+| `gg_poll_session` | JWT {poll_id, user_id} | active voter |
+| `gg_browse_poll_id` | poll_id string | browse mode |
 
-**Secure flag:** Cookies are set with `Secure=True` only when `APP_BASE_URL` starts with `https://`. Controlled by `settings.use_https_cookies` in `app/config.py`.
+**Secure flag:** set only when `APP_BASE_URL` starts with `https://`.
 
 ---
 
-## Group-Based Access Control
+## SPA States
 
-- `Poll.group_id` filters which users can join and are counted in participation.
-- `vote_service._get_poll_group_users(poll_id, db)` returns only users in the poll's group (or all users if `group_id` is None).
-- PIN validation in `/join/{uuid}/enter` rejects users whose `group_id != poll.group_id`.
-- `get_participation()` and `_load_result_inputs()` both use `_get_poll_group_users`.
-- Admin can set/change a poll's group via the **Group** button in the dashboard → `PATCH /api/admin/polls/{id}`.
+| State | Meaning | Triggered when |
+|-------|---------|----------------|
+| `browse` | Viewing without PIN | `gg_browse_poll_id` cookie, no session |
+| `active` | Authenticated voter | `gg_poll_session` valid |
+| `no_active_poll` | Auth'd, no poll | No OPEN/CLOSED poll |
 
----
-
-## SPA States (`/api/voter/me` → `state` field)
-
-| State | Meaning | User field | Triggered when |
-|-------|---------|------------|----------------|
-| `browse` | Viewing without PIN | `null` | `gg_browse_poll_id` cookie present, no `gg_poll_session` |
-| `active` | Authenticated voter | `VoterUser` | `gg_poll_session` cookie valid |
-| `no_active_poll` | Authenticated but no poll | `VoterUser` | User authenticated, no OPEN/CLOSED poll |
-
-On `401` from `/api/voter/me` (no cookies at all) → SPA redirects to `/no-poll`.
+401 from `/api/voter/me` → redirect to `/no-poll`.
 
 ---
 
 ## Key API Endpoints
 
-### Voter-facing JSON (used by React SPA)
-
+### Voter-facing JSON
 ```
-GET  /api/voter/me                       → bootstrap: user + poll + votes + events + sessions
-POST /api/voter/votes/movie              → cast event vote {event_id, vote, veto_reason}
-POST /api/voter/votes/session            → cast session vote {session_id, vote}
-POST /api/voter/votes/flexible           → {is_flexible: bool}
-POST /api/voter/votes/complete           → {is_complete: bool}
-POST /api/voter/votes/participation      → {is_participating: bool, opt_out_reason?}
-GET  /api/results/json                   → ranked results + participation (requires auth)
-GET  /api/voter/events/{id}/reviews      → movie reviews (TMDB)
+GET  /api/voter/me
+POST /api/voter/votes/movie
+POST /api/voter/votes/session
+POST /api/voter/votes/flexible
+POST /api/voter/votes/complete
+POST /api/voter/votes/participation
+GET  /api/results/json
+GET  /api/voter/events/{id}/reviews
 ```
 
-### Admin JSON endpoints
-
+### Admin JSON
 ```
-GET    /api/admin/groups                 → list groups
-POST   /api/admin/groups                 → create group
-DELETE /api/admin/groups/{id}            → delete group
-GET    /api/admin/users                  → list users (with group names + PINs)
-POST   /api/admin/users                  → create user
-PATCH  /api/admin/users/{id}             → update user (name, email, group_id, role, pin)
-DELETE /api/admin/users/{id}             → delete user
-POST   /api/admin/polls                  → create poll {title, target_dates, group_id?}
-PATCH  /api/admin/polls/{id}             → update poll {title?, group_id?}
-POST   /api/admin/polls/{id}/publish     → DRAFT → OPEN (requires movies + showtimes)
-POST   /api/admin/polls/{id}/invite-link → get/generate invite URL
-POST   /api/admin/polls/{id}/regenerate-invite → new access_uuid (invalidates old link)
-POST   /api/admin/polls/{id}/close       → OPEN → CLOSED
-POST   /api/admin/polls/{id}/reopen      → CLOSED/ARCHIVED → OPEN
-POST   /api/admin/polls/{id}/archive     → CLOSED → ARCHIVED
-POST   /api/admin/polls/{id}/declare-winner → set winner_event_id + winner_session_id
-DELETE /api/admin/polls/{id}             → hard delete (cascades votes, sessions, etc.)
-POST   /api/admin/showtimes/fetch        → trigger SerpApi fetch job
-GET    /api/admin/jobs/{id}/json         → poll fetch job status
+POST   /api/admin/polls
+PATCH  /api/admin/polls/{id}
+POST   /api/admin/polls/{id}/publish
+POST   /api/admin/polls/{id}/invite-link
+POST   /api/admin/polls/{id}/close
+POST   /api/admin/polls/{id}/declare-winner
+DELETE /api/admin/polls/{id}
+POST   /api/admin/showtimes/fetch
+GET    /api/admin/jobs/{id}/json
+GET/POST/DELETE /api/admin/groups
+GET/POST/PATCH/DELETE /api/admin/users
 ```
 
 ---
 
-## Environment Configuration
+## Design Tokens (`voter-spa/src/tokens.ts`)
 
-`.env` is the active file (gitignored). Copy from `.env.development` or `.env.production` as needed.
+```typescript
+export const C = {
+  bg:          "#0A0A0F",
+  surface:     "#111118",
+  card:        "#16161F",
+  border:      "#252535",
+  borderLight: "#333348",
+  borderTap:   "#4A4A6E",   // unselected-but-tappable — see Visual Polish
+  accent:      "#E8A020",
+  accentDim:   "#7A5510",
+  accentGlow:  "rgba(232,160,32,0.15)",
+  green:       "#22C55E",
+  greenDim:    "#14532D",
+  red:         "#EF4444",
+  redDim:      "#450A0A",
+  blue:        "#3B82F6",
+  blueDim:     "#1E3A5F",
+  text:        "#F0EEE8",
+  textMuted:   "#9A9AAE",
+  textDim:     "#6A6A80",
+  locked:      "#2A2A3E",
+} as const;
 
-Key variables:
-
+// Font scale
+export const FS = {
+  xs:   11,   // badge counts, tiny labels
+  sm:   13,   // secondary meta, chips
+  base: 16,   // body text — iOS HIG minimum
+  md:   17,   // primary labels, button text
+  lg:   19,   // card titles, section headings
+  xl:   22,   // movie title in card
+  h1:   26,   // winner name, large display
+} as const;
 ```
-APP_ENV=production            # "production" or "development"
-APP_BASE_URL=https://groupgo.org  # MUST be https:// for secure cookies in prod
-ADMIN_USERNAME=...
-ADMIN_PASSWORD=...
+
+---
+
+## Visual Polish — Tappable vs Disabled Affordances
+
+**Critical:** Dim dark element + muted border = *disabled* in mobile UI convention. GroupGo must distinguish unselected-but-tappable from locked clearly.
+
+### ShowtimeCard checkbox — three states
+
+| State | Treatment |
+|-------|-----------|
+| Unselected (tappable) | Empty box, border `#4A4A6E` — visibly lighter than card bg |
+| Selected | Green fill `#22C55E`, white `✓`, green border |
+| Locked/submitted | Muted `✓` in `#3A3A4E`, dim border `#2A2A3E`, `opacity: 0.65` |
+
+### General border rule
+- `#1E1E2E` / `#2A2A3E` = structural, non-interactive
+- `#4A4A6E` = unselected but tappable
+- `#22C55E` = selected/active
+- `opacity: 0.65` + `#2A2A3E` = locked/disabled
+
+Apply across ShowtimeCard, SingleOptionCard, flexible toggle.
+
+### Full-row tap target
+
+The entire showtime row is tappable, not just the checkbox. `onClick` on the row container. Press feedback covers the full row. `pointer-events: none` on toggle only in locked state — expand/collapse still works.
+
+---
+
+## Status Chip & Vote Tab Footer
+
+`ParticipationBanner` has been removed. Replaced by two components.
+
+### StatusChip (AppHeader, always visible)
+
+Right side of AppHeader, left of user name pill. Derives state internally:
+
+```typescript
+function deriveChipState(prefs: UserPollPreference, isEditing: boolean): ChipState {
+  if (!prefs.is_participating) return "preview"
+  if (prefs.has_completed_voting && !isEditing) return "submitted"
+  if (isEditing) return "editing"
+  return "voting"
+}
+```
+
+| State | Label | Colors | Tap |
+|-------|-------|--------|-----|
+| preview | `JOIN →` | bg `#1E3A5F`, border `#3B82F6`, text `#3B82F6` | Direct join, no popover |
+| voting | `VOTING ▾` | bg `#7A5510`, border `#E8A020`, text `#E8A020` | Popover |
+| editing | `EDITING ▾` | bg `#7A5510`, border `#E8A020`, text `#E8A020` | Popover |
+| submitted | `✓ DONE ▾` | bg `#14532D`, border `#22C55E`, text `#22C55E` | Popover |
+
+**Popover** uses `ReactDOM.createPortal` (avoids `overflow: hidden` clipping).
+
+| State | Popover row 1 | Popover row 2 |
+|-------|--------------|--------------|
+| voting | "Go to Vote tab" | "Opt out" (neutral) |
+| editing | "Go to Vote tab" | "Cancel edit" |
+| submitted | "Change vote" | "Opt out" (neutral) |
+
+After opt out → chip reverts to `JOIN →`.
+
+### VoteTabFooter (Vote tab only)
+
+| State | Primary | Secondary |
+|-------|---------|-----------|
+| voting + has selections | `Submit vote →` (amber) | `Opt out` (ghost) |
+| voting + no selections | hidden | — |
+| editing | `Resubmit →` (amber) | `Cancel` (ghost) |
+| submitted | hidden | — |
+| preview | hidden | — |
+
+"Has selections" = opted-in showtime votes, not yes-movies.
+
+**Editing hint bar:** `✏️ Editing — hit Resubmit when done` — dark amber, between FilterBar and event list, visible only when `isEditing === true`.
+
+---
+
+## Vote Tab — Submitted State
+
+When `chipState === "submitted"` and `isEditing === false`:
+
+**Info card** (first in scroll area):
+```
+🔒  Your vote is locked in
+    Tap ✓ DONE above to change your selections or opt out.
+```
+Style: `#16161F` bg, `#2A2A3E` border. Text in `#9A9AAE` / `#5A5A6E`. No color.
+
+**Locked cards:**
+- Toggle: muted `✓` in `#3A3A4E`, no green border
+- Card border: `#1E1E2E` — no green highlight
+- `opacity: 0.65`
+- `pointer-events: none` on toggle only
+- Cards stay visible — voter sees their selections
+
+Pass `isLocked` prop from VoteTab → ShowtimeCard / SingleOptionCard.
+
+---
+
+## Opt-Out Dialog
+
+**Centered modal, not bottom sheet.** (Triggered from top-right chip — bottom sheet would be spatially jarring.)
+
+- Title: `"Opt out of this poll?"`
+- Body: `"Your selections will be removed. You can rejoin at any time."`
+- Confirm: amber/neutral — **not red** (reversible action)
+- Resolve `opt_out_reason` — either add optional text field or remove from API call
+
+---
+
+## Filter Bottom Sheet
+
+Bottom sheet is correct here (filter pills are in-content). Four requirements:
+
+1. **Selection state** — amber checkmark/text on active options
+2. **"All / Clear" row** at top of each list — clears filter, dismisses sheet
+3. **Row tap affordance** — `border-bottom: 1px solid #1E1E2E` + press highlight
+4. **Close button** — `✕` in sheet header
+
+Header text: `"Filter by event"` / `"Filter by location"` / `"Filter by date"`.
+
+---
+
+## Date Grouping in Vote Tab
+
+Each date group:
+- Colored dot (amber if any selections, gray if none) + sentence-case date label
+- `"X of Y selected"` count on right
+- Divider line between groups
+- Format badges (D-BOX, IMAX) on second line under venue name
+
+---
+
+## Environment
+
+Key `.env` variables:
+```
+APP_ENV=production
+APP_BASE_URL=https://groupgo.org
 DATABASE_URL=sqlite:///./data/groupgo.db
-TMDB_API_KEY=...              # for movie search
-SERPAPI_KEY=...               # for showtime fetching
-SECRET_KEY=...                # for JWT signing
-```
-
-`settings.use_https_cookies` = True when `APP_BASE_URL` starts with `https://`
-`settings.is_production` = True when `APP_ENV == "production"`
-
----
-
-## Building the SPA
-
-The built SPA is committed to `static/voter/` and served directly by FastAPI. You must rebuild and commit after any `voter-spa/src/` changes.
-
-```powershell
-cd voter-spa
-npm run build          # outputs to ../static/voter/
-cd ..
-git add static/voter/
-git commit -m "build: update voter SPA"
+TMDB_API_KEY=...
+SERPAPI_KEY=...
+SECRET_KEY=...
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+SMTP_FROM=...
 ```
 
 ---
 
-## Deployment
-
-See `docs/release-process.md` for the full workflow. Quick summary:
+## Building & Deploying
 
 ```powershell
-# Build SPA if changed
 cd voter-spa && npm run build && cd ..
-
-# Commit + push
-git add -A
-git commit -m "..."
-git push origin master
-
-# Deploy on server
-ssh user@portainer.homelab.lan "cd /opt/groupgo && git pull origin master && docker compose up -d --build"
+git add -A && git commit -m "..." && git push origin master
+ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 ```
 
 ---
 
-## Known Patterns & Gotchas
+## Gotchas
 
-- **No Alembic migrations.** Adding a column = `ALTER TABLE x ADD COLUMN y TYPE DEFAULT z` run against the SQLite file on the server, OR drop + recreate the DB (loses data).
-- **SerpApi quota.** The fetch job uses SerpApi for showtimes. Free tier = 100 searches/month. Each fetch = 1 search per (movie × theater × date).
-- **`access_uuid` is the invite token.** Regenerating it via `POST /api/admin/polls/{id}/regenerate-invite` immediately invalidates all existing links.
-- **HTMX vote endpoints** (`/api/votes/*`) are deprecated but kept alive. Do not extend them. The React SPA uses `/api/voter/votes/*` instead.
-- **`is_included`** on Showtime controls whether a session appears in the voter SPA. Admin toggles these on the showtimes page.
-- **`get_participation()` is group-aware.** It only counts users in `poll.group_id` (if set). Displayed in both admin dashboard and SPA results.
-- **Browse mode.** Voters can see the poll (Discover tab only) without a PIN. They can only vote after entering their PIN via the "Join to Vote" banner.
-- **Cookie `Secure` flag.** Must use `https://` in `APP_BASE_URL` for cookies to work in production. This is why the production `.env` has `APP_BASE_URL=https://groupgo.org`.
+- No migrations — `ALTER TABLE` or drop+recreate for schema changes
+- SerpApi free tier = 100 searches/month
+- `access_uuid` regeneration immediately invalidates all existing voter links
+- HTMX vote endpoints (`/api/votes/*`) are deprecated — do not extend
+- `is_included` on Showtime controls voter visibility
+- `get_participation()` is group-aware
+- Browse mode = Discover tab only, no voting
+- `ADMIN_PASSWORD` env var is vestigial (HTTP Basic replaced by magic link) — safe to remove from config
 
 ---
 
 ## Pending / Known Gaps
 
-- `voting_closes_at` field exists on Poll model and is serialized to the SPA, but no UI to set it and no enforcement logic yet.
-- `/api/results/json` still requires full auth (not browse-mode accessible). Results tab in browse mode will 401.
-- The old HTMX voter templates (`templates/voter/movies.html`, `logistics.html`, etc.) are still present but unused — safe to delete eventually.
-- No Playwright tests for the React SPA yet.
+- `voting_closes_at` exists but no UI or enforcement
+- `/api/results/json` 401s in browse mode
+- Old HTMX voter templates still present but unused
+- No Playwright tests for SPA yet
+
+---
+
+## V2 — Generalization Session
+
+**Goal:** Extend GroupGo beyond movies to any group activity (restaurants, concerts, bars, etc.). Target audience: friend groups planning weekend activities. Movie path stays intact.
+
+### Principles
+
+- **Showtime model unchanged.** No schema migrations.
+- **Scoring algorithm unchanged.**
+- **Auth unchanged.**
+- Non-movie events get time slots added manually by admin. Same voter experience — event+time voting.
+- Voter-visible string "showtime" → "option"/"time" for non-movie events. TypeScript interfaces and component names stay as-is.
+
+### Current state (as of last code review)
+
+Several generalization pieces are already done in the codebase:
+- `movies.html` already shows "Events" in titles/breadcrumbs ✅
+- Manual showtime form already exists in `showtimes.html` ✅
+- `DiscoverTab` already has `isMovie` check and `EventTypeBadge` component ✅
+- `VoterEvent` TypeScript type already has `event_type`, `venue_name`, `image_url`, `external_url` ✅
+- `_serialize_event()` already includes all new fields except `is_movie` ✅
+- `ShowtimeCard` already has `isLocked` prop ✅
+
+**Remaining work for V2:**
+
+### `Event.is_movie()` helper
+
+```python
+def is_movie(self) -> bool:
+    return self.event_type == "movie"
+```
+
+Use everywhere to gate movie-specific logic. Never hardcode `event_type == "movie"` inline.
+
+### Backend changes (do first)
+
+1. Add `Event.is_movie()` helper.
+2. SerpApi fetch trigger — only fire if poll has at least one `is_movie()` event. If no movies, skip and mark job complete automatically.
+3. `POST /api/admin/polls/{poll_id}/showtimes/manual` — fields: `event_id`, `date`, `time`, `label` (optional, e.g. "Friday 7pm"), `theater_id` (optional).
+4. Update `_serialize_event()` — include `is_movie`, `venue_name`, `image_url`, `external_url`, `event_type` in voter-facing JSON.
+
+### Admin UI changes (do second)
+
+Rename what admin sees only — not routes, models, or URLs:
+
+| Old | New |
+|-----|-----|
+| "Movies" (titles/breadcrumbs) | "Events" |
+| "Add Movie" | "Add Event" |
+| "Showtimes" (titles/breadcrumbs) | "Times" |
+| Step labels | "Events" / "Times" / "Review" |
+
+- `showtimes.html` — show SerpApi fetch UI only when poll has at least one movie. Non-movie-only polls skip to manual time slot entry.
+- Manual time slot form: Date, Time, Label (optional), Event (dropdown).
+- Event type badge in event list: pill showing "Movie" / "Restaurant" / "Concert" / "Bar" / "Other".
+
+### Voter SPA changes (do third)
+
+**String audit** — voter-visible text only:
+- "2 showtimes" → "2 options"
+- "tap to vote on showtimes" → "tap to vote"
+- Any voter-visible "showtime" → "option" or "time"
+
+**ShowtimeCard** when `event.is_movie === false`:
+- Primary metadata: `venue_name + time` (not `theater_name + format`)
+- Fallback to time only if `venue_name` null
+- Layout and toggle behavior identical
+
+**ResultsTab** when `event.is_movie === false`:
+- `venue_name` instead of theater name
+- Format badge hidden
+
+**DiscoverTab:**
+- Confirm `image_url` fallback renders correctly
+- No `image_url` → type-appropriate placeholder icon (fork = restaurant, music note = concert, etc.)
+- No broken image states
+
+### What to NOT touch
+
+- Showtime table, model, columns
+- SerpApi fetch logic (only the trigger condition changes)
+- Scoring algorithm
+- Auth system
+- TMDB search and enrichment
+- URL routes
+- TypeScript interface names, component names
+- FilterBar, EventGroup, ShowtimeCard component structure
+
+**Confirm plan and list every file to be modified before making any changes.**

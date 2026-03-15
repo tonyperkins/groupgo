@@ -259,6 +259,7 @@ export function ShowtimesTab({
                 <ShowtimeCard
                   key={session.id}
                   session={session}
+                  event={event!}
                   eventTitle={event?.title ?? "Unknown"}
                   vote={rawVote ?? null}
                   locked={cardLocked || noYesMovies}

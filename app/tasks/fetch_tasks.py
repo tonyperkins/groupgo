@@ -52,17 +52,32 @@ async def run_fetch_job(
                 poll_events.append(ev)
 
     if not poll_events:
-        logger.warning("[fetch_job %s] No movies found for poll_id=%s event_ids=%s — aborting", job_id, poll_id, event_ids)
+        logger.warning("[fetch_job %s] No events found for poll_id=%s event_ids=%s — aborting", job_id, poll_id, event_ids)
         with _get_db_session() as db:
             job = db.get(FetchJob, job_id)
             if job:
                 job.status = "failed"
-                job.last_error = "No movies matched the selection"
+                job.last_error = "No events matched the selection"
                 job.finished_at = _now()
                 db.add(job)
                 db.commit()
         return
 
+    movie_events = [ev for ev in poll_events if ev.is_movie()]
+    if not movie_events:
+        logger.info("[fetch_job %s] No movie events in poll — skipping SerpApi fetch, marking complete", job_id)
+        with _get_db_session() as db:
+            job = db.get(FetchJob, job_id)
+            if job:
+                job.status = "complete"
+                job.total_tasks = 0
+                job.completed_tasks = 0
+                job.finished_at = _now()
+                db.add(job)
+                db.commit()
+        return
+
+    poll_events = movie_events
     logger.info("[fetch_job %s] Fetching %d movies × %d theaters × %d dates", job_id, len(poll_events), len(theater_ids), len(dates))
 
     # One task per (movie, theater, date) so each movie gets its own API call

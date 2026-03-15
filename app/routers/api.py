@@ -412,7 +412,7 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
         return {
             "rank": r["rank"],
             "score": r["score"],
-            "event": {"id": r["event"].id, "title": r["event"].title},
+            "event": {"id": r["event"].id, "title": r["event"].title, "is_movie": r["event"].is_movie(), "venue_name": getattr(r["event"], "venue_name", None)},
             "session": {
                 "id": r["session"].id,
                 "session_date": r["session"].session_date,
@@ -511,6 +511,7 @@ def _serialize_event(event) -> dict:
         "genres": genres,
         "poster_url": movie_service.poster_url(event.poster_path) if event.poster_path else None,
         "event_type": getattr(event, "event_type", "movie"),
+        "is_movie": event.is_movie(),
         "image_url": getattr(event, "image_url", None),
         "external_url": getattr(event, "external_url", None),
         "venue_name": getattr(event, "venue_name", None),
