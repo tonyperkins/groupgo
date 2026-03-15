@@ -1,6 +1,10 @@
-# GroupGo — Windsurf Handoff Brief
-> Complete context for continuing development. Last updated: March 2026.
-> Read this before touching any file.
+# GroupGo — Development Reference
+> Single source of truth for Claude (planning) and Windsurf (implementation).
+> Last updated by: Claude, March 2026.
+>
+> **Windsurf:** Before starting any session, `git pull` this file.
+> Complete all items in `## Pending — Next Session`, then follow the
+> instructions in `## Implementation Prompt` to mark tasks done and push.
 
 ---
 
@@ -77,9 +81,7 @@ groupgo/
 │   │   └── identify.html      # Legacy dev-only
 │   └── components/             # HTMX partials (admin only)
 ├── docs/
-│   ├── groupgo-windsurf-handoff.md  # ← this file
-│   ├── groupgo-voter-flow-spec.md
-│   └── groupgo-voter-flow.jsx
+│   └── groupgo-windsurf-handoff.md  # this file
 ├── .env                        # Active env (gitignored)
 ├── .env.development
 ├── .env.production.example
@@ -198,6 +200,8 @@ POST   /api/admin/polls/{id}/declare-winner
 DELETE /api/admin/polls/{id}
 POST   /api/admin/showtimes/fetch
 GET    /api/admin/jobs/{id}/json
+POST   /api/admin/events/lookup          # Google Knowledge Graph enrichment for manual events
+PATCH  /api/admin/events/{id}            # edit manual event fields
 GET/POST/DELETE /api/admin/groups
 GET/POST/PATCH/DELETE /api/admin/users
 ```
@@ -213,7 +217,7 @@ export const C = {
   card:        "#16161F",
   border:      "#252535",
   borderLight: "#333348",
-  borderTap:   "#4A4A6E",   // unselected-but-tappable — see Visual Polish
+  borderTap:   "#4A4A6E",
   accent:      "#E8A020",
   accentDim:   "#7A5510",
   accentGlow:  "rgba(232,160,32,0.15)",
@@ -229,15 +233,14 @@ export const C = {
   locked:      "#2A2A3E",
 } as const;
 
-// Font scale
 export const FS = {
-  xs:   11,   // badge counts, tiny labels
-  sm:   13,   // secondary meta, chips
-  base: 16,   // body text — iOS HIG minimum
-  md:   17,   // primary labels, button text
-  lg:   19,   // card titles, section headings
-  xl:   22,   // movie title in card
-  h1:   26,   // winner name, large display
+  xs:   11,
+  sm:   13,
+  base: 16,
+  md:   17,
+  lg:   19,
+  xl:   22,
+  h1:   26,
 } as const;
 ```
 
@@ -245,13 +248,13 @@ export const FS = {
 
 ## Visual Polish — Tappable vs Disabled Affordances
 
-**Critical:** Dim dark element + muted border = *disabled* in mobile UI convention. GroupGo must distinguish unselected-but-tappable from locked clearly.
+**Critical:** Dim dark element + muted border = *disabled* in mobile UI convention.
 
 ### ShowtimeCard checkbox — three states
 
 | State | Treatment |
 |-------|-----------|
-| Unselected (tappable) | Empty box, border `#4A4A6E` — visibly lighter than card bg |
+| Unselected (tappable) | Empty box, border `#4A4A6E` |
 | Selected | Green fill `#22C55E`, white `✓`, green border |
 | Locked/submitted | Muted `✓` in `#3A3A4E`, dim border `#2A2A3E`, `opacity: 0.65` |
 
@@ -261,21 +264,13 @@ export const FS = {
 - `#22C55E` = selected/active
 - `opacity: 0.65` + `#2A2A3E` = locked/disabled
 
-Apply across ShowtimeCard, SingleOptionCard, flexible toggle.
-
-### Full-row tap target
-
-The entire showtime row is tappable, not just the checkbox. `onClick` on the row container. Press feedback covers the full row. `pointer-events: none` on toggle only in locked state — expand/collapse still works.
+Full row is tappable. `pointer-events: none` on toggle only in locked state.
 
 ---
 
 ## Status Chip & Vote Tab Footer
 
-`ParticipationBanner` has been removed. Replaced by two components.
-
 ### StatusChip (AppHeader, always visible)
-
-Right side of AppHeader, left of user name pill. Derives state internally:
 
 ```typescript
 function deriveChipState(prefs: UserPollPreference, isEditing: boolean): ChipState {
@@ -288,96 +283,50 @@ function deriveChipState(prefs: UserPollPreference, isEditing: boolean): ChipSta
 
 | State | Label | Colors | Tap |
 |-------|-------|--------|-----|
-| preview | `JOIN →` | bg `#1E3A5F`, border `#3B82F6`, text `#3B82F6` | Direct join, no popover |
-| voting | `VOTING ▾` | bg `#7A5510`, border `#E8A020`, text `#E8A020` | Popover |
-| editing | `EDITING ▾` | bg `#7A5510`, border `#E8A020`, text `#E8A020` | Popover |
-| submitted | `✓ DONE ▾` | bg `#14532D`, border `#22C55E`, text `#22C55E` | Popover |
+| preview | `JOIN →` | bg `#1E3A5F`, border/text `#3B82F6` | Direct join |
+| voting | `VOTING ▾` | bg `#7A5510`, border/text `#E8A020` | Popover |
+| editing | `EDITING ▾` | bg `#7A5510`, border/text `#E8A020` | Popover |
+| submitted | `✓ DONE ▾` | bg `#14532D`, border/text `#22C55E` | Popover |
 
-**Popover** uses `ReactDOM.createPortal` (avoids `overflow: hidden` clipping).
+Popover uses `ReactDOM.createPortal`.
 
-| State | Popover row 1 | Popover row 2 |
-|-------|--------------|--------------|
-| voting | "Go to Vote tab" | "Opt out" (neutral) |
-| editing | "Go to Vote tab" | "Cancel edit" |
-| submitted | "Change vote" | "Opt out" (neutral) |
-
-After opt out → chip reverts to `JOIN →`.
-
-### VoteTabFooter (Vote tab only)
+### VoteTabFooter
 
 | State | Primary | Secondary |
 |-------|---------|-----------|
 | voting + has selections | `Submit vote →` (amber) | `Opt out` (ghost) |
-| voting + no selections | hidden | — |
 | editing | `Resubmit →` (amber) | `Cancel` (ghost) |
-| submitted | hidden | — |
-| preview | hidden | — |
+| others | hidden | — |
 
-"Has selections" = opted-in showtime votes, not yes-movies.
-
-**Editing hint bar:** `✏️ Editing — hit Resubmit when done` — dark amber, between FilterBar and event list, visible only when `isEditing === true`.
+**Editing hint bar:** `✏️ Editing — hit Resubmit when done` — visible only when `isEditing === true`.
 
 ---
 
 ## Vote Tab — Submitted State
 
-When `chipState === "submitted"` and `isEditing === false`:
-
-**Info card** (first in scroll area):
+Info card when locked:
 ```
 🔒  Your vote is locked in
     Tap ✓ DONE above to change your selections or opt out.
 ```
-Style: `#16161F` bg, `#2A2A3E` border. Text in `#9A9AAE` / `#5A5A6E`. No color.
-
-**Locked cards:**
-- Toggle: muted `✓` in `#3A3A4E`, no green border
-- Card border: `#1E1E2E` — no green highlight
-- `opacity: 0.65`
-- `pointer-events: none` on toggle only
-- Cards stay visible — voter sees their selections
-
-Pass `isLocked` prop from VoteTab → ShowtimeCard / SingleOptionCard.
+Cards: `opacity: 0.65`, border `#1E1E2E`, toggle muted. Pass `isLocked` prop from VoteTab down.
 
 ---
 
 ## Opt-Out Dialog
 
-**Centered modal, not bottom sheet.** (Triggered from top-right chip — bottom sheet would be spatially jarring.)
-
-- Title: `"Opt out of this poll?"`
-- Body: `"Your selections will be removed. You can rejoin at any time."`
-- Confirm: amber/neutral — **not red** (reversible action)
-- Resolve `opt_out_reason` — either add optional text field or remove from API call
+Centered modal (not bottom sheet). Confirm amber/neutral — not red (reversible action).
 
 ---
 
 ## Filter Bottom Sheet
 
-Bottom sheet is correct here (filter pills are in-content). Four requirements:
-
-1. **Selection state** — amber checkmark/text on active options
-2. **"All / Clear" row** at top of each list — clears filter, dismisses sheet
-3. **Row tap affordance** — `border-bottom: 1px solid #1E1E2E` + press highlight
-4. **Close button** — `✕` in sheet header
-
-Header text: `"Filter by event"` / `"Filter by location"` / `"Filter by date"`.
-
----
-
-## Date Grouping in Vote Tab
-
-Each date group:
-- Colored dot (amber if any selections, gray if none) + sentence-case date label
-- `"X of Y selected"` count on right
-- Divider line between groups
-- Format badges (D-BOX, IMAX) on second line under venue name
+Four requirements: selection state (amber), "All/Clear" row at top, row tap affordance, close `✕` button.
 
 ---
 
 ## Environment
 
-Key `.env` variables:
 ```
 APP_ENV=production
 APP_BASE_URL=https://groupgo.org
@@ -407,17 +356,18 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 ## Gotchas
 
 - No migrations — `ALTER TABLE` or drop+recreate for schema changes
-- SerpApi free tier = 100 searches/month
+- SerpApi free tier = 100 searches/month — reserved for showtime scraping only, do not use for event enrichment
+- Google Knowledge Graph API (`GOOGLE_KG_API_KEY` env var) used for the "Find" button on the Other Event form. Free tier, no billing required — enable at console.cloud.google.com, search "Knowledge Graph Search API"
 - `access_uuid` regeneration immediately invalidates all existing voter links
 - HTMX vote endpoints (`/api/votes/*`) are deprecated — do not extend
 - `is_included` on Showtime controls voter visibility
 - `get_participation()` is group-aware
 - Browse mode = Discover tab only, no voting
-- `ADMIN_PASSWORD` env var is vestigial (HTTP Basic replaced by magic link) — safe to remove from config
+- `ADMIN_PASSWORD` env var is vestigial — safe to remove
 
 ---
 
-## Pending / Known Gaps
+## Known Gaps (non-session)
 
 - `voting_closes_at` exists but no UI or enforcement
 - `/api/results/json` 401s in browse mode
@@ -426,91 +376,258 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ---
 
-## V2 — Generalization Session
+## V2 — Generalization
 
-**Goal:** Extend GroupGo beyond movies to any group activity (restaurants, concerts, bars, etc.). Target audience: friend groups planning weekend activities. Movie path stays intact.
+**Goal:** Extend GroupGo beyond movies to any group activity. Movie path stays intact.
 
 ### Principles
-
-- **Showtime model unchanged.** No schema migrations.
-- **Scoring algorithm unchanged.**
-- **Auth unchanged.**
-- Non-movie events get time slots added manually by admin. Same voter experience — event+time voting.
-- Voter-visible string "showtime" → "option"/"time" for non-movie events. TypeScript interfaces and component names stay as-is.
-
-### Current state (as of last code review)
-
-Several generalization pieces are already done in the codebase:
-- `movies.html` already shows "Events" in titles/breadcrumbs ✅
-- Manual showtime form already exists in `showtimes.html` ✅
-- `DiscoverTab` already has `isMovie` check and `EventTypeBadge` component ✅
-- `VoterEvent` TypeScript type already has `event_type`, `venue_name`, `image_url`, `external_url` ✅
-- `_serialize_event()` already includes all new fields except `is_movie` ✅
-- `ShowtimeCard` already has `isLocked` prop ✅
-
-**Remaining work for V2:**
-
-### `Event.is_movie()` helper
-
-```python
-def is_movie(self) -> bool:
-    return self.event_type == "movie"
-```
-
-Use everywhere to gate movie-specific logic. Never hardcode `event_type == "movie"` inline.
-
-### Backend changes (do first)
-
-1. Add `Event.is_movie()` helper.
-2. SerpApi fetch trigger — only fire if poll has at least one `is_movie()` event. If no movies, skip and mark job complete automatically.
-3. `POST /api/admin/polls/{poll_id}/showtimes/manual` — fields: `event_id`, `date`, `time`, `label` (optional, e.g. "Friday 7pm"), `theater_id` (optional).
-4. Update `_serialize_event()` — include `is_movie`, `venue_name`, `image_url`, `external_url`, `event_type` in voter-facing JSON.
-
-### Admin UI changes (do second)
-
-Rename what admin sees only — not routes, models, or URLs:
-
-| Old | New |
-|-----|-----|
-| "Movies" (titles/breadcrumbs) | "Events" |
-| "Add Movie" | "Add Event" |
-| "Showtimes" (titles/breadcrumbs) | "Times" |
-| Step labels | "Events" / "Times" / "Review" |
-
-- `showtimes.html` — show SerpApi fetch UI only when poll has at least one movie. Non-movie-only polls skip to manual time slot entry.
-- Manual time slot form: Date, Time, Label (optional), Event (dropdown).
-- Event type badge in event list: pill showing "Movie" / "Restaurant" / "Concert" / "Bar" / "Other".
-
-### Voter SPA changes (do third)
-
-**String audit** — voter-visible text only:
-- "2 showtimes" → "2 options"
-- "tap to vote on showtimes" → "tap to vote"
-- Any voter-visible "showtime" → "option" or "time"
-
-**ShowtimeCard** when `event.is_movie === false`:
-- Primary metadata: `venue_name + time` (not `theater_name + format`)
-- Fallback to time only if `venue_name` null
-- Layout and toggle behavior identical
-
-**ResultsTab** when `event.is_movie === false`:
-- `venue_name` instead of theater name
-- Format badge hidden
-
-**DiscoverTab:**
-- Confirm `image_url` fallback renders correctly
-- No `image_url` → type-appropriate placeholder icon (fork = restaurant, music note = concert, etc.)
-- No broken image states
+- Showtime model, scoring algorithm, and auth unchanged
+- Non-movie events get time slots added manually by admin
+- Voter-visible string "showtime" → "time" for non-movie events
+- TypeScript interface names and component names stay as-is
 
 ### What to NOT touch
-
 - Showtime table, model, columns
-- SerpApi fetch logic (only the trigger condition changes)
+- SerpApi fetch logic internals
 - Scoring algorithm
 - Auth system
 - TMDB search and enrichment
 - URL routes
 - TypeScript interface names, component names
-- FilterBar, EventGroup, ShowtimeCard component structure
 
-**Confirm plan and list every file to be modified before making any changes.**
+---
+
+## Completed
+
+### Session — March 2026 (branch: v2-generic-events)
+- `app/models.py` — `Event.is_movie()` property
+- `app/routers/api.py` — `is_movie` in `_serialize_event()` and `_ser_result()`
+- `app/tasks/fetch_tasks.py` — SerpApi gated on `is_movie()`
+- `voter-spa/src/api/voter.ts` — `is_movie: boolean` on `VoterEvent` and `ResultsEntry.event`
+- `voter-spa/src/components/ShowtimeCard.tsx` — `venue_name + time` for non-movies, format badge hidden
+- `voter-spa/src/components/VoteTab.tsx` — threads `event` prop to `ShowtimeCard`
+- `voter-spa/src/components/ShowtimesTab.tsx` — same event prop threading
+- `voter-spa/src/components/ResultsTab.tsx` — `venue_name` for non-movies, format badge hidden
+- `templates/admin/showtimes.html` — step 2 label, SerpApi section gating, manual form venue field for non-movies
+- `templates/admin/movies.html` — warning badge and "No showtimes" card gated to movie events only
+
+---
+
+## Pending — Next Session
+
+### Bug fixes
+
+#### 1. Invite link cookie not overwriting
+- **File:** `app/routers/voter.py`
+- `gg_browse_poll_id` must be set **unconditionally** on every `/join/{access_uuid}` visit.
+- Fix: always call `response.set_cookie("gg_browse_poll_id", poll_id, ...)` — no existence check.
+
+#### 2. Non-movie events showing theater name as location
+- **Files:** `voter-spa/src/components/DiscoverTab.tsx`, `voter-spa/src/components/ShowtimeCard.tsx`
+- When `event.is_movie === false`, always render `event.venue_name` as location. Never use `Showtime.theater`.
+
+### UX — Voter SPA
+
+#### 3. Single-time events — inline display (no accordion)
+- **Files:** `voter-spa/src/components/DiscoverTab.tsx`, `voter-spa/src/components/ShowtimeCard.tsx`
+- 1 showtime → render inline, no toggle. 2+ showtimes → keep accordion.
+
+### UX — Admin
+
+#### 4. Admin Times page — event-scoped sections
+- **File:** `templates/admin/showtimes.html` (HTMX — do NOT convert to React)
+- Per-event collapsible sections replacing global fetch form + flat table.
+- Each section: event name + type badge header; movie events get SerpApi fetch controls; all events get times list + inline "Add time" form; non-movie add form hides venue field.
+- Keep Cached times table below, collapsed by default.
+
+#### 5. Manual add time — hide venue field for non-movie events
+- When selected event `!is_movie`, hide Venue/Location input. Backend uses `event.venue_name` silently.
+
+#### 6. "Group" button → "Edit" on poll cards
+- **Files:** `templates/admin/dashboard.html`, `app/routers/api.py`
+- Rename "Group" → "Edit". Opens existing poll dialog pre-populated with title, dates, group_id.
+- Submit → `PATCH /api/admin/polls/{id}`. Verify endpoint accepts all three fields.
+- Replacing dates: delete existing PollDate rows, insert new ones.
+- "New Poll" flow unchanged.
+
+#### 7. Edit button on manual event cards
+- **Files:** `templates/admin/movies.html`, `app/routers/api.py`
+- Pencil icon on manual/non-movie event sidebar cards. Click → pre-populates Other Event tab.
+- Submit → `PATCH /api/admin/events/{id}`. Button reads "Save Changes" in edit mode.
+- TMDB cards: no edit icon.
+
+#### 8. Rename Add Event form tabs
+- **File:** `templates/admin/movies.html`
+- "TMDB Movie" → "Movie (TMDB)", "Manual Entry" → "Other Event"
+
+#### 9. "Find" button — auto-fill via Google Knowledge Graph API
+- **File:** `templates/admin/movies.html` + `app/routers/api.py`
+- "Find →" inline right of Title field (Other Event tab only).
+- `POST /api/admin/events/lookup {title, venue_name, event_type}` → `{image_url, website_url}`
+- Backend uses Google Knowledge Graph Search API (`GOOGLE_KG_API_KEY` env var), NOT SerpApi
+- Populates fields on success. "Nothing found — enter manually" on failure.
+- "Clear" button (ghost, post-Find): clears all fields except Title.
+- Button click only — no keypress search.
+
+### String cleanup
+
+#### 10. Admin string updates
+
+| File | What to fix |
+|------|-------------|
+| `templates/admin/dashboard.html` | "Plan the next movie night" → "Plan your next group event"; "Movies" stat → "Events" |
+| `templates/admin/movies.html` | Step 2 chip "Showtimes" → "Times" |
+| `templates/admin/showtimes.html` | Title → "Fetch and refine times"; "All Movies"→"All Events"; "All Theaters"→"All Venues"; col "Movie"→"Event"; col "Theater"→"Venue" |
+| `templates/admin/results.html` | Step 1 "Movies"→"Events"; Step 2 "Showtimes"→"Times"; "movie and showtime combinations"→"event and time combinations" |
+| Poll action menu | "Movies" chip → "Events" |
+| `voter-spa/src/components/DiscoverTab.tsx` | "SHOWTIMES" → "TIMES" |
+
+---
+
+## Implementation Prompt
+
+> **Windsurf:** Copy everything below this line and use it as your task prompt.
+> When all tasks are done, follow the cleanup instructions at the very end.
+
+---
+
+You are continuing development on GroupGo (branch: v2-generic-events).
+Read docs/groupgo-windsurf-handoff.md before starting. Work through the
+tasks below in order. All changes are surgical — do not refactor unrelated
+code, do not touch auth, scoring, or TMDB integration.
+
+---
+
+### Task 1 — Bug: Invite link cookie not overwriting
+File: app/routers/voter.py
+
+In the /join/{access_uuid} route, always set gg_browse_poll_id
+unconditionally — even if the cookie already exists. Remove any
+"set if absent" guard. This fixes voters landing on a stale poll
+when following a new invite link.
+
+---
+
+### Task 2 — Bug: Non-movie events showing theater name as location
+Files: voter-spa/src/components/DiscoverTab.tsx
+       voter-spa/src/components/ShowtimeCard.tsx
+
+When event.is_movie === false, displayed location must always be
+event.venue_name. Never render Showtime.theater or theater_name for
+non-movie events. Audit both files, fix all display paths.
+
+---
+
+### Task 3 — UX: Single-time events render inline (no accordion)
+Files: voter-spa/src/components/DiscoverTab.tsx
+       voter-spa/src/components/ShowtimeCard.tsx
+
+If an event has exactly 1 showtime, render it inline — no "1 time ▾"
+toggle. 2+ showtimes keeps existing accordion. Applies to DiscoverTab
+and VoteTab.
+
+---
+
+### Task 4 — UX: Admin Times page — event-scoped sections
+File: templates/admin/showtimes.html (HTMX only — do NOT convert to React)
+
+Replace current layout with per-event collapsible sections:
+- Section header: event name + event type badge
+- Movie events: SerpApi fetch controls scoped to that event
+- Non-movie events: no fetch controls
+- All events: list of current times + inline "Add time" form:
+    - Date + time picker
+    - Movie events: theater + format dropdowns
+    - Non-movie events: NO venue field (use event.venue_name silently)
+- Keep existing Cached times table below all sections, collapsed by default
+- Backend endpoints unchanged
+
+---
+
+### Task 5 — UX: "Group" button → "Edit" on poll cards
+Files: templates/admin/dashboard.html, app/routers/api.py
+
+- Rename "Group" → "Edit" on every poll card action menu
+- Opens existing poll creation dialog pre-populated with: title, dates, group_id
+- Submit → PATCH /api/admin/polls/{id}
+- Verify endpoint accepts title, dates, group_id — add any missing fields
+- Replacing dates: delete existing PollDate rows for this poll, insert new ones
+- After save: close dialog, refresh poll card
+- "New Poll" create flow unchanged
+
+---
+
+### Task 6 — UX: Edit button on manual event cards
+Files: templates/admin/movies.html, app/routers/api.py
+
+- Add pencil icon to manual/non-movie event cards in "In this poll" sidebar
+- Click → switches left panel to Other Event tab, pre-populates all fields
+- Submit → PATCH /api/admin/events/{id}, button reads "Save Changes"
+- TMDB movie cards: no edit icon
+- Verify or add PATCH /api/admin/events/{id} endpoint
+
+---
+
+### Task 7 — UX: Rename Add Event form tabs
+File: templates/admin/movies.html
+
+- "TMDB Movie" → "Movie (TMDB)"
+- "Manual Entry" → "Other Event"
+
+---
+
+### Task 8 — UX: "Find" button — auto-fill via Google Knowledge Graph API
+File: templates/admin/movies.html + app/routers/api.py
+
+- "Find →" button inline right of Title field, Other Event tab only
+- POST /api/admin/events/lookup with {title, venue_name, event_type}
+- Backend: call Google Knowledge Graph Search API (use GOOGLE_KG_API_KEY env var — NOT SerpApi)
+  - Endpoint: https://kgsearch.googleapis.com/v1/entities:search?query={title}&key={key}
+  - Extract: image (result.image.contentUrl) and website (result.detailedDescription.url or result.url)
+- On success: populate Image URL + Website URL fields (do not auto-save)
+- On failure: "Nothing found — enter manually" inline below title
+- "Clear" button (ghost, appears after Find): clears all fields except Title
+- Both buttons hidden on Movie (TMDB) tab
+- Button click only — no keypress/debounce search
+
+---
+
+### Task 9 — String cleanup
+No logic changes — labels only.
+
+templates/admin/dashboard.html:
+  "Plan the next movie night" → "Plan your next group event"
+  Poll card stat "Movies" → "Events"
+
+templates/admin/movies.html:
+  Step 2 chip "Showtimes" → "Times"
+
+templates/admin/showtimes.html:
+  Page title → "Fetch and refine times"
+  "All Movies" → "All Events"
+  "All Theaters" → "All Venues"
+  Column "Movie" → "Event"
+  Column "Theater" → "Venue"
+
+templates/admin/results.html:
+  Step 1 "Movies" → "Events"
+  Step 2 "Showtimes" → "Times"
+  "movie and showtime combinations" → "event and time combinations"
+
+Poll action menu: "Movies" chip → "Events"
+
+voter-spa/src/components/DiscoverTab.tsx:
+  "SHOWTIMES" label → "TIMES"
+
+---
+
+### After completing all tasks
+
+1. Run `cd voter-spa && npm run build` (SPA files were changed)
+2. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+3. Commit: `git add -A && git commit -m "feat: v2 generalization batch + admin UX improvements"`
+4. Push: `git push origin master`
