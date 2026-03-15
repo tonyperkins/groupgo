@@ -315,6 +315,8 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Known Gaps (non-session)
 
+> **Events not appearing in Vote tab:** An event must have at least one time slot (`is_included = true`) to appear in the voter Vote tab. Events with no times show in Discover only. This is correct behavior but not obvious to admins — a future improvement would be a warning on the Events page for manual events with no times, similar to the existing "No showtimes" warning on movie events.
+
 - `voting_closes_at` exists but no UI or enforcement
 - `/api/results/json` 401s in browse mode
 - Old HTMX voter templates still present but unused
