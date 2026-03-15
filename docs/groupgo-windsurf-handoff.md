@@ -384,7 +384,18 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ## Pending — Next Session
 
-#### 1. Bug: Edit button on manual event cards throws JS syntax error
+_Nothing pending._
+
+---
+
+## Implementation Prompt
+
+> **Windsurf:** Copy everything below this line and use it as your task prompt.
+> When all tasks are done, follow the cleanup instructions at the very end.
+
+---
+
+_Nothing pending._
 - **File:** `templates/components/admin_movie_list.html`, `templates/admin/movies.html`
 - `enterEditMode(...)` is called inline via `onclick` with 7 `| tojson` arguments. Any special character in event data (apostrophes, quotes, newlines) breaks JS with "Unexpected end of input".
 - Fix: replace inline `onclick` arguments with `data-*` attributes on the button. Read them in JS via `btn.dataset.*` inside `enterEditMode`.
