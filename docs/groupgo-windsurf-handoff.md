@@ -572,7 +572,11 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Bug: Re-fetch theater pills not rendering (HTMX response mismatch)
+- **Files:** `app/routers/api.py`, `templates/admin/movies.html`, new partial `templates/components/admin_event_section.html`
+- **Root cause:** `POST /api/admin/showtimes` (add manual time) and `DELETE /api/admin/showtimes/{id}` return `admin_session_list.html` — the old flat table partial. The `hx-target="#event-section-{{ ev.id }}"` swap replaces the event card with this wrong partial, which doesn't include the theater pills or the re-fetch panel. On page load the theater pills render correctly from the full page context, but after any HTMX action they disappear.
+- **Fix:** Create a new partial `templates/components/admin_event_section.html` that renders a single event card (matching the `{% for ev in sorted_events %}...{% endfor %}` block in `movies.html`). Update the `POST /api/admin/showtimes` and `DELETE /api/admin/showtimes/{id}` endpoints to return this new partial with full context including `theaters` as a list (not a dict), `theater_map`, `sessions`, `events`, `target_dates`, `poll`.
+- The new partial needs the same context variables as the main page loop: `ev` (the event), `theaters` (list), `theater_map`, `ev_sessions` (sessions for this event), `is_movie`, `target_dates`, `poll`.
 
 ---
 
@@ -583,7 +587,67 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: master).
+Read docs/groupgo-windsurf-handoff.md before starting. Single focused bug fix.
+No SPA changes, no schema changes.
+
+---
+
+### Task 1 — Fix: HTMX event section refresh returns wrong partial
+Files: app/routers/api.py
+       templates/admin/movies.html
+       templates/components/admin_event_section.html (new)
+
+**Root cause:** POST /api/admin/showtimes and DELETE /api/admin/showtimes/{id}
+return admin_session_list.html — the old flat table partial. The
+hx-target="#event-section-{ev.id}" swap replaces the event card with this
+wrong partial, losing the theater pills and re-fetch panel.
+
+**Fix:**
+
+1. Extract the per-event card block from movies.html into a new partial:
+   templates/components/admin_event_section.html
+
+   This partial renders a single event card — the same HTML as the
+   {% for ev in sorted_events %} loop body in movies.html.
+   It needs these context variables:
+   - ev (the Event object)
+   - theaters (list of Venue objects — NOT a dict)
+   - theater_map (dict: id → Venue)
+   - ev_sessions (list of Showtime for this event)
+   - is_movie (bool)
+   - target_dates (list of date strings)
+   - poll (Poll object)
+
+2. In movies.html, replace the inline event card HTML with:
+   {% include "components/admin_event_section.html" %}
+   (so the page still renders correctly on full load)
+
+3. Update POST /api/admin/showtimes in api.py to:
+   - Find the event for the new showtime
+   - Load ev_sessions for that event
+   - Return admin_event_section.html with full context
+   - Remove the old admin_session_list.html response
+
+4. Update DELETE /api/admin/showtimes/{id} in api.py the same way —
+   return admin_event_section.html for the affected event.
+
+5. Check if any other endpoints also target #event-section-{id} and
+   update them too.
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "fix: HTMX event section returns correct partial with full context"`
+4. Push: `git push origin master`
 
 ---
 
