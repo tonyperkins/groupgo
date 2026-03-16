@@ -950,18 +950,23 @@ async def admin_add_manual_showtime(
 
     sessions = showtime_service.get_sessions_for_poll(poll_id, db)
     poll = db.get(Poll, poll_id)
-    theaters = {t.id: t for t in theater_service.get_all_theaters(db)}
-    events = {e.id: e for e in movie_service.get_poll_events(poll_id, db)}
+    theaters_list = theater_service.get_active_theaters(db)
+    theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
+    ev = db.get(EventModel, event_id)
+    target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
 
     return templates.TemplateResponse(
         request,
-        "components/admin_session_list.html",
+        "components/admin_event_section.html",
         {
             "request": request,
+            "ev": ev,
             "sessions": sessions,
             "poll": poll,
-            "theaters": theaters,
-            "events": events,
+            "theaters": theaters_list,
+            "theater_map": theater_map,
+            "target_dates": target_dates,
+            "poster_url": movie_service.poster_url,
         },
     )
 
@@ -977,6 +982,7 @@ async def admin_delete_showtime(
     if not session_obj:
         raise HTTPException(status_code=404, detail="Session not found")
     poll_id = session_obj.poll_id
+    event_id = session_obj.event_id
     try:
         showtime_service.delete_session(session_id, db)
     except ValueError as e:
@@ -984,23 +990,26 @@ async def admin_delete_showtime(
 
     sessions = showtime_service.get_sessions_for_poll(poll_id, db)
     poll = db.get(Poll, poll_id)
-    theaters = {t.id: t for t in theater_service.get_all_theaters(db)}
-    events = {e.id: e for e in movie_service.get_poll_events(poll_id, db)}
+    theaters_list = theater_service.get_active_theaters(db)
+    theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
+    ev = db.get(EventModel, event_id)
+    target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
 
     return templates.TemplateResponse(
         request,
-        "components/admin_session_list.html",
+        "components/admin_event_section.html",
         {
             "request": request,
+            "ev": ev,
             "sessions": sessions,
             "poll": poll,
-            "theaters": theaters,
-            "events": events,
+            "theaters": theaters_list,
+            "theater_map": theater_map,
+            "target_dates": target_dates,
+            "poster_url": movie_service.poster_url,
         },
     )
 
-
-# ─── Admin: Theaters ──────────────────────────────────────────────────────────
 
 @router.get("/api/admin/theaters/search")
 async def admin_search_theaters(request: Request, q: str = "", db: Session = Depends(get_db)):

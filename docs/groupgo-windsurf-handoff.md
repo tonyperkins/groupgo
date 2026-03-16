@@ -572,22 +572,7 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-#### 1. Bug: Re-fetch theater pills not rendering (HTMX response mismatch)
-- **Files:** `app/routers/api.py`, `templates/admin/movies.html`, new partial `templates/components/admin_event_section.html`
-- **Root cause:** `POST /api/admin/showtimes` (add manual time) and `DELETE /api/admin/showtimes/{id}` return `admin_session_list.html` — the old flat table partial. The `hx-target="#event-section-{{ ev.id }}"` swap replaces the event card with this wrong partial, which doesn't include the theater pills or the re-fetch panel. On page load the theater pills render correctly from the full page context, but after any HTMX action they disappear.
-- **Fix:** Create a new partial `templates/components/admin_event_section.html` that renders a single event card (matching the `{% for ev in sorted_events %}...{% endfor %}` block in `movies.html`). Update the `POST /api/admin/showtimes` and `DELETE /api/admin/showtimes/{id}` endpoints to return this new partial with full context including `theaters` as a list (not a dict), `theater_map`, `sessions`, `events`, `target_dates`, `poll`.
-- The new partial needs the same context variables as the main page loop: `ev` (the event), `theaters` (list), `theater_map`, `ev_sessions` (sessions for this event), `is_movie`, `target_dates`, `poll`.
-
-#### 2. UX: Per-movie re-fetch panel — match visual style of global fetch card
-- **File:** `templates/admin/movies.html` (the per-movie re-fetch mini panel inside each movie event card)
-- The global "Fetch all movie times" card and the per-movie "Re-fetch theaters" panel do the same job but look completely different. Make them visually consistent.
-- Per-movie panel should match the global card's style:
-  - **Theater row:** same pill style as global (checkbox + theater name, same `bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2` styling)
-  - **Date pills:** replace raw `YYYY-MM-DD` date chips with formatted date pills matching the global card (`Saturday, March 21` style using the `display_date` filter), same checkbox pill styling
-  - **Verify links:** add `↗ verify` links next to each date pill if the theater has a `showtime_url_pattern` set — same as global card
-  - **Labels:** add "Theaters" and "Dates" labels on the left, same as global card
-  - **Remove** the "Re-fetch theaters:" plain text label — replace with the structured rows
-  - The per-movie panel has no "Movies" row (it's already scoped to one movie) — everything else matches
+_Nothing pending._
 
 ---
 
@@ -598,89 +583,17 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ---
 
-You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting. Two tasks —
-one bug fix and one UI consistency fix. No SPA changes, no schema changes.
-
----
-
-### Task 1 — Fix: HTMX event section refresh returns wrong partial
-Files: app/routers/api.py
-       templates/admin/movies.html
-       templates/components/admin_event_section.html (new)
-
-**Root cause:** POST /api/admin/showtimes and DELETE /api/admin/showtimes/{id}
-return admin_session_list.html — the old flat table partial. The
-hx-target="#event-section-{ev.id}" swap replaces the event card with this
-wrong partial, losing the theater pills and re-fetch panel.
-
-**Fix:**
-
-1. Extract the per-event card block from movies.html into a new partial:
-   templates/components/admin_event_section.html
-
-   This partial renders a single event card — the same HTML as the
-   {% for ev in sorted_events %} loop body in movies.html.
-   It needs these context variables:
-   - ev (the Event object)
-   - theaters (list of Venue objects — NOT a dict)
-   - theater_map (dict: id → Venue)
-   - ev_sessions (list of Showtime for this event)
-   - is_movie (bool)
-   - target_dates (list of date strings)
-   - poll (Poll object)
-
-2. In movies.html, replace the inline event card HTML with:
-   {% include "components/admin_event_section.html" %}
-   (so the page still renders correctly on full load)
-
-3. Update POST /api/admin/showtimes in api.py to:
-   - Find the event for the new showtime
-   - Load ev_sessions for that event
-   - Return admin_event_section.html with full context
-   - Remove the old admin_session_list.html response
-
-4. Update DELETE /api/admin/showtimes/{id} in api.py the same way —
-   return admin_event_section.html for the affected event.
-
-5. Check if any other endpoints also target #event-section-{id} and
-   update them too.
-
----
-
-### Task 2 — UX: Per-movie re-fetch panel matches global fetch card style
-File: templates/admin/movies.html (and admin_event_section.html once created)
-
-The per-movie "Re-fetch theaters" panel and the global "Fetch all movie times"
-card do the same job but look different. Make the per-movie panel match:
-
-- Remove the plain "Re-fetch theaters:" text label
-- Add "Theaters" label + theater pills matching global style:
-  same bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2 pill
-  with checkbox + theater name
-- Add "Dates" label + formatted date pills (use display_date filter to show
-  "Saturday, March 21" not raw "2026-03-21") matching global style
-- Add ↗ verify links next to each date pill if theater.showtime_url_pattern
-  is set — same as global card
-- The per-movie panel has no "Movies" row — it's already scoped to one movie
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: HTMX event section partial; per-movie re-fetch panel UI consistency"`
-4. Push: `git push origin master`
+_Nothing pending._
 
 ---
 
 ## Completed
+
+### Session F — March 16, 2026
+- `templates/components/admin_event_section.html` — new partial extracted from the `{% for ev in sorted_events %}` loop in `movies.html`; renders a single event card with full context (`ev`, `sessions`, `theaters`, `theater_map`, `target_dates`, `poll`, `poster_url`); the partial computes `ev_sessions` and `is_movie` internally
+- `templates/admin/movies.html` — per-event loop body replaced with `{% include "components/admin_event_section.html" %}`; per-movie re-fetch panel updated to match global fetch card style: "Theaters" + "Dates" row labels, `rounded-xl px-3 py-2` theater pills, JS-rendered date pills now formatted via `_formatDate()` helper (e.g. "Fri Mar 21"), `↗` verify links per date for any theater with `showtime_url_pattern` or `website_url`; removed plain "Re-fetch theaters:" label; added `_theaterUrlData` JS object (Jinja2-injected at page load) mapping theater ID → name + URL fields
+- `app/routers/api.py` — `POST /api/admin/showtimes` now returns `admin_event_section.html` for the affected event with full context (`ev`, `sessions`, `theaters_list`, `theater_map`, `target_dates`, `poster_url`); `DELETE /api/admin/showtimes/{session_id}` captures `event_id` before deletion and returns the same partial
+> ℹ️ The `admin_session_list.html` response from these two endpoints was replaced entirely — the HTMX `hx-target="#event-section-{ev.id}"` `outerHTML` swap now receives the correct event card partial, preserving theater pills and the re-fetch panel after any add/delete action.
 
 ### Session E — March 16, 2026
 - `templates/admin/movies.html` — removed **In Poll / All times** mode toggle from per-movie filter bars; replaced with **Show excluded** checkbox (unchecked by default); default view shows only `is_included=true` rows; checking shows excluded rows dimmed at `opacity-40`; **Apply as selection** always bulk-PATCHes all rows (matching → true, non-matching → false) regardless of checkbox; **Include All** marks all visible rows included; **Reset** clears all filter fields and unchecks Show excluded; count now shows `N of M` (included / total); removed `_eventFilterMode`, `setEventFilterMode()`

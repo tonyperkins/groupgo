@@ -1,0 +1,233 @@
+{% set ev_sessions = sessions | selectattr('event_id', 'equalto', ev.id) | list %}
+{% set is_movie = ev.event_type == 'movie' %}
+<div class="card mb-4 {% if not ev_sessions %}border-amber-800/40{% endif %}" id="event-section-{{ ev.id }}">
+
+  <!-- Card header -->
+  <div class="flex items-center gap-3 p-4 cursor-pointer" onclick="toggleEventSection({{ ev.id }})">
+    {% if is_movie and ev.poster_path %}
+    <img src="{{ poster_url(ev.poster_path, 'w92') }}" alt="{{ ev.title }}" class="w-10 h-14 rounded object-cover bg-slate-700 flex-shrink-0">
+    {% else %}
+    <div class="w-10 h-14 rounded bg-slate-700 flex items-center justify-center text-slate-500 text-xl flex-shrink-0">
+      {% if ev.event_type == 'restaurant' %}🍽️
+      {% elif ev.event_type == 'concert' %}🎵
+      {% elif ev.event_type == 'bar' %}🍺
+      {% elif ev.event_type == 'movie' %}🎬
+      {% else %}📍{% endif %}
+    </div>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-medium text-white">{{ ev.title }}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+          {% if is_movie %}bg-indigo-900/60 text-indigo-300
+          {% elif ev.event_type == 'restaurant' %}bg-amber-900/60 text-amber-300
+          {% elif ev.event_type == 'concert' %}bg-purple-900/60 text-purple-300
+          {% elif ev.event_type == 'bar' %}bg-orange-900/60 text-orange-300
+          {% else %}bg-slate-700 text-slate-300{% endif %}">
+          {% if is_movie %}🎬 Movie
+          {% elif ev.event_type == 'restaurant' %}🍽️ Restaurant
+          {% elif ev.event_type == 'concert' %}🎵 Concert
+          {% elif ev.event_type == 'bar' %}🍺 Bar
+          {% else %}📍 {{ ev.event_type | capitalize }}{% endif %}
+        </span>
+      </div>
+      {% if not is_movie and ev.venue_name %}
+      <div class="text-xs text-slate-500 mt-0.5">📍 {{ ev.venue_name }}</div>
+      {% elif is_movie and ev.year %}
+      <div class="text-xs text-slate-500 mt-0.5">{{ ev.year }}{% if ev.runtime_mins %} · {{ ev.runtime_mins // 60 }}h {{ ev.runtime_mins % 60 }}m{% endif %}</div>
+      {% endif %}
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      {% if ev_sessions %}
+      <span class="text-xs text-slate-400">{{ ev_sessions | length }} time{{ 's' if ev_sessions | length != 1 else '' }}</span>
+      {% else %}
+      <span class="text-xs text-amber-400 font-medium">No times</span>
+      {% endif %}
+      <svg id="chevron-{{ ev.id }}" class="w-5 h-5 text-slate-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Card body -->
+  <div id="event-body-{{ ev.id }}" class="hidden border-t {% if not ev_sessions %}border-amber-800/30{% else %}border-slate-700{% endif %}">
+    <div class="p-4 space-y-3">
+
+      {% if not ev_sessions %}
+      <p class="text-xs text-amber-300/80">No times added yet. Voters won't see this event until at least one time is added.</p>
+      {% endif %}
+
+      {% if is_movie %}
+      <!-- Per-movie re-fetch mini panel -->
+      <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-700 space-y-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-slate-400 w-16 shrink-0">Theaters</span>
+          <div class="flex flex-wrap gap-1.5">
+            {% for t in theaters %}
+            <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+              <input type="checkbox" value="{{ t.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500 refetch-theater-cb-{{ ev.id }}"/>
+              <span class="text-white font-medium">{{ t.name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="flex items-start gap-2 flex-wrap">
+          <span class="text-xs text-slate-400 w-16 shrink-0 pt-1.5">Dates</span>
+          <div id="refetch-dates-{{ ev.id }}" class="flex flex-wrap gap-1.5"
+            data-poll-dates="{{ target_dates | join(',') }}"
+            data-event-id="{{ ev.id }}">
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap pl-[4.5rem]">
+          <button onclick="addRefetchDate({{ ev.id }})" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Add date
+          </button>
+          <input type="date" id="refetch-date-input-{{ ev.id }}" class="input-base text-xs py-1 px-2" style="display:none;width:auto;position:absolute;"/>
+          <button onclick="triggerSingleMovieFetch({{ ev.id }})" class="ml-auto px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs hover:border-indigo-500 hover:text-white transition-colors">↓ Fetch</button>
+        </div>
+      </div>
+      <div id="fetch-job-area-{{ ev.id }}"></div>
+      {% endif %}
+
+      <!-- Per-movie filter bar -->
+      {% if is_movie %}
+      {% set ev_theaters = [] %}
+      {% for s in ev_sessions %}{% if s.theater_id and theater_map.get(s.theater_id) %}{% if s.theater_id not in ev_theaters | map(attribute='id') | list %}{% set _ = ev_theaters.append(theater_map.get(s.theater_id)) %}{% endif %}{% endif %}{% endfor %}
+      {% set ev_formats = ev_sessions | map(attribute='format') | select | unique | list %}
+      <div class="p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 space-y-1.5">
+        <!-- Row 1: filter controls + action buttons -->
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="ef-theater-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">All Venues</option>
+            {% for t in ev_theaters %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+          </select>
+          <select id="ef-format-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">All Formats</option>
+            {% for f in ev_formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+          </select>
+          <span class="text-xs text-slate-500">From</span>
+          <select id="ef-from-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">Any</option>
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+          <span class="text-xs text-slate-500">To</span>
+          <select id="ef-to-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">Any</option>
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+          <button type="button" onclick="applyEventFilter({{ ev.id }})" class="text-xs bg-indigo-700/50 text-indigo-300 border border-indigo-700 rounded-lg px-2 py-1 hover:bg-indigo-700">Apply as selection</button>
+          <button type="button" onclick="includeAllEventSessions({{ ev.id }})" class="text-xs bg-slate-700/50 text-slate-300 border border-slate-600 rounded-lg px-2 py-1 hover:bg-slate-700">Include All</button>
+        </div>
+        <!-- Row 2: show excluded checkbox + reset + count -->
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer select-none">
+            <input type="checkbox" id="ef-show-excluded-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="w-3 h-3 accent-indigo-500"/>
+            Show excluded
+          </label>
+          <button type="button" onclick="resetEventFilters({{ ev.id }})" class="text-xs text-slate-500 hover:text-slate-300">Reset</button>
+          <span id="ef-count-{{ ev.id }}" class="text-xs text-slate-500">{{ ev_sessions | selectattr('is_included') | list | length }} of {{ ev_sessions | length }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- + Add time manually -->
+      <button type="button"
+        class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+        onclick="toggleAddTimeForm({{ ev.id }})">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        Add time manually
+      </button>
+
+      <!-- Inline add-time form -->
+      <form id="add-time-form-{{ ev.id }}"
+            hx-post="/api/admin/showtimes"
+            hx-target="#event-section-{{ ev.id }}"
+            hx-swap="outerHTML"
+            class="hidden p-3 rounded-xl bg-slate-900/50 border border-slate-600/60 border-dashed">
+        <div class="text-xs font-medium text-slate-400 mb-2">Add a time</div>
+        <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
+        <input type="hidden" name="event_id" value="{{ ev.id }}"/>
+        <div class="flex items-center gap-2 flex-wrap">
+          {% if is_movie %}
+          <select name="theater_id" class="input-base text-xs" style="width:auto">
+            {% for t in theaters %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <input type="hidden" name="theater_id" value=""/>
+          {% endif %}
+          <input type="date" name="session_date" class="input-base text-xs" style="width:140px"
+            value="{{ target_dates[0] if target_dates else '' }}"/>
+          <select name="session_time" class="input-base text-xs" style="width:120px">
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+          {% if is_movie %}
+          <select name="format" class="input-base text-xs" style="width:auto">
+            <option>Standard</option><option>IMAX</option><option>D-BOX</option><option>Dolby</option>
+          </select>
+          {% else %}
+          <input type="hidden" name="format" value="Standard"/>
+          {% endif %}
+          <button type="submit" class="btn-primary text-xs">Add</button>
+          <button type="button" onclick="toggleAddTimeForm({{ ev.id }})" class="btn-ghost text-xs">Cancel</button>
+        </div>
+      </form>
+
+      <!-- Times list -->
+      {% if ev_sessions %}
+      <div id="ev-times-{{ ev.id }}" class="divide-y divide-slate-700/50">
+        {% for s in ev_sessions | sort(attribute='session_date') %}
+        {% set t_obj = theater_map.get(s.theater_id) if s.theater_id else none %}
+        <div class="flex items-center gap-3 py-2 ev-time-row-{{ ev.id }} {% if not s.is_included %}opacity-40{% endif %}"
+          data-theater-id="{{ s.theater_id or '' }}"
+          data-format="{{ s.format or '' }}"
+          data-included="{{ 'true' if s.is_included else 'false' }}"
+          data-raw-time="{{ s.session_time }}">
+          <span class="text-xs text-slate-400 w-16 shrink-0">{{ s.session_date | short_date }}</span>
+          <span class="text-sm font-medium w-16 shrink-0">{{ s.session_time | display_time }}</span>
+          <span class="text-xs text-slate-400 flex-1 truncate">
+            {% if t_obj %}{{ t_obj.name }}{% elif ev.venue_name %}{{ ev.venue_name }}{% endif %}
+          </span>
+          {% if is_movie and s.format and s.format != 'Standard' %}
+          <span class="text-xs px-1.5 py-0.5 rounded font-semibold bg-indigo-900/60 text-indigo-300">{{ s.format }}</span>
+          {% endif %}
+          <span class="text-xs {% if s.is_custom %}text-slate-400{% else %}text-green-500{% endif %}">{{ 'Manual' if s.is_custom else 'Auto' }}</span>
+          <button data-session-id="{{ s.id }}" data-current-included="{{ 'true' if s.is_included else 'false' }}"
+            onclick="toggleSessionVisibility(Number(this.dataset.sessionId), this.dataset.currentIncluded === 'true')"
+            title="{{ 'Remove from poll' if s.is_included else 'Add to poll' }}"
+            class="w-6 h-6 rounded-full flex items-center justify-center text-xs border transition-all flex-shrink-0
+              {{ 'bg-green-900/40 text-green-400 border-green-800 hover:opacity-60' if s.is_included else 'bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800' }}">
+            {{ '✓' if s.is_included else '○' }}
+          </button>
+          <button
+            data-confirm-message="Delete this time?"
+            hx-delete="/api/admin/showtimes/{{ s.id }}"
+            hx-target="#event-section-{{ ev.id }}"
+            hx-swap="outerHTML"
+            hx-trigger="confirmed"
+            onclick="confirmHtmxButton(this); return false;"
+            class="text-slate-600 hover:text-red-400 transition-colors p-1 flex-shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
