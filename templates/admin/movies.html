@@ -14,12 +14,66 @@
   <span class="page-eyebrow">Poll setup</span>
   <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div>
-      <h1 class="page-title text-white">Build your poll</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="page-title text-white">{{ poll.title }}</h1>
+        <button type="button"
+          data-poll-id="{{ poll.id }}"
+          data-poll-title="{{ poll.title }}"
+          data-poll-dates="{{ target_dates | join(',') }}"
+          data-poll-group-ids=""
+          onclick="openEditPollModalFromButton(this)"
+          title="Edit poll details"
+          class="text-slate-500 hover:text-indigo-400 transition-colors flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+          </svg>
+        </button>
+      </div>
       <p class="page-subtitle mt-3">Add events and their times, then publish for your group to vote.</p>
     </div>
-    <div class="inline-pills">
-      <span class="soft-pill soft-pill-strong">{{ poll.title }}</span>
+    <div class="flex items-center gap-2 flex-wrap">
       <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
+      {% if poll.status == 'OPEN' %}
+      <button type="button"
+        data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+        onclick="showInviteLinkFromButton(this)"
+        class="btn-primary text-xs">🔗 Invite Link</button>
+      {% endif %}
+      <div class="relative" id="poll-actions-menu">
+        <button type="button" onclick="togglePollActionsMenu()" class="btn-ghost text-xs" title="Poll actions">⋯ Actions</button>
+        <div id="poll-actions-dropdown" class="hidden absolute right-0 top-full mt-1 z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
+          {% if poll.status == 'DRAFT' %}
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+            onclick="openPublishModalFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Publish</button>
+          {% elif poll.status == 'OPEN' %}
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+            onclick="openPublishModalFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Unpublish</button>
+          {% endif %}
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+            onclick="openSendEmailModalFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">📧 Send Email</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+            onclick="showVoterBreakdownFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Voters</button>
+          <button type="button" data-poll-id="{{ poll.id }}"
+            onclick="duplicatePollFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Duplicate</button>
+          <div class="border-t border-slate-700 my-1"></div>
+          {% if poll.status == 'OPEN' %}
+          <button type="button" data-poll-id="{{ poll.id }}"
+            onclick="clearVotesFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-amber-400 hover:bg-slate-700">Clear Votes</button>
+          <button type="button" data-poll-id="{{ poll.id }}"
+            onclick="closePollFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-amber-400 hover:bg-slate-700">Close Poll</button>
+          {% endif %}
+          <button type="button" data-poll-id="{{ poll.id }}"
+            onclick="deletePollFromButton(this); closePollActionsMenu()"
+            class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-slate-700">Delete</button>
+        </div>
+      </div>
     </div>
   </div>
   <div class="step-strip mt-6">
@@ -72,7 +126,7 @@
     </svg>
   </button>
 
-  <div id="movies-section-body" class="border-t border-slate-700">
+  <div id="movies-section-body" class="border-t border-slate-700 hidden">
     <div class="p-5 space-y-4 border-b border-slate-700/60 bg-slate-800/30">
 
       <!-- Movie pills -->
@@ -148,7 +202,7 @@
     <!-- Advanced panel: all cached times flat table -->
     <div>
       <button type="button" onclick="toggleAdvancedPanel()"
-        class="w-full flex items-center justify-between px-5 py-3 text-xs text-slate-400 hover:text-slate-300 border-b border-slate-700/40 bg-slate-800/10">
+        class="w-full flex items-center justify-between px-5 py-3 text-slate-400 hover:text-slate-300 border-b border-slate-700/40 bg-slate-800/10">
         <span>All cached times ({{ movie_sessions | length }}) — filter, include/exclude, delete</span>
         <svg id="chevron-advanced" class="w-4 h-4 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
@@ -253,36 +307,71 @@
       {% endif %}
 
       {% if is_movie %}
-      <!-- Per-movie re-fetch mini panel -->
-      <div class="flex items-center gap-2 flex-wrap p-3 rounded-lg bg-slate-900/50 border border-slate-700">
-        <span class="text-xs text-slate-400 shrink-0">Re-fetch this movie:</span>
-        <div class="flex flex-wrap gap-1.5">
-          {% for t in theaters %}
-          <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
-            <input type="checkbox" value="{{ t.id }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-theater-cb-{{ ev.id }}"/>
-            <span class="text-white">{{ t.name }}</span>
-          </label>
-          {% endfor %}
+      <!-- Per-movie re-fetch mini panel (Task 6: independent date selection per movie) -->
+      <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-700 space-y-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-slate-400 shrink-0">Re-fetch this movie:</span>
+          <div class="flex flex-wrap gap-1.5">
+            {% for t in theaters %}
+            <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+              <input type="checkbox" value="{{ t.id }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-theater-cb-{{ ev.id }}"/>
+              <span class="text-white">{{ t.name }}</span>
+            </label>
+            {% endfor %}
+          </div>
         </div>
-        <div class="flex flex-wrap gap-1.5">
-          {% for d in target_dates %}
-          <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
-            <input type="checkbox" value="{{ d }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-date-cb-{{ ev.id }}"/>
-            <span class="text-white font-mono">{{ d | display_date }}</span>
-          </label>
-          {% endfor %}
+        <!-- Task 6: per-movie date pills rendered from JS state (pre-populated from target_dates) -->
+        <div id="refetch-dates-{{ ev.id }}" class="flex flex-wrap gap-1.5"
+          data-poll-dates="{{ target_dates | join(',') }}"
+          data-event-id="{{ ev.id }}">
         </div>
-        <button onclick="triggerSingleMovieFetch({{ ev.id }})" class="ml-auto px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs hover:border-indigo-500 hover:text-white transition-colors">↓ Fetch</button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="addRefetchDate({{ ev.id }})" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Add date
+          </button>
+          <input type="date" id="refetch-date-input-{{ ev.id }}" class="hidden input-base text-xs py-1 px-2" style="width:auto"/>
+          <button onclick="triggerSingleMovieFetch({{ ev.id }})" class="ml-auto px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs hover:border-indigo-500 hover:text-white transition-colors">↓ Fetch</button>
+        </div>
       </div>
       <div id="fetch-job-area-{{ ev.id }}"></div>
       {% endif %}
 
+      <!-- Task 5: Inline filter bar (movie events only, scoped to this event) -->
+      {% if is_movie and ev_sessions %}
+      {% set ev_theaters = [] %}
+      {% for s in ev_sessions %}{% if s.theater_id and theater_map.get(s.theater_id) %}{% if s.theater_id not in ev_theaters | map(attribute='id') | list %}{% set _ = ev_theaters.append(theater_map.get(s.theater_id)) %}{% endif %}{% endif %}{% endfor %}
+      {% set ev_formats = ev_sessions | map(attribute='format') | select | unique | list %}
+      <div class="p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 flex flex-wrap items-center gap-2">
+        <select id="ef-theater-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+          <option value="">All Venues</option>
+          {% for t in ev_theaters %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+        </select>
+        {% if ev_formats | length > 1 %}
+        <select id="ef-format-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+          <option value="">All Formats</option>
+          {% for f in ev_formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <select id="ef-included-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+          <option value="">All</option>
+          <option value="true">✓ Included</option>
+          <option value="false">○ Excluded</option>
+        </select>
+        <span id="ef-count-{{ ev.id }}" class="text-xs text-slate-500 ml-auto">{{ ev_sessions | length }} times</span>
+        <button type="button" onclick="resetEventFilters({{ ev.id }})" class="text-xs text-slate-500 hover:text-slate-300">Reset</button>
+      </div>
+      {% endif %}
+
       <!-- Times list -->
       {% if ev_sessions %}
-      <div class="divide-y divide-slate-700/50">
+      <div id="ev-times-{{ ev.id }}" class="divide-y divide-slate-700/50">
         {% for s in ev_sessions | sort(attribute='session_date') %}
         {% set t_obj = theater_map.get(s.theater_id) if s.theater_id else none %}
-        <div class="flex items-center gap-3 py-2 {% if not s.is_included %}opacity-40{% endif %}">
+        <div class="flex items-center gap-3 py-2 ev-time-row-{{ ev.id }} {% if not s.is_included %}opacity-40{% endif %}"
+          data-theater-id="{{ s.theater_id or '' }}"
+          data-format="{{ s.format or '' }}"
+          data-included="{{ 'true' if s.is_included else 'false' }}">
           <span class="text-xs text-slate-400 w-16 shrink-0">{{ s.session_date | short_date }}</span>
           <span class="text-sm font-medium w-16 shrink-0">{{ s.session_time | display_time }}</span>
           <span class="text-xs text-slate-400 flex-1 truncate">
@@ -468,6 +557,160 @@
         </div>
       </form>
     </div>
+  </div>
+</div>
+
+<!-- ── Poll action modals (mirrors dashboard) ────────────────────────────── -->
+
+<!-- Publish Modal -->
+<div id="publish-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-sm">
+    <h2 class="text-lg font-bold text-white mb-2">Publish poll?</h2>
+    <p class="text-sm text-slate-400 mb-5">Voters will be able to see and vote. This cannot be undone from this screen.</p>
+    <label class="flex items-start gap-3 cursor-pointer mb-6 group">
+      <input id="publish-email-cb" type="checkbox" class="mt-0.5 accent-indigo-400 w-4 h-4 flex-shrink-0" checked />
+      <span class="text-sm text-slate-300 leading-snug">Email all members with the voting link</span>
+    </label>
+    <div class="flex justify-end gap-3">
+      <button type="button" onclick="closePublishModal()" class="btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="confirmPublish()" class="btn-primary text-sm">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Send Email Modal -->
+<div id="send-email-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-bold text-white">Send invite email</h2>
+        <p id="send-email-subtitle" class="text-sm text-slate-400 mt-1"></p>
+      </div>
+      <button type="button" onclick="closeSendEmailModal()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="send-email-member-list" class="space-y-1.5 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 max-h-60 overflow-y-auto mb-4">
+      <p class="text-slate-400 text-sm">Loading members…</p>
+    </div>
+    <div class="flex items-center gap-2 mb-4">
+      <button type="button" onclick="sendEmailSelectAll(true)" class="text-xs text-indigo-400 hover:text-indigo-300">Select all</button>
+      <span class="text-slate-600">·</span>
+      <button type="button" onclick="sendEmailSelectAll(false)" class="text-xs text-slate-400 hover:text-slate-300">Deselect all</button>
+    </div>
+    <div id="send-email-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
+    <div class="flex justify-end gap-3">
+      <button type="button" onclick="closeSendEmailModal()" class="btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="confirmSendEmail()" class="btn-primary text-sm">Send Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clear Votes Modal -->
+<div id="clear-votes-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-sm">
+    <h2 class="text-lg font-bold text-white mb-2">Clear all votes?</h2>
+    <p class="text-sm text-slate-400 mb-5">This removes every vote and resets voter completion status. The poll stays open.</p>
+    <label class="flex items-start gap-3 cursor-pointer mb-6 group">
+      <input id="clear-votes-email-cb" type="checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 flex-shrink-0" checked />
+      <span class="text-sm text-slate-300 leading-snug">Email voters who have joined to let them know they need to re-vote</span>
+    </label>
+    <div class="flex justify-end gap-3">
+      <button type="button" onclick="closeClearVotesModal()" class="btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="confirmClearVotes()" class="btn-primary text-sm" style="background:#ef4444;border-color:#ef4444">Clear Votes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Voter Breakdown Modal -->
+<div id="voter-breakdown-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
+    <div class="flex items-center justify-between mb-4 gap-4 flex-shrink-0">
+      <h2 id="voter-breakdown-title" class="text-lg font-bold text-white">Voters</h2>
+      <button type="button" onclick="closeVoterBreakdown()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="voter-breakdown-body" class="overflow-y-auto space-y-3 flex-1 pr-1"></div>
+  </div>
+</div>
+
+<!-- Invite Link Modal -->
+<div id="invite-link-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-xl">
+    <div class="flex items-center justify-between mb-4 gap-4">
+      <div>
+        <h2 class="text-lg font-bold text-white">Secure voter invite</h2>
+        <p id="invite-link-subtitle" class="text-sm text-slate-400 mt-1">Generate a poll-specific link for members.</p>
+      </div>
+      <button type="button" onclick="closeInviteModal()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div id="invite-link-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg"></div>
+      <div>
+        <label class="text-xs text-slate-400 mb-2 block font-medium">Share this URL with voters</label>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <input id="invite-link-field" type="text" readonly class="input-base flex-1 text-xs sm:text-sm text-white placeholder:text-slate-400"/>
+          <button type="button" onclick="copyInviteLink()" class="btn-primary text-sm whitespace-nowrap">Copy Link</button>
+        </div>
+      </div>
+      <div class="surface-muted p-4 text-xs text-slate-400 rounded-2xl space-y-2">
+        <p>Members who open this link can browse the poll immediately. They'll be asked for their PIN only when they choose to join and vote.</p>
+        <p>Regenerating the link invalidates the old one — anyone with the old link will not be able to use it.</p>
+      </div>
+      <div class="flex justify-end">
+        <button type="button" onclick="regenerateInviteLink()" class="btn-ghost text-xs text-amber-400 border-amber-800 hover:border-amber-600">🔄 Regenerate Link</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Poll Modal -->
+<div id="new-poll-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="poll-modal-title" class="text-lg font-bold" style="color:var(--text-primary)">Edit Poll</h2>
+      <button onclick="closeNewPollModal()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form onsubmit="submitPollForm(event)">
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1" style="color:var(--text-secondary)">Poll Title</label>
+        <input id="poll-title" type="text" placeholder="e.g. Weekend of March 14"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-2" style="color:var(--text-secondary)">Target Dates</label>
+        <div class="border border-slate-600 rounded-lg overflow-hidden bg-slate-800/60">
+          <div class="flex items-center justify-between px-3 py-2 bg-slate-700/40 border-b border-slate-600">
+            <button type="button" onclick="calNav(-1)" class="text-slate-400 hover:text-white p-0.5 rounded transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+            </button>
+            <span id="cal-month-label" class="text-sm font-semibold text-white"></span>
+            <button type="button" onclick="calNav(1)" class="text-slate-400 hover:text-white p-0.5 rounded transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+            </button>
+          </div>
+          <div class="p-2">
+            <div class="grid grid-cols-7 text-center mb-1">
+              {% for d in ['Su','Mo','Tu','We','Th','Fr','Sa'] %}
+              <div class="text-xs text-slate-500 py-1">{{ d }}</div>
+              {% endfor %}
+            </div>
+            <div id="cal-grid" class="grid grid-cols-7 gap-0.5"></div>
+          </div>
+        </div>
+        <div id="cal-selected" class="flex flex-wrap gap-1.5 mt-2 min-h-[1.5rem]"></div>
+      </div>
+      <div id="poll-create-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeNewPollModal()" class="btn-ghost text-sm">Cancel</button>
+        <button type="submit" id="poll-modal-submit" class="btn-primary text-sm">Save Changes</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -663,12 +906,57 @@ async function triggerMoviesFetch() {
   _startJobPoller(data.job_id, 'fetch-job-area-movies');
 }
 
-/* ── Fetch single movie ─────────────────────────────────────────────────── */
+/* ── Per-movie date state (Task 6) ──────────────────────────────────────── */
+const _movieDateState = {};
+
+function _initMovieDates(eventId) {
+  const container = document.getElementById('refetch-dates-' + eventId);
+  if (!container) return;
+  const pollDates = (container.dataset.pollDates || '').split(',').filter(Boolean);
+  _movieDateState[eventId] = new Set(pollDates);
+  _renderMovieDates(eventId);
+}
+
+function _renderMovieDates(eventId) {
+  const container = document.getElementById('refetch-dates-' + eventId);
+  if (!container) return;
+  const dates = [..._movieDateState[eventId]].sort();
+  container.innerHTML = dates.map(d =>
+    `<span class="inline-flex items-center gap-1 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 text-xs text-white">
+      ${d}
+      <button type="button" onclick="removeRefetchDate(${eventId}, '${d}')" class="text-slate-400 hover:text-red-400 ml-0.5">×</button>
+    </span>`
+  ).join('');
+}
+
+function addRefetchDate(eventId) {
+  const input = document.getElementById('refetch-date-input-' + eventId);
+  if (!input) return;
+  if (input.classList.contains('hidden')) {
+    input.classList.remove('hidden');
+    input.focus();
+    input.onchange = () => {
+      if (input.value) {
+        if (!_movieDateState[eventId]) _movieDateState[eventId] = new Set();
+        _movieDateState[eventId].add(input.value);
+        _renderMovieDates(eventId);
+        input.value = '';
+      }
+      input.classList.add('hidden');
+    };
+  }
+}
+
+function removeRefetchDate(eventId, date) {
+  if (_movieDateState[eventId]) _movieDateState[eventId].delete(date);
+  _renderMovieDates(eventId);
+}
+
+/* ── Fetch single movie (Task 6: reads per-movie date state) ────────────── */
 async function triggerSingleMovieFetch(eventId) {
   const theaterBoxes = document.querySelectorAll('.refetch-theater-cb-' + eventId + ':checked');
-  const dateBoxes = document.querySelectorAll('.refetch-date-cb-' + eventId + ':checked');
   const theater_ids = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
-  const dates = Array.from(dateBoxes).map(cb => cb.value);
+  const dates = _movieDateState[eventId] ? [..._movieDateState[eventId]].sort() : [];
   if (!theater_ids.length || !dates.length) { showToast('Select at least one theater and date.', 'warn'); return; }
   const resp = await fetch('/api/admin/showtimes/fetch', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -678,6 +966,41 @@ async function triggerSingleMovieFetch(eventId) {
   const data = await resp.json();
   _startJobPoller(data.job_id, 'fetch-job-area-' + eventId);
 }
+
+/* ── Per-movie inline filters (Task 5) ──────────────────────────────────── */
+function filterEventSessions(eventId) {
+  const theater = document.getElementById('ef-theater-' + eventId)?.value || '';
+  const format = document.getElementById('ef-format-' + eventId)?.value || '';
+  const included = document.getElementById('ef-included-' + eventId)?.value || '';
+  const rows = document.querySelectorAll('.ev-time-row-' + eventId);
+  let visible = 0;
+  rows.forEach(row => {
+    const match =
+      (!theater || String(row.dataset.theaterId) === theater) &&
+      (!format || row.dataset.format === format) &&
+      (!included || row.dataset.included === included);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const count = document.getElementById('ef-count-' + eventId);
+  if (count) count.textContent = `${visible} of ${rows.length}`;
+}
+
+function resetEventFilters(eventId) {
+  ['ef-theater-', 'ef-format-', 'ef-included-'].forEach(prefix => {
+    const el = document.getElementById(prefix + eventId);
+    if (el) el.value = '';
+  });
+  filterEventSessions(eventId);
+}
+
+/* ── Init per-movie date pills on page load ─────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[id^="refetch-dates-"]').forEach(container => {
+    const eventId = parseInt(container.dataset.eventId);
+    if (eventId) _initMovieDates(eventId);
+  });
+});
 
 function _startJobPoller(jobId, areaId) {
   const jobArea = document.getElementById(areaId);
@@ -779,6 +1102,227 @@ async function checkSerpApi() {
   } catch(e) {
     badge.innerHTML = '<span class="text-xs text-red-400">Error checking status</span>';
   }
+}
+
+/* ── Poll actions menu ──────────────────────────────────────────────────── */
+function togglePollActionsMenu() {
+  document.getElementById('poll-actions-dropdown').classList.toggle('hidden');
+}
+function closePollActionsMenu() {
+  document.getElementById('poll-actions-dropdown').classList.add('hidden');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#poll-actions-menu')) closePollActionsMenu();
+});
+
+/* ── Calendar (for Edit Poll modal) ────────────────────────────────────── */
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let _calYear, _calMonth, _calSelected = new Set();
+let _editPollId = null;
+
+function calInit() {
+  const now = new Date(); _calYear = now.getFullYear(); _calMonth = now.getMonth(); _calSelected.clear(); calRender();
+}
+function calNav(dir) { _calMonth += dir; if (_calMonth > 11) { _calMonth = 0; _calYear++; } if (_calMonth < 0) { _calMonth = 11; _calYear--; } calRender(); }
+function calRender() {
+  document.getElementById('cal-month-label').textContent = `${MONTHS[_calMonth]} ${_calYear}`;
+  const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
+  const firstDay = new Date(_calYear, _calMonth, 1).getDay();
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  const today = new Date().toISOString().slice(0,10);
+  for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sel = _calSelected.has(iso); const isToday = iso === today;
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = d; btn.dataset.iso = iso;
+    btn.className = `w-full aspect-square text-xs rounded font-medium transition-all ${sel ? 'bg-indigo-600 text-white' : isToday ? 'ring-1 ring-indigo-500 text-indigo-300 hover:bg-indigo-600/20' : 'text-slate-300 hover:bg-slate-600/50'}`;
+    btn.onclick = () => calToggle(iso); grid.appendChild(btn);
+  }
+  calRenderPills();
+}
+function calToggle(iso) { if (_calSelected.has(iso)) _calSelected.delete(iso); else _calSelected.add(iso); calRender(); }
+function calRenderPills() {
+  const sorted = [..._calSelected].sort();
+  document.getElementById('cal-selected').innerHTML = sorted.map(d =>
+    `<span class="inline-flex items-center gap-1 bg-indigo-900/50 text-indigo-300 text-xs px-2 py-0.5 rounded-full border border-indigo-700/50">${d}<button type="button" onclick="calToggle('${d}')" class="text-indigo-400 hover:text-white ml-0.5">×</button></span>`
+  ).join('');
+}
+
+function closeNewPollModal() { document.getElementById('new-poll-modal').classList.add('hidden'); _editPollId = null; }
+function openEditPollModal(pollId, pollTitle, pollDates) {
+  _editPollId = pollId;
+  document.getElementById('poll-modal-title').textContent = 'Edit Poll';
+  document.getElementById('poll-modal-submit').textContent = 'Save Changes';
+  document.getElementById('poll-title').value = pollTitle || '';
+  document.getElementById('poll-create-error').classList.add('hidden');
+  calInit();
+  (pollDates || '').split(',').filter(Boolean).forEach(d => _calSelected.add(d));
+  calRender();
+  document.getElementById('new-poll-modal').classList.remove('hidden');
+}
+function openEditPollModalFromButton(button) {
+  openEditPollModal(Number(button.dataset.pollId), button.dataset.pollTitle || '', button.dataset.pollDates || '');
+}
+calInit();
+
+async function submitPollForm(e) {
+  e.preventDefault();
+  const title = document.getElementById('poll-title').value.trim();
+  const dates = [..._calSelected].sort();
+  const errEl = document.getElementById('poll-create-error');
+  errEl.classList.add('hidden');
+  if (!title || !dates.length) { errEl.textContent = 'Title and at least one date are required.'; errEl.classList.remove('hidden'); return; }
+  const resp = await fetch(`/api/admin/polls/${_editPollId}`, {
+    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title, dates})
+  });
+  if (resp.ok) { closeNewPollModal(); window.location.reload(); }
+  else { const d = await resp.json(); errEl.textContent = d.detail || 'Error updating poll.'; errEl.classList.remove('hidden'); }
+}
+
+/* ── Publish ────────────────────────────────────────────────────────────── */
+let _publishPollId = null;
+function openPublishModal(id) { _publishPollId = id; document.getElementById('publish-email-cb').checked = true; document.getElementById('publish-modal').classList.remove('hidden'); }
+function openPublishModalFromButton(button) { openPublishModal(Number(button.dataset.pollId)); }
+function closePublishModal() { document.getElementById('publish-modal').classList.add('hidden'); _publishPollId = null; }
+async function confirmPublish() {
+  if (!_publishPollId) return;
+  const pollId = _publishPollId; const sendEmail = document.getElementById('publish-email-cb').checked;
+  closePublishModal();
+  const r = await fetch(`/api/admin/polls/${pollId}/publish`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({send_email: sendEmail}) });
+  if (r.ok) { const d = await r.json(); showToast(`Poll published · ${sendEmail ? d.emails_sent + ' email(s) sent' : 'no emails'}.`, 'info'); window.location.reload(); }
+  else { const d = await r.json(); showToast(d.detail || 'Error publishing.', 'error'); }
+}
+
+/* ── Send Email ─────────────────────────────────────────────────────────── */
+let _sendEmailPollId = null;
+let _sendEmailMembers = [];
+async function openSendEmailModal(pollId, pollTitle) {
+  _sendEmailPollId = pollId; _sendEmailMembers = [];
+  document.getElementById('send-email-subtitle').textContent = `Send voting link for "${pollTitle}" to selected members.`;
+  document.getElementById('send-email-error').classList.add('hidden');
+  const list = document.getElementById('send-email-member-list');
+  list.innerHTML = '<p class="text-slate-400 text-sm">Loading members…</p>';
+  document.getElementById('send-email-modal').classList.remove('hidden');
+  const r = await fetch(`/api/admin/polls/${pollId}/voter-breakdown`);
+  if (!r.ok) { list.innerHTML = '<p class="text-red-400 text-sm">Failed to load members.</p>'; return; }
+  const data = await r.json();
+  const r2 = await fetch('/api/admin/users');
+  const allUsers = r2.ok ? (await r2.json()) : [];
+  _sendEmailMembers = allUsers.filter(u => !u.is_admin && u.email);
+  if (!_sendEmailMembers.length) { list.innerHTML = '<p class="text-slate-400 text-sm">No members with email addresses found.</p>'; return; }
+  const votedIds = new Set((data.voters || []).filter(v => v.has_completed_voting).map(v => v.user_id));
+  list.innerHTML = _sendEmailMembers.map(m => {
+    const voted = votedIds.has(m.id) ? ' <span class="text-green-400 text-xs">(voted)</span>' : '';
+    return `<label class="flex items-center gap-2 cursor-pointer py-0.5"><input type="checkbox" class="send-email-member-cb accent-indigo-500 w-4 h-4" value="${m.id}" checked /><span class="text-sm text-white">${m.name}${voted}</span><span class="text-xs text-slate-500 truncate">${m.email}</span></label>`;
+  }).join('');
+}
+function openSendEmailModalFromButton(button) { openSendEmailModal(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll'); }
+function closeSendEmailModal() { document.getElementById('send-email-modal').classList.add('hidden'); _sendEmailPollId = null; }
+function sendEmailSelectAll(checked) { document.querySelectorAll('.send-email-member-cb').forEach(cb => cb.checked = checked); }
+async function confirmSendEmail() {
+  if (!_sendEmailPollId) return;
+  const userIds = [...document.querySelectorAll('.send-email-member-cb:checked')].map(cb => parseInt(cb.value));
+  const errEl = document.getElementById('send-email-error'); errEl.classList.add('hidden');
+  if (!userIds.length) { errEl.textContent = 'Select at least one member.'; errEl.classList.remove('hidden'); return; }
+  const r = await fetch(`/api/admin/polls/${_sendEmailPollId}/send-email`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_ids: userIds}) });
+  if (r.ok) { const d = await r.json(); closeSendEmailModal(); showToast(`${d.emails_sent} email(s) sent.`, 'info'); }
+  else { const d = await r.json(); errEl.textContent = d.detail || 'Failed to send emails.'; errEl.classList.remove('hidden'); }
+}
+
+/* ── Clear Votes ────────────────────────────────────────────────────────── */
+let _clearVotesPollId = null;
+function clearVotesFromButton(button) { _clearVotesPollId = Number(button.dataset.pollId); document.getElementById('clear-votes-email-cb').checked = true; document.getElementById('clear-votes-modal').classList.remove('hidden'); }
+function closeClearVotesModal() { document.getElementById('clear-votes-modal').classList.add('hidden'); _clearVotesPollId = null; }
+async function confirmClearVotes() {
+  if (!_clearVotesPollId) return;
+  const pollId = _clearVotesPollId; const sendEmail = document.getElementById('clear-votes-email-cb').checked;
+  closeClearVotesModal();
+  const r = await fetch(`/api/admin/polls/${pollId}/clear-votes`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({send_email: sendEmail}) });
+  if (r.ok) { const d = await r.json(); showToast(`Cleared ${d.votes_cleared} vote(s).`, 'info'); window.location.reload(); }
+  else { const d = await r.json(); showToast(d.detail || 'Error clearing votes.', 'error'); }
+}
+
+/* ── Voter Breakdown ────────────────────────────────────────────────────── */
+function closeVoterBreakdown() { document.getElementById('voter-breakdown-modal').classList.add('hidden'); }
+async function showVoterBreakdown(pollId, pollTitle) {
+  document.getElementById('voter-breakdown-title').textContent = `Voters — ${pollTitle}`;
+  const body = document.getElementById('voter-breakdown-body');
+  body.innerHTML = '<p class="text-slate-400 text-sm">Loading…</p>';
+  document.getElementById('voter-breakdown-modal').classList.remove('hidden');
+  const r = await fetch(`/api/admin/polls/${pollId}/voter-breakdown`);
+  if (!r.ok) { body.innerHTML = '<p class="text-red-400 text-sm">Failed to load.</p>'; return; }
+  const data = await r.json();
+  if (!data.voters.length) { body.innerHTML = '<p class="text-slate-400 text-sm">No voters.</p>'; return; }
+  const colors = ['#22C55E','#F59E0B','#3B82F6','#8B5CF6','#EF4444','#EC4899'];
+  body.innerHTML = data.voters.map((v, i) => {
+    const color = colors[i % colors.length];
+    const statusLabel = !v.is_participating ? 'Not joined' : v.is_flexible ? '🔄 Flexible' : v.has_completed_voting ? '✓ Done' : '⏳ Pending';
+    const statusColor = !v.is_participating ? '#64748b' : v.is_flexible ? '#F59E0B' : v.has_completed_voting ? '#22C55E' : '#94a3b8';
+    let picksHtml = v.is_flexible ? '<p class="text-slate-400 text-xs italic">Available for all showtimes</p>'
+      : !v.picks.length ? '<p class="text-slate-500 text-xs italic">No selections yet</p>'
+      : v.picks.map(p => { const h = parseInt(p.session_time.split(':')[0]); const m = p.session_time.split(':')[1] || '00'; const ampm = h < 12 ? 'AM' : 'PM'; const h12 = h % 12 || 12; return `<div class="text-xs text-slate-300 py-0.5">${p.event_title} · ${h12}:${m} ${ampm} · ${p.theater_name} · ${p.session_date}</div>`; }).join('');
+    return `<div class="border border-slate-700 rounded-xl p-3 space-y-2"><div class="flex items-center gap-2"><div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#000;flex-shrink:0">${v.name[0].toUpperCase()}</div><span class="text-sm font-semibold text-white flex-1">${v.name}</span><span style="font-size:11px;font-weight:600;color:${statusColor}">${statusLabel}</span></div><div class="pl-9">${picksHtml}</div></div>`;
+  }).join('');
+}
+function showVoterBreakdownFromButton(button) { showVoterBreakdown(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll'); }
+
+/* ── Invite Link ────────────────────────────────────────────────────────── */
+let _currentInvitePollId = null;
+function closeInviteModal() { document.getElementById('invite-link-modal').classList.add('hidden'); _currentInvitePollId = null; }
+async function showInviteLink(pollId, pollTitle) {
+  _currentInvitePollId = pollId;
+  const modal = document.getElementById('invite-link-modal');
+  const input = document.getElementById('invite-link-field');
+  const error = document.getElementById('invite-link-error');
+  document.getElementById('invite-link-subtitle').textContent = `Invite voters to ${pollTitle}.`;
+  input.value = 'Generating secure link…'; error.classList.add('hidden'); modal.classList.remove('hidden');
+  const resp = await fetch(`/api/admin/polls/${pollId}/invite-link`, {method: 'POST'});
+  if (!resp.ok) { const data = await resp.json(); input.value = ''; error.textContent = data.detail || 'Unable to generate the invite link.'; error.classList.remove('hidden'); return; }
+  const data = await resp.json(); input.value = data.invite_url; input.select();
+}
+function showInviteLinkFromButton(button) { showInviteLink(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll'); }
+async function regenerateInviteLink() {
+  if (!_currentInvitePollId) return;
+  showConfirm('Regenerate the invite link? The old link will stop working immediately.', async () => {
+    const input = document.getElementById('invite-link-field'); const error = document.getElementById('invite-link-error');
+    input.value = 'Regenerating…'; error.classList.add('hidden');
+    const resp = await fetch(`/api/admin/polls/${_currentInvitePollId}/regenerate-invite`, {method: 'POST'});
+    if (!resp.ok) { const data = await resp.json(); error.textContent = data.detail || 'Failed to regenerate link.'; error.classList.remove('hidden'); input.value = ''; return; }
+    const data = await resp.json(); input.value = data.invite_url; input.select(); showToast('Invite link regenerated. Old link is now invalid.', 'info');
+  }, 'Regenerate', true);
+}
+async function copyInviteLink() {
+  const input = document.getElementById('invite-link-field'); if (!input.value) return;
+  try {
+    if (window.isSecureContext && navigator.clipboard) { await navigator.clipboard.writeText(input.value); }
+    else { input.focus(); input.select(); document.execCommand('copy'); }
+    showToast('Invite link copied.', 'info');
+  } catch(e) { input.focus(); input.select(); showToast('Copy failed — link is selected, copy manually.', 'warn'); }
+}
+
+/* ── Duplicate / Delete / Close ─────────────────────────────────────────── */
+async function duplicatePollFromButton(button) {
+  const id = Number(button.dataset.pollId);
+  const r = await fetch(`/api/admin/polls/${id}/duplicate`, {method: 'POST'});
+  if (r.ok) { const d = await r.json(); showToast(`Created "${d.title}" as DRAFT.`, 'info'); window.location.href = '/admin'; }
+  else { const d = await r.json(); showToast(d.detail || 'Error duplicating poll.', 'error'); }
+}
+function deletePollFromButton(button) {
+  const id = Number(button.dataset.pollId);
+  showConfirm('Permanently delete this poll? This cannot be undone.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}`, {method:'DELETE'});
+    if (r.ok) window.location.href = '/admin';
+    else { const d = await r.json(); showToast(d.detail || 'Error deleting.', 'error'); }
+  }, 'Delete', true);
+}
+function closePollFromButton(button) {
+  const id = Number(button.dataset.pollId);
+  showConfirm('Close this poll? No new votes will be accepted.', async () => {
+    const r = await fetch(`/api/admin/polls/${id}/close`, {method:'POST'});
+    if (r.ok) window.location.reload();
+    else { const d = await r.json(); showToast(d.detail || 'Error closing.', 'error'); }
+  }, 'Close Poll');
 }
 </script>
 {% endblock %}
