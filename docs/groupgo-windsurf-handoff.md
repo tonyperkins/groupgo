@@ -20,7 +20,7 @@ GroupGo is a family movie-night coordinator — and in V2, a generic group activ
 - React 18 + Vite + TypeScript for the voter SPA (`voter-spa/`)
 - Docker + Portainer, deployed via `docker compose up -d --build`
 
-**Repo:** `v2-generic-events` branch, git remote is GitHub (`tonyperkins/groupgo`)
+**Repo:** `master` branch, git remote is GitHub (`tonyperkins/groupgo`)
 
 ---
 
