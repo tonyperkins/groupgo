@@ -341,7 +341,7 @@
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
             Add date
           </button>
-          <input type="date" id="refetch-date-input-{{ ev.id }}" class="hidden input-base text-xs py-1 px-2" style="width:auto"/>
+          <input type="date" id="refetch-date-input-{{ ev.id }}" class="hidden input-base text-xs py-1 px-2" style="width:auto;display:none"/>
           <button onclick="triggerSingleMovieFetch({{ ev.id }})" class="ml-auto px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs hover:border-indigo-500 hover:text-white transition-colors">↓ Fetch</button>
         </div>
       </div>
@@ -411,55 +411,12 @@
         Add time manually
       </button>
 
-      <!-- Times list -->
-      {% if ev_sessions %}
-      <div id="ev-times-{{ ev.id }}" class="divide-y divide-slate-700/50">
-        {% for s in ev_sessions | sort(attribute='session_date') %}
-        {% set t_obj = theater_map.get(s.theater_id) if s.theater_id else none %}
-        <div class="flex items-center gap-3 py-2 ev-time-row-{{ ev.id }} {% if not s.is_included %}opacity-40{% endif %}"
-          data-theater-id="{{ s.theater_id or '' }}"
-          data-format="{{ s.format or '' }}"
-          data-included="{{ 'true' if s.is_included else 'false' }}"
-          data-raw-time="{{ s.session_time }}">
-          <span class="text-xs text-slate-400 w-16 shrink-0">{{ s.session_date | short_date }}</span>
-          <span class="text-sm font-medium w-16 shrink-0">{{ s.session_time | display_time }}</span>
-          <span class="text-xs text-slate-400 flex-1 truncate">
-            {% if t_obj %}{{ t_obj.name }}{% elif ev.venue_name %}{{ ev.venue_name }}{% endif %}
-          </span>
-          {% if is_movie and s.format and s.format != 'Standard' %}
-          <span class="text-xs px-1.5 py-0.5 rounded font-semibold bg-indigo-900/60 text-indigo-300">{{ s.format }}</span>
-          {% endif %}
-          <span class="text-xs {% if s.is_custom %}text-slate-400{% else %}text-green-500{% endif %}">{{ 'Manual' if s.is_custom else 'Auto' }}</span>
-          <button data-session-id="{{ s.id }}" data-current-included="{{ 'true' if s.is_included else 'false' }}"
-            onclick="toggleSessionVisibility(Number(this.dataset.sessionId), this.dataset.currentIncluded === 'true')"
-            title="{{ 'Remove from poll' if s.is_included else 'Add to poll' }}"
-            class="w-6 h-6 rounded-full flex items-center justify-center text-xs border transition-all flex-shrink-0
-              {{ 'bg-green-900/40 text-green-400 border-green-800 hover:opacity-60' if s.is_included else 'bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800' }}">
-            {{ '✓' if s.is_included else '○' }}
-          </button>
-          <button
-            data-confirm-message="Delete this time?"
-            hx-delete="/api/admin/showtimes/{{ s.id }}"
-            hx-target="#event-section-{{ ev.id }}"
-            hx-swap="outerHTML"
-            hx-trigger="confirmed"
-            onclick="confirmHtmxButton(this); return false;"
-            class="text-slate-600 hover:text-red-400 transition-colors p-1 flex-shrink-0">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <!-- Inline add-time form (Task 5: compact natural-width fields) -->
+      <!-- Inline add-time form — immediately below CTA, before times list -->
       <form id="add-time-form-{{ ev.id }}"
             hx-post="/api/admin/showtimes"
             hx-target="#event-section-{{ ev.id }}"
             hx-swap="outerHTML"
-            class="hidden p-3 rounded-xl bg-slate-900/50 border border-slate-600/60 border-dashed mt-1">
+            class="hidden p-3 rounded-xl bg-slate-900/50 border border-slate-600/60 border-dashed">
         <div class="text-xs font-medium text-slate-400 mb-2">Add a time</div>
         <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
         <input type="hidden" name="event_id" value="{{ ev.id }}"/>
@@ -972,8 +929,8 @@ function _renderMovieDates(eventId) {
 function addRefetchDate(eventId) {
   const input = document.getElementById('refetch-date-input-' + eventId);
   if (!input) return;
-  if (input.classList.contains('hidden')) {
-    input.classList.remove('hidden');
+  if (input.style.display === 'none' || !input.style.display) {
+    input.style.display = '';
     input.focus();
     input.onchange = () => {
       if (input.value) {
@@ -982,7 +939,7 @@ function addRefetchDate(eventId) {
         _renderMovieDates(eventId);
         input.value = '';
       }
-      input.classList.add('hidden');
+      input.style.display = 'none';
     };
   }
 }
@@ -1102,11 +1059,15 @@ async function includeAllEventSessions(eventId) {
   window.location.reload();
 }
 
-/* ── Init per-movie date pills on page load ─────────────────────────────── */
+/* ── Init per-movie date pills and filter mode on page load ─────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('[id^="refetch-dates-"]').forEach(container => {
     const eventId = parseInt(container.dataset.eventId);
-    if (eventId) _initMovieDates(eventId);
+    if (eventId) {
+      _initMovieDates(eventId);
+      // Apply In Poll filter on load so only included rows are shown
+      filterEventSessions(eventId);
+    }
   });
 });
 

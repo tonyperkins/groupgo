@@ -921,12 +921,18 @@ function toggleOverflowMenu(pollId) {
   const isHidden = dropdown.classList.contains('hidden');
   document.querySelectorAll('[id^="overflow-dropdown-"]').forEach(d => d.classList.add('hidden'));
   if (isHidden) {
+    // Move to body to escape any parent stacking context
+    if (dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown);
+      dropdown.style.position = 'fixed';
+      dropdown.style.zIndex = '9999';
+    }
     const rect = btn.getBoundingClientRect();
-    dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    dropdown.style.left = (rect.right + window.scrollX - 180) + 'px';
+    dropdown.style.top = (rect.bottom + 4) + 'px';
+    dropdown.style.left = (rect.right - 180) + 'px';
     dropdown.classList.remove('hidden');
     requestAnimationFrame(() => {
-      dropdown.style.left = (rect.right + window.scrollX - dropdown.offsetWidth) + 'px';
+      dropdown.style.left = (rect.right - dropdown.offsetWidth) + 'px';
     });
   }
 }
