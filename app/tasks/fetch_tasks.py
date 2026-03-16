@@ -104,7 +104,7 @@ async def run_fetch_job(
             theater_name = theater.name
             serpapi_query = theater.serpapi_query
 
-        query = f"{event.title} {serpapi_query}"
+        query = f"{event.title} {theater_name} showtimes"
         logger.info("[fetch_job %s] Query: %r date=%s", job_id, query, date)
         try:
             raw = await fetch_showtimes_from_serpapi(query, date)
