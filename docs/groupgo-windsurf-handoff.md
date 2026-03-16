@@ -543,7 +543,52 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Poll setup page — replace "Build your poll" with poll name
+- **File:** `templates/admin/movies.html`
+- Replace the H1 "Build your poll" with the actual poll title (e.g. "Movie OR Dinner")
+- Add a small pencil/edit icon next to the title that opens the Edit Poll dialog (already exists on dashboard)
+- Keep "Build your poll" as a small subtitle or breadcrumb label if needed for context
+- Remove the "POLL SETUP" pill — redundant given the breadcrumb and step indicator
+
+#### 2. Admin header — remove redundant "Admin" badge + update subtitle
+- **File:** `templates/admin/base_admin.html` (or wherever the header lives)
+- Remove the "Admin" badge/pill next to the GroupGo logo — redundant in the admin console
+- Update the subtitle "Admin console for curating the weekly movie plan" to something generic like "Admin console" or remove it entirely
+
+#### 3. Dashboard poll card — rework CTAs
+- **File:** `templates/admin/dashboard.html`
+- Replace the current button cluster (Events, Times, Results, Edit, Invite Link, Voters, Duplicate, Clear Votes, Close, Delete) with a cleaner hierarchy:
+  - **Always visible:** "Edit" (→ `/admin/polls/{id}/movies`), "Invite Link", "Results"
+  - **`...` overflow dropdown:** (Un)Publish, Send Email, Voters, Duplicate, Clear Votes, Close, Delete
+- Remove "Events" and "Times" buttons — both now go to the same page, replaced by "Edit"
+- Fix the overflow dropdown z-index/clipping bug — the dropdown is being clipped by the card's `overflow: hidden`. Fix by either removing `overflow: hidden` from the poll card or rendering the dropdown via absolute positioning with a high z-index that escapes the card boundary
+- "38 showtimes" pill on the card → "38 times" (language consistency)
+
+#### 4. Poll management page — full actions toolbar
+- **File:** `templates/admin/movies.html`
+- Add a compact actions toolbar in the page header area (top right, alongside the poll name)
+- Contains ALL poll actions available in one place:
+  - Prominent: "Invite Link" button
+  - Secondary row or dropdown: (Un)Publish, Send Email, Voters, Duplicate, Clear Votes, Close, Delete
+- This is the "inside the poll" view so everything should be accessible without going back to dashboard
+
+#### 5. Per-movie card — inline filters above times list
+- **File:** `templates/admin/movies.html`
+- Inside each movie event card, above the times list, add:
+  - Time Window filter (From/To dropdowns + "Apply Filter" button + "Include All" button)
+  - Filter dropdowns: **All Venues** (theaters for this movie only) · **All Formats** · **All** (status: included/excluded)
+  - Reset button + count ("18 of 35")
+  - Drop "All Events" dropdown — redundant inside a single movie card
+- These filters operate on that movie's times only
+- The global filters in the Advanced panel remain unchanged — they operate across all movies
+
+#### 6. Per-movie date selection — independent per movie
+- **File:** `templates/admin/movies.html`
+- The per-movie re-fetch mini-panel currently uses the poll-level `PollDate` records for date pills
+- Change: each movie card manages its own date selection independently
+- `PollDate` records remain as a convenience default to pre-populate dates when a movie is first added, but dates can be overridden per-movie in the fetch panel
+- Non-movie events are unaffected (they don't use dates for fetching)
+- No schema changes needed — `Showtime.session_date` already tracks dates per record
 
 ---
 
@@ -555,9 +600,102 @@ _Nothing pending._
 ---
 
 You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting.
-Read docs/mockups/unified-poll-setup.html and docs/mockups/venue-pattern-and-add-time.html fully before touching any code — these are your primary design reference.
-This is the largest single template change in the project. Take your time.
+Read docs/groupgo-windsurf-handoff.md before starting. Six tasks across
+admin templates. No SPA changes, no backend logic changes, no schema changes.
+
+---
+
+### Task 1 — Poll setup page: replace "Build your poll" with poll name
+File: templates/admin/movies.html
+
+- Replace H1 "Build your poll" with `{{ poll.title }}`
+- Add a pencil icon button next to the title that opens the existing Edit Poll dialog
+- Remove the "POLL SETUP" pill entirely
+- Keep a small muted label "Poll setup" as context if needed (breadcrumb level)
+
+---
+
+### Task 2 — Admin header: remove redundant "Admin" badge
+File: templates/admin/base_admin.html (or wherever the nav header lives)
+
+- Remove the "Admin" badge/pill next to the GroupGo logo
+- Update subtitle to just "Admin console" (remove "for curating the weekly movie plan")
+
+---
+
+### Task 3 — Dashboard poll card: rework CTAs + fix dropdown clipping
+File: templates/admin/dashboard.html
+
+1. Replace current button cluster with:
+   - Always visible: "Edit" (→ /admin/polls/{id}/movies), "Invite Link", "Results"
+   - "..." overflow dropdown: (Un)Publish, Send Email, Voters, Duplicate,
+     Clear Votes, Close, Delete
+   - Remove "Events" and "Times" buttons entirely
+
+2. Fix overflow dropdown clipping — the dropdown is cut off by the card.
+   Remove `overflow: hidden` from the poll card container, or use
+   position: fixed with JS to position the dropdown outside the card boundary.
+   The dropdown must render above all other content (z-index: 9999 or portal).
+
+3. "38 showtimes" pill → "38 times"
+
+---
+
+### Task 4 — Poll management page: full actions toolbar
+File: templates/admin/movies.html
+
+Add a compact actions toolbar in the page header (top right area, near poll title).
+Contains all poll actions:
+- Primary button: "Invite Link"
+- Secondary/dropdown: (Un)Publish, Send Email, Voters, Duplicate,
+  Clear Votes, Close, Delete
+Use the same action handlers already wired in dashboard.html — just expose
+them here too. Do not duplicate the backend logic.
+
+---
+
+### Task 5 — Per-movie card: inline filters above times list
+File: templates/admin/movies.html
+
+Inside each movie event card, above the times list, add a filter bar:
+- Time Window: From/To dropdowns + "Apply Filter" button + "Include All" button
+- Filter dropdowns: All Venues (for this movie only) · All Formats · All (status)
+- Reset button + count ("N of M")
+- No "All Events" dropdown — scoped to this movie already
+
+These filters operate on that movie's times only (scope by event_id).
+The global Advanced panel filters remain unchanged.
+Use the existing filter/include logic from admin_session_list.html as reference.
+
+---
+
+### Task 6 — Per-movie fetch: independent date selection per movie
+File: templates/admin/movies.html
+
+The per-movie re-fetch mini-panel currently uses poll-level PollDate records
+for date pills. Make date selection independent per movie:
+
+- Each movie card stores its selected dates in JS state keyed by event ID
+- On first render, pre-populate from PollDate records (existing behavior)
+- Admin can add/remove dates per movie independently without affecting other movies
+- triggerSingleMovieFetch(eventId) already exists — make sure it uses
+  that movie's own date selection, not the global date pills
+
+No schema changes needed.
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "ux: poll name in header; admin CTA rework; per-movie filters and date selection"`
+4. Push: `git push origin master`
 
 ---
 
