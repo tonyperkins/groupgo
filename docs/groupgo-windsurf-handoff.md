@@ -561,6 +561,27 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ---
 
+## Pending — Next Session
+
+#### 1. Bug: Dashboard `...` menu does nothing on OPEN polls
+- **File:** `templates/admin/dashboard.html`
+- Root cause: two different status branches both render `id="overflow-dropdown-{{ poll.id }}"`. `getElementById` returns the first match, so OPEN polls (which use the second branch) never find their dropdown.
+- Fix: give each branch a unique ID suffix, e.g. `overflow-dropdown-{{ poll.id }}-draft` and `overflow-dropdown-{{ poll.id }}-open`, and update `toggleOverflowMenu()` to look up the correct one based on poll status. Or simpler: consolidate the two branches into one dropdown element outside the status branches.
+
+#### 2. Bug: Poll management page `...` Actions menu gets clipped
+- **File:** `templates/admin/movies.html`
+- The `#poll-actions-dropdown` uses `position: absolute` inside a parent container that has `overflow: hidden`, causing the dropdown to be clipped.
+- Fix: switch to `position: fixed` with JS-calculated position (same pattern as the dashboard overflow menu — use `getBoundingClientRect()` to position it).
+
+#### 3. UX: Time window filter (From/To + Apply + Include All) inside each movie card
+- **File:** `templates/admin/movies.html`
+- The time window From/To filter currently lives only in the global Advanced panel.
+- Add it inside each movie event card, above the times list, alongside the existing per-movie venue/format/status filters.
+- It should filter and include/exclude times for that movie only (scoped to that event's sessions).
+- The global Advanced panel time window filter remains unchanged.
+
+---
+
 ## Implementation Prompt
 
 > **Windsurf:** Copy everything below this line and use it as your task prompt.
@@ -568,4 +589,62 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: master).
+Read docs/groupgo-windsurf-handoff.md before starting. Three focused fixes —
+two bugs and one UX addition. No SPA changes, no schema changes.
+
+---
+
+### Task 1 — Bug: Dashboard `...` menu does nothing on OPEN polls
+File: templates/admin/dashboard.html
+
+Two status branches both render id="overflow-dropdown-{{ poll.id }}".
+getElementById returns the first match so OPEN polls never find their dropdown.
+
+Fix: consolidate into a single dropdown element that sits outside both status
+branches, rendered once per poll. Move all the action buttons into this single
+dropdown, conditionally showing/hiding items based on poll.status inside the
+template. The toggleOverflowMenu() function then always finds the right element.
+
+---
+
+### Task 2 — Bug: Poll management page Actions menu clipped
+File: templates/admin/movies.html
+
+#poll-actions-dropdown uses position: absolute inside a parent with
+overflow: hidden — the dropdown is clipped.
+
+Fix: switch to position: fixed. In togglePollActionsMenu(), use
+getBoundingClientRect() on the trigger button to calculate top/left,
+then set them on the dropdown before removing .hidden — same pattern
+as the dashboard's toggleOverflowMenu() function.
+
+---
+
+### Task 3 — UX: Time window filter inside each movie card
+File: templates/admin/movies.html
+
+The From/To time window filter (Apply Filter + Include All buttons) currently
+lives only in the global Advanced panel. Add it inside each movie event card,
+above the times list, alongside the existing per-movie venue/format/status filters.
+
+The per-movie time filter should:
+- Show From/To time dropdowns + Apply Filter button + Include All button
+- Filter that movie's times list only (scoped to ev.id)
+- Work independently from the global Advanced panel filter
+- Use the existing applyTimeWindowFilter(eventId, from, to) pattern or
+  create a new per-event version
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu; actions menu clipping; per-movie time filter"`
+4. Push: `git push origin master`
