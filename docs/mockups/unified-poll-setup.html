@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<!--
+  MOCKUP: Unified Poll Setup Page
+  Purpose: Reference for Windsurf when implementing Session B
+  (collapse Events + Times into one page)
+
+  KEY DESIGN DECISIONS:
+  - Page title "Build your poll" replaces the two-step wizard header
+  - 2-step indicator: Step 1 "Events + Times" (active), Step 2 "Results"
+  - Amber beta banner always shown at top (SerpApi reliability warning)
+  - "Fetch all movie times" card shown only when poll has movie events
+  - Per-event cards: movies first, then non-movies grouped by type
+  - Each movie card has its own re-fetch mini-panel
+  - Fetch status shows per-theater result + verify link after fetch
+  - Fetched times populate INTO the movie's card (not a separate table)
+  - "All cached times" flat table moves inside Fetch card as collapsed "Advanced" panel
+  - Non-movie events: no fetch controls, just times list + Add time
+  - "No times" amber warning state for events with zero times
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup: Unified Poll Setup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #0f1117; color: #e2e8f0; font-family: system-ui, sans-serif; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+  .badge-movie { background: #1e3a5f; color: #60a5fa; }
+  .badge-concert { background: #2d1b69; color: #a78bfa; }
+  .badge-restaurant { background: #14532d; color: #4ade80; }
+  .badge-beta { background: #78350f; color: #fbbf24; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid #334155; background: #1e293b; cursor: pointer; }
+  .pill.checked { background: #1e3a5f; border-color: #3b82f6; color: #93c5fd; }
+  .pill.checked::before { content: "✓ "; font-size: 10px; }
+  .toggle-on { width: 24px; height: 24px; border-radius: 50%; background: #166534; border: 1px solid #22c55e; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #4ade80; cursor: pointer; flex-shrink: 0; }
+  .toggle-off { width: 24px; height: 24px; border-radius: 50%; background: #1e293b; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #64748b; cursor: pointer; flex-shrink: 0; }
+</style>
+</head>
+<body class="p-6">
+<div class="max-w-4xl mx-auto space-y-4">
+
+  <!-- PAGE HEADER -->
+  <div>
+    <div class="text-xs text-slate-500 mb-1">POLL SETUP</div>
+    <h1 class="text-2xl font-semibold">Build your poll</h1>
+    <p class="text-sm text-slate-400 mt-1">Add events and their times, then publish for your group to vote.</p>
+  </div>
+
+  <!-- 2-STEP INDICATOR (was 3-step) -->
+  <div class="grid grid-cols-2 gap-2">
+    <!-- Step 1 — ACTIVE -->
+    <div class="flex items-center gap-3 p-3 rounded-xl border border-indigo-500 bg-indigo-950">
+      <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold text-white">1</div>
+      <div>
+        <div class="text-sm font-medium text-indigo-200">Events + Times</div>
+        <div class="text-xs text-indigo-400">Add events and set times</div>
+      </div>
+    </div>
+    <!-- Step 2 -->
+    <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800/50">
+      <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-400">2</div>
+      <div>
+        <div class="text-sm font-medium text-slate-400">Results</div>
+        <div class="text-xs text-slate-500">Declare the winner</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BETA BANNER — always shown -->
+  <div class="flex items-center gap-3 p-3 rounded-xl border border-amber-700 bg-amber-950/50">
+    <span class="badge badge-beta">BETA</span>
+    <span class="text-sm text-amber-200">Auto-fetch from Google may be incomplete or unavailable for some theaters. Always verify times before publishing. Use manual add as a fallback.</span>
+  </div>
+
+  <!-- FETCH ALL MOVIE TIMES CARD — only shown when poll has movie events -->
+  <!--
+    LOGIC: {% if movie_events %} ... {% endif %}
+    Contains:
+    - Movie pills (one per movie in poll)
+    - Theater pills (from poll's venue list)
+    - Date pills (from poll's PollDate records)
+    - Fetch button + Check API button
+    - After fetch: per-theater status rows with verify links
+    - "Advanced" collapsible panel containing the flat cached times table
+  -->
+  <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+    <div class="p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fetch all movie times from Google</div>
+          <div class="text-xs text-slate-500 mt-0.5">Project Hail Mary · Hoppers — 40 cached times</div>
+        </div>
+        <span class="badge badge-beta text-xs">BETA</span>
+      </div>
+
+      <!-- Movie pills -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 w-16">Movies</span>
+        <span class="pill checked">Project Hail Mary</span>
+        <span class="pill checked">Hoppers</span>
+      </div>
+
+      <!-- Theater pills -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 w-16">Theaters</span>
+        <span class="pill checked">AMC Lakeline 9</span>
+        <span class="pill checked">Cinemark Cedar Park</span>
+      </div>
+
+      <!-- Date pills with verify links -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 w-16">Dates</span>
+        <span class="pill checked">Sat Mar 21</span>
+        <a href="#" class="text-xs text-indigo-400 hover:text-indigo-300 underline">↗ verify AMC</a>
+        <a href="#" class="text-xs text-indigo-400 hover:text-indigo-300 underline">↗ verify Cinemark</a>
+        <span class="pill checked">Sun Mar 22</span>
+        <a href="#" class="text-xs text-indigo-400 hover:text-indigo-300 underline">↗ verify AMC</a>
+        <a href="#" class="text-xs text-indigo-400 hover:text-indigo-300 underline">↗ verify Cinemark</a>
+      </div>
+
+      <!-- Fetch status (shown after fetch runs) -->
+      <div class="flex items-center gap-4 flex-wrap text-xs">
+        <span class="text-green-400">✓ AMC Lakeline 9 — 22 times found</span>
+        <span class="text-amber-400">⚠ Cinemark Cedar Park — 0 times found (try manually or retry)</span>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex items-center gap-3 pt-1">
+        <button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">↓ Fetch times</button>
+        <button class="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 text-sm">Check API status</button>
+        <span class="text-xs text-slate-500">Uses SerpApi · counts toward monthly quota</span>
+      </div>
+    </div>
+
+    <!-- ADVANCED PANEL — collapsed by default, contains flat cached times table -->
+    <!--
+      IMPLEMENTATION NOTE:
+      This replaces the standalone "All cached times" section that was
+      previously at the bottom of the showtimes.html page.
+      Toggle with onclick="toggleAdvancedPanel()"
+      id="advanced-times-panel" class="hidden"
+      Contains: time window filter + full flat table with include/exclude toggles
+    -->
+    <div class="border-t border-slate-700">
+      <button class="w-full flex items-center justify-between px-4 py-3 text-xs text-slate-400 hover:text-slate-300">
+        <span>All cached times (40) — filter, include/exclude, delete</span>
+        <span>▾</span>
+      </button>
+      <!-- Panel body hidden by default — contains existing flat table -->
+    </div>
+  </div>
+
+  <!-- EVENT CARDS — movies first, then non-movies by type -->
+  <!--
+    SORT ORDER: {% set sorted_events = movie_events + non_movie_events %}
+    where non_movie_events are grouped by event_type
+  -->
+
+  <!-- MOVIE EVENT CARD — Project Hail Mary -->
+  <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+    <!-- Card header — always visible, click to expand/collapse -->
+    <div class="flex items-center gap-3 p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
+      <img src="" alt="" class="w-10 h-14 rounded object-cover bg-slate-700 flex-shrink-0">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-medium">Project Hail Mary</span>
+          <span class="badge badge-movie">Movie</span>
+        </div>
+        <div class="text-xs text-slate-400 mt-0.5">2026 · 2h 37m</div>
+      </div>
+      <span class="text-xs text-slate-400">18 times</span>
+      <span class="text-slate-400">▾</span>
+    </div>
+
+    <!-- Card body — expandable -->
+    <div class="border-t border-slate-700 p-4 space-y-3">
+
+      <!-- Per-movie re-fetch mini panel (movie events only) -->
+      <div class="flex items-center gap-2 flex-wrap p-3 rounded-lg bg-slate-900/50 border border-slate-700">
+        <span class="text-xs text-slate-400">Re-fetch this movie:</span>
+        <span class="pill checked">AMC Lakeline 9</span>
+        <span class="pill checked">Cinemark Cedar Park</span>
+        <span class="pill checked">Sat Mar 21</span>
+        <span class="pill checked">Sun Mar 22</span>
+        <button class="ml-auto px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs">↓ Fetch</button>
+      </div>
+
+      <!-- Fetch status for this movie (shown after fetch) -->
+      <div class="flex items-center gap-4 text-xs">
+        <span class="text-green-400">✓ AMC Lakeline 9 — 9 times</span>
+        <a href="#" class="text-indigo-400 underline text-xs">↗ verify</a>
+        <span class="text-amber-400">⚠ Cinemark — 0 times</span>
+        <a href="#" class="text-indigo-400 underline text-xs">↗ verify</a>
+      </div>
+
+      <!-- Times list -->
+      <div class="divide-y divide-slate-700/50">
+        <div class="flex items-center gap-3 py-2">
+          <span class="text-xs text-slate-400 w-16">Sat Mar 21</span>
+          <span class="text-sm font-medium w-16">8:55 AM</span>
+          <span class="text-xs text-slate-400 flex-1">AMC Lakeline 9</span>
+          <span class="badge" style="background:#1e3a5f;color:#60a5fa;font-size:10px">STD</span>
+          <span class="text-xs text-green-500">Auto</span>
+          <div class="toggle-on">✓</div>
+          <span class="text-slate-500 cursor-pointer px-1">×</span>
+        </div>
+        <div class="flex items-center gap-3 py-2">
+          <span class="text-xs text-slate-400 w-16">Sat Mar 21</span>
+          <span class="text-sm font-medium w-16">11:20 AM</span>
+          <span class="text-xs text-slate-400 flex-1">AMC Lakeline 9</span>
+          <span class="badge" style="background:#14532d;color:#4ade80;font-size:10px">IMAX</span>
+          <span class="text-xs text-green-500">Auto</span>
+          <div class="toggle-off">✓</div>
+          <span class="text-slate-500 cursor-pointer px-1">×</span>
+        </div>
+        <div class="flex items-center gap-3 py-2">
+          <span class="text-xs text-slate-400 w-16">Sat Mar 21</span>
+          <span class="text-sm font-medium w-16">2:10 PM</span>
+          <span class="text-xs text-slate-400 flex-1">AMC Lakeline 9</span>
+          <span class="badge" style="background:#1e3a5f;color:#60a5fa;font-size:10px">STD</span>
+          <span class="text-xs text-green-500">Auto</span>
+          <div class="toggle-on">✓</div>
+          <span class="text-slate-500 cursor-pointer px-1">×</span>
+        </div>
+      </div>
+
+      <!-- Inline Add time form (collapsed by default, expands on click) -->
+      <!--
+        IMPLEMENTATION: hidden div, toggle with onclick="toggleAddTimeForm(eventId)"
+        For movie events: show theater dropdown + format dropdown
+        For non-movie events: NO theater/format fields (use event.venue_name silently)
+      -->
+      <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-600 border-dashed space-y-2">
+        <div class="text-xs font-medium text-slate-400">Add a time manually</div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <select class="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-sm text-slate-200">
+            <option>AMC Lakeline 9</option>
+            <option>Cinemark Cedar Park</option>
+          </select>
+          <input type="date" value="2026-03-21" class="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-sm text-slate-200">
+          <select class="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-sm text-slate-200">
+            <option>Standard</option><option>IMAX</option><option>D-BOX</option>
+          </select>
+          <select class="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-sm text-slate-200">
+            <option>8:00 AM</option><option>9:00 AM</option><option>10:00 AM</option>
+          </select>
+          <button class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Add</button>
+          <button class="px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs">Cancel</button>
+        </div>
+      </div>
+
+      <button class="text-xs text-indigo-400 hover:text-indigo-300">+ Add time manually</button>
+    </div>
+  </div>
+
+  <!-- NON-MOVIE EVENT CARD — Concert (no fetch controls) -->
+  <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+    <div class="flex items-center gap-3 p-4 cursor-pointer">
+      <div class="w-10 h-14 rounded bg-slate-700 flex items-center justify-center text-slate-500 text-lg flex-shrink-0">🎵</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2">
+          <span class="font-medium">Alabama In Concert</span>
+          <span class="badge badge-concert">Concert</span>
+        </div>
+        <div class="text-xs text-slate-400 mt-0.5">📍 3323 Concert St</div>
+      </div>
+      <span class="text-xs text-slate-400">1 time</span>
+      <span class="text-slate-400">▾</span>
+    </div>
+    <div class="border-t border-slate-700 p-4 space-y-3">
+      <!-- No fetch controls for non-movie events -->
+      <div class="divide-y divide-slate-700/50">
+        <div class="flex items-center gap-3 py-2">
+          <span class="text-xs text-slate-400 w-16">Sat Mar 21</span>
+          <span class="text-sm font-medium w-16">7:30 PM</span>
+          <span class="text-xs text-slate-400 flex-1">3323 Concert St</span>
+          <span class="text-xs text-green-500">Manual</span>
+          <div class="toggle-on">✓</div>
+          <span class="text-slate-500 cursor-pointer px-1">×</span>
+        </div>
+      </div>
+      <button class="text-xs text-indigo-400 hover:text-indigo-300">+ Add time</button>
+    </div>
+  </div>
+
+  <!-- NON-MOVIE EVENT CARD — Restaurant with NO TIMES (warning state) -->
+  <div class="rounded-xl border border-amber-800/50 bg-slate-800 overflow-hidden">
+    <div class="flex items-center gap-3 p-4 cursor-pointer">
+      <div class="w-10 h-14 rounded bg-slate-700 flex items-center justify-center text-slate-500 text-lg flex-shrink-0">🍽</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2">
+          <span class="font-medium">Dinner at Steak it all</span>
+          <span class="badge badge-restaurant">Restaurant</span>
+        </div>
+        <div class="text-xs text-slate-400 mt-0.5">📍 123 Street</div>
+      </div>
+      <!-- "No times" warning shown in time count position -->
+      <span class="text-xs text-amber-400 font-medium">No times</span>
+      <span class="text-slate-400">▾</span>
+    </div>
+    <div class="border-t border-amber-800/30 p-4 space-y-3">
+      <p class="text-xs text-amber-300/80">No times added yet. Voters won't see this event until at least one time is added.</p>
+      <button class="text-xs text-indigo-400 hover:text-indigo-300">+ Add time</button>
+    </div>
+  </div>
+
+  <!-- ADD EVENT BUTTON -->
+  <button class="w-full py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 text-sm hover:border-indigo-500 hover:text-indigo-400 transition-colors">
+    + Add event
+  </button>
+
+</div>
+
+<!--
+  IMPLEMENTATION NOTES FOR WINDSURF:
+  =====================================
+  1. This page merges templates/admin/movies.html and templates/admin/showtimes.html
+  2. Route: keep /admin/polls/{id}/movies or create /admin/polls/{id}/setup
+  3. The "Next: Times →" button on the events page goes away
+  4. Step indicator changes from 3 steps to 2 steps
+  5. All existing HTMX endpoints are UNCHANGED — template structure only
+  6. The flat cached times table (with time window filter) moves into the
+     "All cached times" collapsible panel inside the Fetch card
+  7. Per-movie re-fetch uses the existing triggerMoviesFetch() logic scoped to one movie
+  8. showtime_url_pattern on Venue drives the verify links (Session A must be done first)
+  9. For the Add time form:
+     - Movie events: show theater dropdown + format dropdown
+     - Non-movie events: hide theater/format, use event.venue_name silently
+  10. Sort order for event cards: movie_events + non_movie_events (grouped by event_type)
+-->
+</body>
+</html>

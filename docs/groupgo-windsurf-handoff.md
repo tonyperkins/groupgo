@@ -552,7 +552,11 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 #### Session B — Unified poll setup page (heavy, queue after Session A)
 
-Collapse the two-step admin wizard (Events page + Times page) into one "Build your poll" page. Each event card contains its times directly. See mockups in conversation history (March 2026).
+Collapse the two-step admin wizard (Events page + Times page) into one "Build your poll" page. Each event card contains its times directly.
+
+**Mockup files (read these before starting):**
+- `docs/mockups/unified-poll-setup.html` — full page layout with all event card states
+- `docs/mockups/venue-pattern-and-add-time.html` — inline add time form variants
 
 ##### Layout (top to bottom)
 1. Page header: "Build your poll" + 2-step indicator (Step 1: Events + Times / Step 2: Results)
