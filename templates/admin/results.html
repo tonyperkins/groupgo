@@ -29,15 +29,15 @@
   <div class="hero-metrics mt-6">
     <div class="metric-card">
       <div class="metric-value">{{ participation.fully_voted_count }}/{{ participation.total }}</div>
-      <div class="metric-label">Members fully voted</div>
+      <div class="metric-label">Members fully voted<span class="gg-help-icon" data-help-body="A member counts as fully voted when they have voted yes/no on every movie AND selected can-do/can't-do for every included showtime — or turned on flexible mode, which covers all options automatically.">ⓘ</span></div>
     </div>
     <div class="metric-card">
       <div class="metric-value">{{ results.ranked | length if results.ranked else 0 }}</div>
-      <div class="metric-label">Ranked combinations available</div>
+      <div class="metric-label">Ranked combinations available<span class="gg-help-icon" data-help-body="A combination is one movie paired with one specific showtime. Only combinations where at least one member voted yes on the movie AND can-do on the showtime appear here. Combinations with zero support are hidden.">ⓘ</span></div>
     </div>
     <div class="metric-card">
       <div class="metric-value">{{ 'Declared' if poll.winner_event_id else 'Pending' }}</div>
-      <div class="metric-label">Official winner status</div>
+      <div class="metric-label">Official winner status<span class="gg-help-icon" data-help-body="Pending means no winner has been declared yet. Once you close the poll and click Pick Winner on the top-ranked combination, status changes to Declared and the winning event is shown to voters.">ⓘ</span></div>
     </div>
   </div>
   <div class="step-strip mt-6">
@@ -108,7 +108,7 @@
 <div class="card p-5 mb-5">
   <div class="section-heading mb-4">
     <div>
-      <h2 class="section-title">Participation</h2>
+      <h2 class="section-title">Participation<button class="gg-help-btn" onclick="openHelpModal('Participation badges','Green = fully voted (all movies + showtimes done, or flexible). Grey = joined but not done yet. ✦ flexible = counts as available for every option automatically. Pending = still needs to vote.')">?</button></h2>
       <p class="section-description">Track who has completed the full poll and who still needs a nudge.</p>
     </div>
   </div>
@@ -176,7 +176,7 @@
             </div>
             <div class="flex-shrink-0 text-right sm:hidden">
               <div class="text-2xl font-black {% if result.rank == 1 %}text-yellow-400{% else %}text-slate-300{% endif %}">{{ result.score }}</div>
-              <div class="text-xs text-slate-500">/ {{ results.total_possible }}</div>
+              <div class="text-xs text-slate-500">/ {{ results.total_possible }}<span class="gg-help-icon" data-help-body="The score is the total votes this combination received. The denominator is the maximum possible if every member supported it. Flexible voters contribute 2 points per combination; regular yes+can-do votes contribute 1 point each.">ⓘ</span></div>
             </div>
           </div>
 
@@ -232,14 +232,14 @@
       </div>
       <div class="hidden sm:flex flex-shrink-0 flex-col items-center justify-center px-4 border-l border-slate-700 min-w-[80px]">
         <span class="text-xl font-black {% if result.rank == 1 %}text-yellow-400{% else %}text-slate-300{% endif %}">{{ result.score }}</span>
-        <span class="text-xs text-slate-500">/{{ results.total_possible }}</span>
+        <span class="text-xs text-slate-500">/{{ results.total_possible }}<span class="gg-help-icon" data-help-body="The score is the total votes this combination received. The denominator is the maximum possible if every member supported it. Flexible voters contribute 2 points per combination; regular yes+can-do votes contribute 1 point each.">ⓘ</span></span>
       </div>
       {% if poll.status == 'CLOSED' and not poll.winner_event_id %}
       <div class="flex items-center justify-end px-4 py-3 border-t border-slate-700 sm:px-3 sm:py-0 sm:border-t-0 sm:border-l border-slate-700">
         <button data-event-id="{{ event.id }}" data-session-id="{{ session.id }}" onclick="declareWinner(Number(this.dataset.eventId), Number(this.dataset.sessionId))"
           class="btn-primary text-xs px-2 py-1.5">
           Pick Winner
-        </button>
+        </button><span class="gg-help-icon" data-help-body="Declares this combination the official winner. The winner banner is shown to all voters and the result is locked. This can be undone by archiving the poll, but the combination cannot be changed once declared.">ⓘ</span>
       </div>
       {% endif %}
     </div>

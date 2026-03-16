@@ -153,13 +153,13 @@
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block font-medium">SerpApi Query *<span class="gg-help-icon" data-help-body="Format: Theater Name City State showtimes. No street addresses — they prevent Google from finding showtimes.">ⓘ</span></label>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">SerpApi Query *<span class="gg-help-icon" data-help-body="This is what Google is searched for when fetching showtimes. Format: Theater Name City State showtimes — e.g. &#39;Cinemark Cedar Park Texas showtimes&#39;. Do NOT use a street address; it confuses Google and returns no results. City + State is enough.">ⓘ</span></label>
         <input id="new-theater-query" type="text" placeholder="Cinemark Cedar Park Texas showtimes"
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
         <p class="text-xs text-slate-500 mt-1">Use: <span class="font-mono">Theater Name City State showtimes</span> — no street addresses</p>
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block font-medium">Showtime URL pattern <span class="text-slate-600">(optional)</span><span class="gg-help-icon" data-help-body="Use {date} as a placeholder — replaced with the actual date (YYYY-MM-DD). Example: …?showDate={date}">ⓘ</span></label>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Showtime URL pattern <span class="text-slate-600">(optional)</span><span class="gg-help-icon" data-help-body="Optional. When set, each fetched showtime gets a direct verify link so you can confirm it before publishing. Use {date} where the date goes — it&#39;s replaced with the actual date (YYYY-MM-DD). Example: https://cinemark.com/theatre/my-theater?showDate={date}. Leave blank if the theater has no date-specific URL.">ⓘ</span></label>
         <input id="new-theater-url-pattern" type="text" placeholder="https://www.cinemark.com/theatre/my-theater?showDate={date}"
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
         <p class="text-xs text-slate-500 mt-1">Use <span class="font-mono">{date}</span> where the date goes (YYYY-MM-DD). Examples:</p>
@@ -218,14 +218,14 @@
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"/>
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block font-medium">SerpApi Query<span class="gg-help-icon" data-help-body="Format: Theater Name City State showtimes. No street addresses — they prevent Google from finding showtimes.">ⓘ</span></label>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">SerpApi Query<span class="gg-help-icon" data-help-body="This is what Google is searched for when fetching showtimes. Format: Theater Name City State showtimes — e.g. &#39;Cinemark Cedar Park Texas showtimes&#39;. Do NOT use a street address; it confuses Google and returns no results. City + State is enough.">ⓘ</span></label>
         <input id="edit-theater-query" type="text"
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
           placeholder="Theater Name City State showtimes"/>
         <p class="text-xs text-slate-500 mt-1">Use: <span class="font-mono">Theater Name City State showtimes</span> — no street addresses</p>
       </div>
       <div>
-        <label class="text-xs text-slate-400 mb-1 block font-medium">Showtime URL pattern <span class="text-slate-600">(optional)</span><span class="gg-help-icon" data-help-body="Use {date} as a placeholder — replaced with the actual date (YYYY-MM-DD). Example: …?showDate={date}">ⓘ</span></label>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Showtime URL pattern <span class="text-slate-600">(optional)</span><span class="gg-help-icon" data-help-body="Optional. When set, each fetched showtime gets a direct verify link so you can confirm it before publishing. Use {date} where the date goes — it&#39;s replaced with the actual date (YYYY-MM-DD). Example: https://cinemark.com/theatre/my-theater?showDate={date}. Leave blank if the theater has no date-specific URL.">ⓘ</span></label>
         <input id="edit-theater-url-pattern" type="text"
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
           placeholder="https://www.cinemark.com/theatre/my-theater?showDate={date}"/>

@@ -36,7 +36,7 @@
       <button type="button"
         data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
         onclick="showInviteLinkFromButton(this)"
-        class="btn-primary text-xs">🔗 Invite Link</button>
+        class="btn-primary text-xs">🔗 Invite Link</button><span class="gg-help-icon" data-help-body="Generates a unique join link for this poll. Share it with your group — members click it, enter their PIN, and land directly in the voter app. The link is poll-specific and expires when the poll is archived.">ⓘ</span>
       {% endif %}
       <div class="relative" id="poll-actions-menu">
         <button id="poll-actions-btn" type="button" onclick="togglePollActionsMenu()" class="btn-ghost text-xs" title="Poll actions">⋯ Actions</button>
@@ -100,7 +100,7 @@
 
 <!-- Beta banner -->
 <div class="flex items-start gap-3 p-3 rounded-xl border border-amber-700/60 bg-amber-950/30 mb-4">
-  <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/60 text-amber-300 whitespace-nowrap mt-0.5">BETA</span><span class="gg-help-icon" data-help-body="Auto-fetch uses Google via SerpApi and may be incomplete. Always verify on the theater&#39;s website before publishing.">ⓘ</span>
+  <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/60 text-amber-300 whitespace-nowrap mt-0.5">BETA</span><span class="gg-help-icon" data-help-body="Auto-fetch queries Google via SerpApi, which scrapes showtimes from Google&#39;s knowledge panel. Results can be incomplete, stale by a day, or missing entirely for smaller chains. Always cross-check on the theater&#39;s website before publishing — use manual Add Time as a fallback for any gaps.">ⓘ</span>
   <span class="text-sm text-amber-200">Auto-fetch from Google may be incomplete or unavailable for some theaters. Always verify times before publishing. Use manual add as a fallback.</span>
 </div>
 
@@ -114,7 +114,7 @@
       <div>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-bold text-white text-base">Fetch all movie times from Google</span>
-          <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/40 text-amber-400">BETA</span><span class="gg-help-icon" data-help-body="Auto-fetch uses Google via SerpApi and may be incomplete. Always verify on the theater&#39;s website before publishing.">ⓘ</span>
+          <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/40 text-amber-400">BETA</span><span class="gg-help-icon" data-help-body="Auto-fetch queries Google via SerpApi, which scrapes showtimes from Google&#39;s knowledge panel. Results can be incomplete, stale by a day, or missing entirely for smaller chains. Always cross-check on the theater&#39;s website before publishing — use manual Add Time as a fallback for any gaps.">ⓘ</span>
         </div>
         <div class="text-xs text-slate-500 mt-0.5">
           {{ movie_events | map(attribute='title') | join(' · ') }} — {{ movie_sessions | length }} cached time{{ 's' if movie_sessions | length != 1 else '' }}
@@ -191,9 +191,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
           </svg>
           Fetch times
-        </button>
+        </button><span class="gg-help-icon" data-help-body="Searches Google (via SerpApi) for showtimes for all movies in this poll. Results are cached — re-fetching overwrites the cache. Each fetch counts against your monthly SerpApi quota. Always verify fetched times on the theater website before publishing.">ⓘ</span>
         <span id="serpapi-status-badge"></span>
-        <button onclick="checkSerpApi()" class="btn-ghost text-xs">Check API</button>
+        <button onclick="checkSerpApi()" class="btn-ghost text-xs">Check API</button><span class="gg-help-icon" data-help-body="Checks your remaining SerpApi quota and displays your current usage. Use this before a fetch if you're unsure how many credits you have left.">ⓘ</span>
         <span class="text-xs text-slate-600">Counts toward monthly quota.</span>
       </div>
       <div id="fetch-job-area-movies" class="mt-1"></div>
@@ -246,14 +246,14 @@
               <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
               {% endfor %}{% endfor %}
             </select>
-            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply as selection</button><span class="gg-help-icon" data-help-body="Marks times matching your current filters as included in the poll. All other times are excluded. Voters only see included times.">ⓘ</span>
-            <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button>
+            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply as selection</button><span class="gg-help-icon" data-help-body="Marks every time that matches your current filters (venue, format, time range) as included. Everything else is set to excluded. Voters only see included times. Run this after setting filters to get exactly the times you want in the poll.">ⓘ</span>
+            <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button><span class="gg-help-icon" data-help-body="Marks every visible row as included, ignoring filters. Use this to quickly include everything, then exclude individual times you don&#39;t want. Different from Apply as selection, which excludes anything that doesn&#39;t match your filters.">ⓘ</span>
           </div>
           <!-- Row 2: show excluded checkbox + reset + count -->
           <div class="flex items-center gap-3">
             <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer select-none">
               <input type="checkbox" id="gf-show-excluded" onchange="filterSessions()" class="w-3 h-3 accent-indigo-500"/>
-              Show excluded<span class="gg-help-icon" data-help-body="Excluded times are hidden from voters but remain cached. Check this to view and manually adjust them.">ⓘ</span>
+              Show excluded<span class="gg-help-icon" data-help-body="Excluded times are invisible to voters but stay cached so you don&#39;t need to re-fetch. Show them to manually flip individual times back to included, or to delete times you never want.">ⓘ</span>
             </label>
             <button onclick="resetSessionFilters()" class="text-xs text-slate-500 hover:text-slate-300">Reset</button>
             <span id="sf-count" class="text-xs text-slate-500"></span>
@@ -341,7 +341,7 @@
             <input type="text" name="title" placeholder="e.g. Uchiko Austin"
               class="input-base flex-1 text-white placeholder:text-slate-400" required/>
             <button type="button" id="find-btn" onclick="findEvent()"
-              class="btn-ghost text-xs whitespace-nowrap">Find →</button>
+              class="btn-ghost text-xs whitespace-nowrap">Find →</button><span class="gg-help-icon" data-help-body="Searches TMDB (The Movie Database) for the title you entered and auto-fills poster, description, and website fields. Only works for movies — for restaurants, bars, or concerts enter details manually.">ⓘ</span>
           </div>
           <div id="find-message" class="hidden text-xs text-slate-400 mt-1"></div>
         </div>
@@ -366,7 +366,7 @@
             class="input-base w-full text-white placeholder:text-slate-400"/>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Booking / Tickets URL</label>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Booking / Tickets URL<span class="gg-help-icon" data-help-body="A direct link to buy tickets or make a reservation. Shown to voters as a &#39;Book&#39; or &#39;Tickets&#39; button in the app. Leave blank if there&#39;s no booking link — the Website URL will be used as a fallback verify link.">ⓘ</span></label>
           <input type="url" name="booking_url" placeholder="https://..."
             class="input-base w-full text-white placeholder:text-slate-400"/>
         </div>
