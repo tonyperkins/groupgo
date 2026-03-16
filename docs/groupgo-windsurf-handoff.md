@@ -347,6 +347,40 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ---
 
+## Future Ideas (not scheduled)
+
+### Showtime scraping — direct theater scrapers via Webshare proxies
+- **Problem:** SerpApi showtime reliability is ~50-70% at best — data comes from Google's knowledge panel which is stale, inconsistent, and schema-changes without notice.
+- **Better approach:** Write targeted scrapers for each major theater chain (Cinemark, AMC, Regal) that hit the theater's own website directly. Use Webshare rotating proxies to avoid IP-based rate limiting.
+- **Why better:** Source of truth data, predictable structure, fixable when it breaks.
+- **Scope:** Each chain scraper is ~50-100 lines Python using `httpx` + `beautifulsoup4`. Free Webshare tier (10 proxies, 1GB/month) sufficient for small group use.
+- **Keep SerpApi** as fallback for theaters not covered by custom scrapers.
+
+### AI-assisted self-healing scraper
+- **Concept:** When a theater scraper fails (zero results, parse exception, structure change detected), automatically invoke Claude via the Anthropic API to diagnose and fix the scraper.
+- **Detection layer:** Confidence scoring — expected N showtimes based on history, got 0; HTML structure hash changed from last successful run; data looks malformed.
+- **Agent loop:**
+  1. Fetch raw HTML from the theater site on failure
+  2. Send to Claude with current scraper code + failure context
+  3. Claude analyzes structure diff, proposes fix
+  4. Write fix to staging scraper, run validation against live site
+  5. If validation passes (returns plausible showtime data) → auto-promote to production
+  6. If validation fails after N attempts → escalate to admin with summary
+- **Safeguards needed:** Never auto-deploy without validation; human escalation after failed auto-fix attempts; diff size limit (massive site changes = human required); full audit log of agent-made changes.
+- **Limits:** Works well for structural HTML changes (class renames, wrapper divs, endpoint moves). Won't handle a site switching to an authenticated SPA — that needs human intervention.
+- **Why worth building:** Self-healing infrastructure with AI-assisted remediation is genuinely valuable engineering knowledge, good portfolio piece, and directly applicable to SRE work.
+
+### Multi-tenant / SaaS path (if productionizing)
+- Current architecture is single-tenant (one Group, one admin, one SQLite DB per deployment).
+- Two viable approaches:
+  - **Container-per-tenant:** Existing code works as-is, Portainer API automates provisioning. Viable up to ~50-100 tenants. Simple but operationally heavy at scale.
+  - **Shared multi-tenant:** Requires SQLite → Postgres migration, `tenant_id` scoping on all queries, proper email-based member auth (replacing PINs), self-serve onboarding flow. ~3-4 months of serious work.
+- **Prerequisite for either:** SQLite → Postgres migration.
+- **Monetization model:** Free tier (1 active poll, up to X members) / Premium (unlimited polls, larger groups, custom branding, booking integrations).
+- **Not worth pursuing** until real users validate the concept — ship to GitHub first, see if anyone wants it.
+
+---
+
 ## V2 — Generalization
 
 ### Principles
