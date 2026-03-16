@@ -1076,20 +1076,18 @@ function resetEventFilters(eventId) {
 
 async function includeAllEventSessions(eventId) {
   const rows = document.querySelectorAll('.ev-time-row-' + eventId);
-  const visible = [];
+  const all = [];
   rows.forEach(row => {
-    if (row.style.display !== 'none') {
-      const btn = row.querySelector('[data-session-id]');
-      if (btn) visible.push({row, btn, id: Number(btn.dataset.sessionId)});
-    }
+    const btn = row.querySelector('[data-session-id]');
+    if (btn) all.push({row, btn, id: Number(btn.dataset.sessionId)});
   });
-  if (!visible.length) { showToast('No visible times to include.', 'warn'); return; }
-  await Promise.all(visible.map(({row, btn, id}) =>
+  if (!all.length) { showToast('No times to include.', 'warn'); return; }
+  await Promise.all(all.map(({row, btn, id}) =>
     fetch(`/api/admin/sessions/${id}/visibility`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_included: true}) })
       .then(() => _updateRowIncluded(row, btn, true))
   ));
   filterEventSessions(eventId);
-  showToast('All visible times included.', 'info');
+  showToast('All times included.', 'info');
 }
 
 /* ── In-place DOM update helper ─────────────────────────────────────────── */
@@ -1201,20 +1199,18 @@ async function applyTimeFilter() {
 
 async function includeAll() {
   const rows = document.querySelectorAll('#session-tbody tr[data-included]');
-  const visible = [];
+  const all = [];
   rows.forEach(row => {
-    if (row.style.display !== 'none') {
-      const btn = row.querySelector('[data-session-id]');
-      if (btn) visible.push({row, btn, id: Number(btn.dataset.sessionId)});
-    }
+    const btn = row.querySelector('[data-session-id]');
+    if (btn) all.push({row, btn, id: Number(btn.dataset.sessionId)});
   });
-  if (!visible.length) { showToast('No visible times to include.', 'warn'); return; }
-  await Promise.all(visible.map(({row, btn, id}) =>
+  if (!all.length) { showToast('No times to include.', 'warn'); return; }
+  await Promise.all(all.map(({row, btn, id}) =>
     fetch(`/api/admin/sessions/${id}/visibility`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_included: true}) })
       .then(() => _updateRowIncluded(row, btn, true))
   ));
   filterSessions();
-  showToast('All visible times included.', 'info');
+  showToast('All times included.', 'info');
 }
 
 /* ── Flat table row filter (advanced panel) ───────────────────────────────── */
