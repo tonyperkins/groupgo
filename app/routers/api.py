@@ -1516,6 +1516,23 @@ async def admin_send_poll_email(
     return {"ok": True, "emails_sent": emails_sent}
 
 
+@router.post("/api/admin/polls/{poll_id}/invite-link")
+async def admin_get_invite_link(
+    request: Request, poll_id: int, db: Session = Depends(get_db)
+):
+    """Return (or create) the current invite link for an OPEN poll."""
+    verify_admin(request, db)
+    from app.services.security_service import build_poll_invite_url, ensure_poll_access_uuid
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    if poll.status != "OPEN":
+        raise HTTPException(status_code=400, detail="Invite links are only available for OPEN polls")
+    ensure_poll_access_uuid(poll, db)
+    invite_url = build_poll_invite_url(poll, db)
+    return {"poll_id": poll.id, "access_uuid": poll.access_uuid, "invite_url": invite_url}
+
+
 @router.post("/api/admin/polls/{poll_id}/regenerate-invite")
 async def admin_regenerate_invite(
     request: Request, poll_id: int, db: Session = Depends(get_db)
