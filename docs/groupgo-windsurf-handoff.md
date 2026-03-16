@@ -578,6 +578,17 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 - **Fix:** Create a new partial `templates/components/admin_event_section.html` that renders a single event card (matching the `{% for ev in sorted_events %}...{% endfor %}` block in `movies.html`). Update the `POST /api/admin/showtimes` and `DELETE /api/admin/showtimes/{id}` endpoints to return this new partial with full context including `theaters` as a list (not a dict), `theater_map`, `sessions`, `events`, `target_dates`, `poll`.
 - The new partial needs the same context variables as the main page loop: `ev` (the event), `theaters` (list), `theater_map`, `ev_sessions` (sessions for this event), `is_movie`, `target_dates`, `poll`.
 
+#### 2. UX: Per-movie re-fetch panel — match visual style of global fetch card
+- **File:** `templates/admin/movies.html` (the per-movie re-fetch mini panel inside each movie event card)
+- The global "Fetch all movie times" card and the per-movie "Re-fetch theaters" panel do the same job but look completely different. Make them visually consistent.
+- Per-movie panel should match the global card's style:
+  - **Theater row:** same pill style as global (checkbox + theater name, same `bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2` styling)
+  - **Date pills:** replace raw `YYYY-MM-DD` date chips with formatted date pills matching the global card (`Saturday, March 21` style using the `display_date` filter), same checkbox pill styling
+  - **Verify links:** add `↗ verify` links next to each date pill if the theater has a `showtime_url_pattern` set — same as global card
+  - **Labels:** add "Theaters" and "Dates" labels on the left, same as global card
+  - **Remove** the "Re-fetch theaters:" plain text label — replace with the structured rows
+  - The per-movie panel has no "Movies" row (it's already scoped to one movie) — everything else matches
+
 ---
 
 ## Implementation Prompt
@@ -588,8 +599,8 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 ---
 
 You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting. Single focused bug fix.
-No SPA changes, no schema changes.
+Read docs/groupgo-windsurf-handoff.md before starting. Two tasks —
+one bug fix and one UI consistency fix. No SPA changes, no schema changes.
 
 ---
 
@@ -637,6 +648,24 @@ wrong partial, losing the theater pills and re-fetch panel.
 
 ---
 
+### Task 2 — UX: Per-movie re-fetch panel matches global fetch card style
+File: templates/admin/movies.html (and admin_event_section.html once created)
+
+The per-movie "Re-fetch theaters" panel and the global "Fetch all movie times"
+card do the same job but look different. Make the per-movie panel match:
+
+- Remove the plain "Re-fetch theaters:" text label
+- Add "Theaters" label + theater pills matching global style:
+  same bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2 pill
+  with checkbox + theater name
+- Add "Dates" label + formatted date pills (use display_date filter to show
+  "Saturday, March 21" not raw "2026-03-21") matching global style
+- Add ↗ verify links next to each date pill if theater.showtime_url_pattern
+  is set — same as global card
+- The per-movie panel has no "Movies" row — it's already scoped to one movie
+
+---
+
 ### After completing all tasks
 
 1. In docs/groupgo-windsurf-handoff.md:
@@ -646,7 +675,7 @@ wrong partial, losing the theater pills and re-fetch panel.
    c. Replace everything after the blockquote in `## Implementation Prompt`
       with: `_Nothing pending._`
 2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: HTMX event section returns correct partial with full context"`
+3. Commit: `git add -A && git commit -m "fix: HTMX event section partial; per-movie re-fetch panel UI consistency"`
 4. Push: `git push origin master`
 
 ---
