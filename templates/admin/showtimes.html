@@ -118,12 +118,23 @@
 
       <div class="mb-3">
         <p class="text-xs text-slate-400 mb-2">Dates:</p>
-        <div class="flex flex-wrap gap-2" id="date-checkboxes-movies">
-          {% for d in target_dates %}
-          <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-1.5 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
-            <input type="checkbox" value="{{ d }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500"/>
-            <span class="text-white font-mono">{{ d | display_date }}</span>
-          </label>
+        <div id="date-checkboxes-movies">
+          {% for t in theaters %}
+          <div class="flex flex-wrap gap-2 mb-1.5 items-center">
+            <span class="text-xs text-slate-500 w-28 shrink-0 truncate">{{ t.name.split()[0] }}…</span>
+            {% for d in target_dates %}
+            <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-1.5 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+              <input type="checkbox" value="{{ d }}" data-theater="{{ t.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500 date-cb-movies"/>
+              <span class="text-white font-mono">{{ d | display_date }}</span>
+            </label>
+            {% if t.website_url %}
+            <a href="{{ t.website_url }}{% if '?' in t.website_url %}&{% else %}?{% endif %}showDate={{ d }}"
+               target="_blank" rel="noopener"
+               title="Verify showtimes on {{ t.name }} for {{ d | display_date }}"
+               class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗ verify</a>
+            {% endif %}
+            {% endfor %}
+          </div>
           {% endfor %}
         </div>
       </div>
@@ -331,11 +342,11 @@ function toggleAddTimeForm(eventId) {
 async function triggerMoviesFetch() {
   const movieBoxes = document.querySelectorAll('#movie-checkboxes input[type=checkbox]:checked');
   const theaterBoxes = document.querySelectorAll('#theater-checkboxes-movies input[type=checkbox]:checked');
-  const dateBoxes = document.querySelectorAll('#date-checkboxes-movies input[type=checkbox]:checked');
+  const dateBoxes = document.querySelectorAll('.date-cb-movies:checked');
 
   const event_ids = Array.from(movieBoxes).map(cb => parseInt(cb.value));
   const theater_ids = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
-  const dates = Array.from(dateBoxes).map(cb => cb.value);
+  const dates = [...new Set(Array.from(dateBoxes).map(cb => cb.value))];
 
   if (!event_ids.length) { showToast('Select at least one movie.', 'warn'); return; }
   if (!theater_ids.length || !dates.length) { showToast('Select at least one theater and one date.', 'warn'); return; }
