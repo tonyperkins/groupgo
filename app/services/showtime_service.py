@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from sqlmodel import Session, select
@@ -6,6 +7,8 @@ import httpx
 
 from app.config import settings
 from app.models import Showtime, Venue, Event, Poll, PollEvent
+
+logger = logging.getLogger(__name__)
 
 
 FORMAT_KEYWORDS = {
@@ -116,7 +119,10 @@ def parse_serpapi_showtimes(
 
     showtimes_list = raw.get("showtimes", [])
     if not showtimes_list:
+        logger.info("parse_serpapi: no 'showtimes' key in response. Top-level keys: %s", list(raw.keys()))
         return results
+
+    logger.info("parse_serpapi: target_date=%s, day blocks: %s", target_date, [b.get('day') for b in showtimes_list])
 
     for day_block in showtimes_list:
         day_str = day_block.get("day", "")
@@ -124,6 +130,7 @@ def parse_serpapi_showtimes(
 
         # Only include days that match the target date
         if block_date != target_date:
+            logger.info("parse_serpapi: skipping day block %r (parsed=%r, target=%r)", day_str, block_date, target_date)
             continue
 
         for theater_block in day_block.get("theaters", []):

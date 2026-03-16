@@ -8,7 +8,7 @@
   <select id="sf-movie" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
     <option value="">All Events</option>
     {% set seen_movies = [] %}
-    {% for s in sessions %}{% set t = events.get(s.event_id) %}{% if t and t.title not in seen_movies %}
+    {% for s in sessions %}{% set t = events.get(s.event_id) %}{% if t and t.event_type == 'movie' and t.title not in seen_movies %}
     <option value="{{ t.title }}">{{ t.title }}</option>{% set _ = seen_movies.append(t.title) %}{% endif %}{% endfor %}
   </select>
   <select id="sf-theater" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
