@@ -1,0 +1,30 @@
+# Python virtual environments
+.venv/
+venv/
+**/.venv/
+**/venv/
+site-packages/
+lib/python*/
+
+# Node.js dependencies  
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# Cache
+__pycache__/
+.pytest_cache/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Large files
+*.log
+*.db
+*.sqlite

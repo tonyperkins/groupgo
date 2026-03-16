@@ -322,16 +322,14 @@
       {% if is_movie %}
       <!-- Per-movie re-fetch mini panel (Task 6: independent date selection per movie) -->
       <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-700 space-y-2">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs text-slate-400 shrink-0">Re-fetch this movie:</span>
-          <div class="flex flex-wrap gap-1.5">
-            {% for t in theaters %}
-            <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
-              <input type="checkbox" value="{{ t.id }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-theater-cb-{{ ev.id }}"/>
-              <span class="text-white">{{ t.name }}</span>
-            </label>
-            {% endfor %}
-          </div>
+        <div class="text-xs text-slate-400 mb-1">Re-fetch theaters:</div>
+        <div class="flex flex-wrap gap-1.5">
+          {% for t in theaters %}
+          <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ t.id }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-theater-cb-{{ ev.id }}"/>
+            <span class="text-white">{{ t.name }}</span>
+          </label>
+          {% endfor %}
         </div>
         <!-- Task 6: per-movie date pills rendered from JS state (pre-populated from target_dates) -->
         <div id="refetch-dates-{{ ev.id }}" class="flex flex-wrap gap-1.5"
@@ -976,7 +974,7 @@ function addRefetchDate(eventId) {
   if (!input) return;
   if (input.style.display === 'none' || !input.style.display) {
     input.style.display = '';
-    input.focus();
+    try { input.showPicker(); } catch(e) { input.focus(); }
     input.onchange = () => {
       if (input.value) {
         if (!_movieDateState[eventId]) _movieDateState[eventId] = new Set();
@@ -1057,11 +1055,10 @@ async function applyEventFilter(eventId) {
   const to = document.getElementById('ef-to-' + eventId)?.value || '';
   const rows = document.querySelectorAll('.ev-time-row-' + eventId);
   if (mode === 'all') {
-    // Just filter the visible list — no API call
     filterEventSessions(eventId);
     return;
   }
-  // In Poll mode: bulk-update is_included — matching rows -> true, non-matching -> false
+  // In Poll mode: bulk-update is_included — matching -> true, non-matching -> false
   const updates = [];
   rows.forEach(row => {
     const btn = row.querySelector('[data-session-id]');
@@ -1071,13 +1068,16 @@ async function applyEventFilter(eventId) {
     const formatMatch = !format || row.dataset.format === format;
     const timeMatch = (!from || (row.dataset.rawTime || '') >= from) && (!to || (row.dataset.rawTime || '') <= to);
     const shouldInclude = theaterMatch && formatMatch && timeMatch;
-    updates.push(fetch(`/api/admin/sessions/${id}/visibility`, {
-      method: 'PATCH', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({is_included: shouldInclude})
-    }));
+    updates.push(
+      fetch(`/api/admin/sessions/${id}/visibility`, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({is_included: shouldInclude})
+      }).then(() => _updateRowIncluded(row, btn, shouldInclude))
+    );
   });
   await Promise.all(updates);
-  window.location.reload();
+  filterEventSessions(eventId);
+  showToast('Filter applied.', 'info');
 }
 
 function resetEventFilters(eventId) {
@@ -1090,18 +1090,35 @@ function resetEventFilters(eventId) {
 
 async function includeAllEventSessions(eventId) {
   const rows = document.querySelectorAll('.ev-time-row-' + eventId);
-  const visibleSessionIds = [];
+  const visible = [];
   rows.forEach(row => {
     if (row.style.display !== 'none') {
       const btn = row.querySelector('[data-session-id]');
-      if (btn) visibleSessionIds.push(Number(btn.dataset.sessionId));
+      if (btn) visible.push({row, btn, id: Number(btn.dataset.sessionId)});
     }
   });
-  if (!visibleSessionIds.length) { showToast('No visible times to include.', 'warn'); return; }
-  await Promise.all(visibleSessionIds.map(id =>
+  if (!visible.length) { showToast('No visible times to include.', 'warn'); return; }
+  await Promise.all(visible.map(({row, btn, id}) =>
     fetch(`/api/admin/sessions/${id}/visibility`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_included: true}) })
+      .then(() => _updateRowIncluded(row, btn, true))
   ));
-  window.location.reload();
+  filterEventSessions(eventId);
+  showToast('All visible times included.', 'info');
+}
+
+/* ── In-place DOM update helper ─────────────────────────────────────────── */
+function _updateRowIncluded(row, btn, included) {
+  row.dataset.included = included ? 'true' : 'false';
+  if (included) { row.classList.remove('opacity-40'); } else { row.classList.add('opacity-40'); }
+  btn.dataset.currentIncluded = included ? 'true' : 'false';
+  btn.textContent = included ? '✓' : '○';
+  if (included) {
+    btn.className = 'w-6 h-6 rounded-full flex items-center justify-center text-xs border transition-all flex-shrink-0 bg-green-900/40 text-green-400 border-green-800 hover:opacity-60';
+    btn.title = 'Remove from poll';
+  } else {
+    btn.className = 'w-6 h-6 rounded-full flex items-center justify-center text-xs border transition-all flex-shrink-0 bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800';
+    btn.title = 'Add to poll';
+  }
 }
 
 /* ── Init per-movie date pills and filter mode on page load ─────────────── */
@@ -1144,12 +1161,20 @@ function _startJobPoller(jobId, areaId) {
 
 /* ── Session visibility / bulk filter ──────────────────────────────────── */
 async function toggleSessionVisibility(id, currentIncluded) {
+  const btn = document.querySelector(`[data-session-id="${id}"]`);
+  const row = btn?.closest('[class*="ev-time-row-"], tr');
   const resp = await fetch(`/api/admin/sessions/${id}/visibility`, {
     method: 'PATCH', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({is_included: !currentIncluded})
   });
-  if (resp.ok) { window.location.reload(); }
-  else { const d = await resp.json(); showToast(d.detail || 'Error toggling visibility.', 'error'); }
+  if (resp.ok) {
+    if (btn && row) {
+      _updateRowIncluded(row, btn, !currentIncluded);
+      // re-run filter for per-movie section
+      const cls = [...row.classList].find(c => c.startsWith('ev-time-row-'));
+      if (cls) { const evId = parseInt(cls.replace('ev-time-row-', '')); filterEventSessions(evId); }
+    }
+  } else { const d = await resp.json(); showToast(d.detail || 'Error toggling visibility.', 'error'); }
 }
 
 let _globalFilterMode = 'inpoll';
@@ -1167,8 +1192,18 @@ async function applyTimeFilter() {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({poll_id: adminShowtimesPollId, time_start: timeStart, time_end: timeEnd})
   });
-  if (resp.ok) { showToast('Time filter applied.'); window.location.reload(); }
-  else { const d = await resp.json(); showToast(d.detail || 'Error applying filter.', 'error'); }
+  if (resp.ok) {
+    // Update all session rows in the global table
+    document.querySelectorAll('#session-tbody tr[data-included]').forEach(row => {
+      const btn = row.querySelector('[data-session-id]');
+      if (!btn) return;
+      const rawTime = row.dataset.rawTime || '';
+      const matches = (!timeStart || rawTime >= timeStart) && (!timeEnd || rawTime <= timeEnd);
+      _updateRowIncluded(row, btn, matches);
+    });
+    filterSessions();
+    showToast('Time filter applied.', 'info');
+  } else { const d = await resp.json(); showToast(d.detail || 'Error applying filter.', 'error'); }
 }
 
 async function includeAll() {
@@ -1176,8 +1211,14 @@ async function includeAll() {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({poll_id: adminShowtimesPollId, time_start: null, time_end: null})
   });
-  if (resp.ok) { showToast('All sessions included.'); window.location.reload(); }
-  else { const d = await resp.json(); showToast(d.detail || 'Error.', 'error'); }
+  if (resp.ok) {
+    document.querySelectorAll('#session-tbody tr[data-included]').forEach(row => {
+      const btn = row.querySelector('[data-session-id]');
+      if (btn) _updateRowIncluded(row, btn, true);
+    });
+    filterSessions();
+    showToast('All sessions included.', 'info');
+  } else { const d = await resp.json(); showToast(d.detail || 'Error.', 'error'); }
 }
 
 /* ── Global filter mode ───────────────────────────────────────────────────── */

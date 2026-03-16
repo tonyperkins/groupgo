@@ -1,7 +1,13 @@
 .env
 .env.production
+# Python virtual environments
 .venv/
 venv/
+**/.venv/
+**/venv/
+.env/
+lib/python*/
+site-packages/
 __pycache__/
 *.pyc
 *.pyo
@@ -21,3 +27,21 @@ data/*.db-wal
 .DS_Store
 Thumbs.db
 .env.development
+
+# Node.js dependencies
+node_modules/
+**/node_modules/
+
+# npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+.vite/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
