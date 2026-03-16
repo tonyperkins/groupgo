@@ -572,7 +572,27 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Bug: Dashboard `...` menu still does nothing on OPEN polls
+- **File:** `templates/admin/dashboard.html`
+- The duplicate ID bug was not fully fixed. Both DRAFT (line ~115) and OPEN (line ~137) branches still render `id="overflow-dropdown-{{ poll.id }}"`. Even though Jinja2 only renders one branch, `getElementById` always returns the first matching element in the DOM — which is whichever branch appears first in the template source. If DRAFT branch appears before OPEN branch, OPEN polls find the wrong (non-rendered) element.
+- Fix properly: give each branch a unique ID. E.g.:
+  - DRAFT branch: `id="overflow-dropdown-{{ poll.id }}-draft"`
+  - OPEN branch: `id="overflow-dropdown-{{ poll.id }}-open"`
+  - Update `toggleOverflowMenu(pollId)` to find the correct dropdown by trying both IDs and using whichever exists in the DOM (i.e. whichever branch rendered).
+- Also: `id="overflow-menu-{{ poll.id }}"` has the same duplicate problem — fix those too.
+
+#### 2. Filter rework — per-movie and global Advanced panel
+- **Files:** `templates/admin/movies.html`
+- **Two-mode filter behavior:**
+  - Default mode **"In Poll"** — shows only times where `is_included = true`. Filters act as selection tools: hitting Apply marks matching times as included (`is_included = true`) and non-matching as excluded (`is_included = false`). This directly controls what voters see.
+  - Toggle mode **"All times"** — shows every cached time regardless of inclusion. User manually toggles each row. Filters still narrow the visible list but don't auto-select.
+  - Toggle between modes with a pill/toggle labeled **"In Poll"** / **"All times"** (not "show all" / "show in poll").
+- **"Apply" button behavior:**
+  - In "In Poll" mode: bulk-update `is_included` via API — included for matching rows, excluded for non-matching. Then refresh the list.
+  - In "All times" mode: just filters the visible rows (no API call).
+- **"Include All" button:** marks all currently visible (non-filtered-out) rows as included.
+- **"Reset" button:** clears all filter dropdowns and time window, reverts to "In Poll" mode showing all included times.
+- **Global Advanced panel:** same behavior, same toggle, same Apply logic — but retains the "All Events" dropdown since it spans all movies.
 
 ---
 
@@ -583,4 +603,80 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: master).
+Read docs/groupgo-windsurf-handoff.md before starting. Two tasks —
+one bug fix and one filter rework. No SPA changes, no schema changes.
+
+---
+
+### Task 1 — Bug: Dashboard `...` menu still broken on OPEN polls
+File: templates/admin/dashboard.html
+
+Both DRAFT and OPEN status branches render the same
+id="overflow-dropdown-{{ poll.id }}" and id="overflow-menu-{{ poll.id }}".
+getElementById always returns the first match in DOM order, so whichever
+branch appears second in the template never works.
+
+Fix:
+1. Add a status suffix to each branch's IDs:
+   - DRAFT branch: overflow-dropdown-{{ poll.id }}-draft
+                   overflow-menu-{{ poll.id }}-draft
+   - OPEN branch:  overflow-dropdown-{{ poll.id }}-open
+                   overflow-menu-{{ poll.id }}-open
+
+2. Update toggleOverflowMenu(pollId) to find the correct dropdown:
+   function toggleOverflowMenu(pollId) {
+     const dropdown = document.getElementById('overflow-dropdown-' + pollId + '-draft')
+                   || document.getElementById('overflow-dropdown-' + pollId + '-open');
+     const btn = document.querySelector(`[id^="overflow-menu-${pollId}"] > button`);
+     // rest of function unchanged
+   }
+
+---
+
+### Task 2 — Filter rework: per-movie and global Advanced panel
+File: templates/admin/movies.html
+
+Rework both the per-movie filter bar and the global Advanced panel filter
+to use a two-mode approach.
+
+**Mode toggle:** Add a pill/toggle with two options:
+  - "In Poll" (default) — shows only is_included=true rows
+  - "All times" — shows all cached rows regardless of inclusion
+
+**"Apply" button behavior changes by mode:**
+  - "In Poll" mode: bulk-update is_included via PATCH API calls —
+    matching rows → is_included=true, non-matching → is_included=false.
+    After API calls complete, refresh the times list.
+  - "All times" mode: filter the visible rows only (no API call).
+
+**"Include All" button:** marks all currently visible rows as is_included=true
+  via PATCH API calls.
+
+**"Reset":** clears filters, resets time window to Any/Any, reverts to
+  "In Poll" mode.
+
+**Global Advanced panel:** same behavior but keep the "All Events" dropdown
+  since it spans multiple movies.
+
+**Per-movie filter bar:** same behavior, no "All Events" dropdown (scoped
+  to that movie already).
+
+Use the existing PATCH /api/admin/sessions/{id}/visibility endpoint or
+whatever endpoint currently handles is_included toggling — check the
+existing include/exclude toggle buttons in the times list for the
+correct endpoint.
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu IDs; filter rework with In Poll/All times toggle"`
+4. Push: `git push origin master`
