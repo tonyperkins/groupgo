@@ -260,9 +260,9 @@
           </div>
         </div>
         {% endif %}
-        {% set theaters = theater_map %}
+        {% set theater_dict = theater_map %}
         {% set events = event_map %}
-        {% with sessions = movie_sessions %}
+        {% with sessions = movie_sessions, theaters = theater_dict %}
         {% include "components/admin_session_list.html" %}
         {% endwith %}
       </div>
