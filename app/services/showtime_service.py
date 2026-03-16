@@ -129,8 +129,11 @@ def parse_serpapi_showtimes(
         day_str = day_block.get("day", "")
         date_str = day_block.get("date", "")  # e.g. "Mar 21" or "Nov 8"
 
+        # Handle Today/Tomorrow as direct aliases for target_date
+        if day_str.lower() in ("today", "tomorrow"):
+            block_date = target_date
         # Prefer the 'date' field (has month+day) over 'day' (has 'Today'/'Sun' etc.)
-        if date_str:
+        elif date_str:
             # date_str is like "Mar 21" or "Nov 8" — parse it with a fake weekday prefix
             block_date = _parse_day_string("Mon" + date_str, target_date)
         else:
@@ -153,7 +156,16 @@ def parse_serpapi_showtimes(
             # Match theater by name if we have one to compare against
             if theater_name:
                 block_theater_name = theater_block.get("name", "").lower()
-                if theater_name.lower() not in block_theater_name and block_theater_name not in theater_name.lower():
+                our_name = theater_name.lower()
+                # Substring match in either direction, or significant word overlap
+                our_words = {w for w in our_name.split() if len(w) > 3}
+                their_words = set(block_theater_name.split())
+                word_overlap = our_words & their_words
+                if (our_name not in block_theater_name
+                        and block_theater_name not in our_name
+                        and not word_overlap):
+                    logger.info("parse_serpapi: theater mismatch %r vs %r (words: %r)",
+                                theater_name, theater_block.get("name"), word_overlap)
                     continue
 
             theater_booking_url = None
