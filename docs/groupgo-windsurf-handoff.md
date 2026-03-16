@@ -586,6 +586,16 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 - Move it to be the last item in the right-side row (after the Actions button), so the visual order is: Invite Link → Actions → OPEN badge.
 - Alternatively, position it absolutely in the top-right corner of the header card.
 
+#### 5. UX: Inline "Add time" form — fields should not stretch full width
+- **File:** `templates/admin/movies.html`
+- The date input and time select in the inline Add Time form are stretched to full card width, which looks awkward.
+- Fix: make the form a compact inline row — fields should be auto/content width, not `w-full`. Use `flex items-center gap-2 flex-wrap` with each field at natural width (date ~140px, time select ~120px, Add/Cancel buttons auto).
+
+#### 6. UX: Move "+ Add time manually" link to top of times list
+- **File:** `templates/admin/movies.html`
+- Currently "+ Add time manually" appears after the last time row. When a movie has many showtimes the admin has to scroll past all of them to find it.
+- Move it to just above the first time row (top of the times list section). Keep the inline expand-on-click behavior unchanged.
+
 ---
 
 ## Implementation Prompt
@@ -654,6 +664,26 @@ top-right corner of the header card.
 
 ---
 
+### Task 5 — UX: Inline Add Time form — compact field widths
+File: templates/admin/movies.html
+
+The date input and time select in the inline Add Time form stretch to full
+card width. Fix: make them natural/content width in a flex row.
+date input: ~140px, time select: ~120px, Add/Cancel: auto width.
+Use flex items-center gap-2 flex-wrap — no w-full on individual fields.
+
+---
+
+### Task 6 — UX: Move "+ Add time manually" to top of times list
+File: templates/admin/movies.html
+
+"+ Add time manually" currently appears after the last time row.
+Move it to just above the first time row so admins don't have to
+scroll past a long list to find it.
+Keep the inline expand-on-click behavior unchanged.
+
+---
+
 ### After completing all tasks
 
 1. In docs/groupgo-windsurf-handoff.md:
@@ -663,5 +693,5 @@ top-right corner of the header card.
    c. Replace everything after the blockquote in `## Implementation Prompt`
       with: `_Nothing pending._`
 2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu; actions menu clipping; per-movie time filter; status badge position"`
+3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu; actions menu clipping; per-movie time filter; status badge; add-time form layout; add-time link position"`
 4. Push: `git push origin master`
