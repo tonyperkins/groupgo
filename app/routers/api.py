@@ -1503,6 +1503,9 @@ async def admin_send_poll_email(
         else:
             members = db.exec(select(User).where(User.role != "admin")).all()
 
+    from app.config import settings as _s
+    smtp_ok = bool(_s.SMTP_USER and _s.SMTP_PASSWORD and _s.SMTP_HOST)
+
     emails_sent = 0
     for member in members:
         if member.email:
@@ -1515,7 +1518,7 @@ async def admin_send_poll_email(
             if sent:
                 emails_sent += 1
 
-    return {"ok": True, "emails_sent": emails_sent}
+    return {"ok": True, "emails_sent": emails_sent, "smtp_configured": smtp_ok}
 
 
 @router.post("/api/admin/polls/{poll_id}/invite-link")

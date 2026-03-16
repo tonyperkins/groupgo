@@ -798,7 +798,11 @@ async function confirmSendEmail() {
   if (r.ok) {
     const d = await r.json();
     closeSendEmailModal();
-    showToast(`${d.emails_sent} email(s) sent.`, 'info');
+    if (!d.smtp_configured) {
+      showToast('SMTP not configured — no emails sent. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD in your .env.', 'warn');
+    } else {
+      showToast(`${d.emails_sent} email(s) sent.`, 'info');
+    }
   } else {
     const d = await r.json();
     errEl.textContent = d.detail || 'Failed to send emails.';
@@ -928,12 +932,15 @@ function toggleOverflowMenu(pollId) {
       dropdown.style.zIndex = '9999';
     }
     const rect = btn.getBoundingClientRect();
-    dropdown.style.top = (rect.bottom + 4) + 'px';
-    dropdown.style.left = (rect.right - 180) + 'px';
     dropdown.classList.remove('hidden');
-    requestAnimationFrame(() => {
-      dropdown.style.left = (rect.right - dropdown.offsetWidth) + 'px';
-    });
+    const dh = dropdown.offsetHeight || 200;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow < dh + 8) {
+      dropdown.style.top = (rect.top - dh - 4) + 'px';
+    } else {
+      dropdown.style.top = (rect.bottom + 4) + 'px';
+    }
+    dropdown.style.left = (rect.right - dropdown.offsetWidth) + 'px';
   }
 }
 
