@@ -56,7 +56,7 @@
 <div class="stack-list">
   {% for item in polls %}
   {% set poll = item.poll %}
-  <div class="card overflow-hidden">
+  <div class="card mb-4" id="poll-{{ poll.id }}">
     <!-- Colored top accent stripe by status -->
     <div class="h-0.5
       {% if poll.status == 'OPEN' %}bg-green-500{% elif poll.status == 'CLOSED' %}bg-amber-500{% elif poll.status == 'DRAFT' %}bg-slate-500{% else %}bg-indigo-500{% endif %}"></div>
@@ -125,7 +125,7 @@
           <!-- Tier 2: Utility overflow -->
           <div class="relative" id="overflow-menu-{{ poll.id }}">
             <button type="button" onclick="toggleOverflowMenu('{{ poll.id }}')" class="btn-ghost text-xs" title="More actions">⋯</button>
-            <div id="overflow-dropdown-{{ poll.id }}" class="hidden absolute right-0 top-full mt-1 z-30 bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[160px] py-1">
+            <div id="overflow-dropdown-{{ poll.id }}" class="hidden absolute right-0 top-full mt-1 z-50 bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[160px] py-1">
               <button type="button"
                 data-poll-id="{{ poll.id }}"
                 data-poll-title="{{ poll.title }}"
@@ -755,8 +755,8 @@ async function openSendEmailModal(pollId, pollTitle) {
   const data = await r.json();
 
   const r2 = await fetch('/api/admin/users');
-  const allUsers = r2.ok ? (await r2.json()).users : [];
-  _sendEmailMembers = allUsers.filter(u => u.role !== 'admin' && u.email);
+  const allUsers = r2.ok ? (await r2.json()) : [];
+  _sendEmailMembers = allUsers.filter(u => !u.is_admin && u.email);
 
   if (!_sendEmailMembers.length) {
     list.innerHTML = '<p class="text-slate-400 text-sm">No members with email addresses found.</p>';
