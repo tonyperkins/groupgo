@@ -403,6 +403,15 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Completed
 
+### Session A — March 16, 2026
+- `app/models.py` — added `showtime_url_pattern: Optional[str] = Field(default=None)` to `Venue` model
+- `app/services/theater_service.py` — added `showtime_url_pattern` param to `add_theater()` and `update_theater()`
+- `app/routers/api.py` — `POST /api/admin/theaters` and `PATCH /api/admin/theaters/{id}` now accept and persist `showtime_url_pattern`
+- `templates/admin/theaters.html` — "Showtime URL pattern (optional)" field added to both Add and Edit modals; help text shows `{date}` placeholder format; hint block with Cinemark/AMC/Regal patterns; `data-url-pattern` on edit button; `editTheaterFromButton` and `editTheater()` updated to pass/populate it; both `addTheater()` and `saveTheater()` include it in JSON payloads
+- `templates/admin/showtimes.html` — verify link logic replaced: uses `t.showtime_url_pattern | replace('{date}', d)` when pattern set; falls back to bare `t.website_url` (no date param); no link if neither set
+- `scripts/migrate_venue_showtime_url_pattern.py` — idempotent migration script; run on prod via `docker exec groupgo python /tmp/migrate_url_pattern.py /data/groupgo.db`
+> ℹ️ DB migration run on production. Cinemark Cedar Park and AMC Lakeline 9 still have `showtime_url_pattern=NULL` — edit them via the Theaters page to add their patterns (e.g. `https://www.cinemark.com/theatres/tx-cedar-park/cinemark-cedar-park?showDate={date}`).
+
 ### Session 12 — March 15, 2026
 - `templates/admin/dashboard.html` — fixed `openSendEmailModal` crash: `/api/admin/users` returns a plain array not `{users:[]}`, and filter field is `is_admin` not `role`; removed `overflow-hidden` from poll cards so overflow dropdown is not clipped; bumped dropdown z-index from `z-30` to `z-50`
 - `templates/admin/showtimes.html` — full redesign: all movie events consolidated into a single "Movies" section at top with movie selection pills, theater selector, date × theater grid with `↗ verify` links to `website_url?showDate=YYYY-MM-DD`, Fetch button, and flat cached-times table inside; non-movie events each keep their own collapsible section below; `triggerMoviesFetch()` JS replaces `triggerEventFetch()` and deduplicates dates; `toggleMoviesSection()` added
@@ -528,29 +537,7 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-#### Session A — Venue URL pattern field (surgical, do first)
-##### 1. Add `showtime_url_pattern` field to Venue model
-- **File:** `app/models.py`, `templates/admin/theaters.html`, `app/routers/api.py`
-- Add `showtime_url_pattern: Optional[str] = Field(default=None)` to the `Venue` model.
-- Run: `ALTER TABLE theaters ADD COLUMN showtime_url_pattern VARCHAR`
-- Add the field to the theater create/edit form in `templates/admin/theaters.html`:
-  - Label: "Showtime URL pattern"
-  - Help text: "Use {date} where the date should appear (YYYY-MM-DD format). Example: https://www.cinemark.com/theatre/my-theater?showDate={date}"
-  - Show a live preview of the generated URL using the first poll date as the example
-  - Common patterns hint block (Cinemark, AMC, Regal examples)
-- Include in the theater PATCH/POST API endpoints.
-
-##### 2. Use `showtime_url_pattern` for verify links on Times page
-- **File:** `templates/admin/showtimes.html`
-- Replace the current hardcoded `{{ t.website_url }}?showDate={{ d }}` verify link logic with:
-  - If `t.showtime_url_pattern` is set: replace `{date}` in the pattern with the actual date → use as the verify link href
-  - If only `t.website_url` is set (no pattern): link to `t.website_url` with no date param
-  - If neither: no verify link shown
-- The link label stays "↗ verify"
-
----
-
-#### Session B — Unified poll setup page (heavy, queue after Session A)
+#### Session B — Unified poll setup page (heavy)
 
 Collapse the two-step admin wizard (Events page + Times page) into one "Build your poll" page. Each event card contains its times directly.
 
@@ -592,56 +579,4 @@ This is the largest single template change in the project. Read `templates/admin
 
 ---
 
-You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting. Two surgical tasks —
-venue URL pattern field and verify link fix. Do not touch voter SPA,
-scoring, or auth.
-
----
-
-### Task 1 — Add showtime_url_pattern to Venue model
-Files: app/models.py, app/routers/api.py, templates/admin/theaters.html
-
-1. Add to Venue model:
-   showtime_url_pattern: Optional[str] = Field(default=None)
-
-2. Run migration:
-   ALTER TABLE theaters ADD COLUMN showtime_url_pattern VARCHAR
-
-3. In templates/admin/theaters.html add field to create + edit forms:
-   - Label: "Showtime URL pattern (optional)"
-   - Help text: Use {date} where the date should appear (YYYY-MM-DD).
-     Example: https://www.cinemark.com/theatre/my-theater?showDate={date}
-   - Show a small hint block with common patterns:
-       Cinemark: …?showDate={date}
-       AMC:      …/showtimes?date={date}
-       Regal:    …?date={date}&theatreId=…
-   - Include in the POST/PATCH API payloads
-
----
-
-### Task 2 — Use showtime_url_pattern for verify links
-File: templates/admin/showtimes.html
-
-Replace the current verify link logic with:
-  {% if t.showtime_url_pattern %}
-    <a href="{{ t.showtime_url_pattern | replace('{date}', d) }}" ...>↗ verify</a>
-  {% elif t.website_url %}
-    <a href="{{ t.website_url }}" ...>↗ verify</a>
-  {% endif %}
-
-Remove the old hardcoded ?showDate= appending logic entirely.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move Session A items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "feat: venue showtime_url_pattern field + dynamic verify links"`
-4. Push: `git push origin master`
+_Nothing pending._
