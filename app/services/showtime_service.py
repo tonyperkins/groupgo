@@ -122,8 +122,9 @@ def parse_serpapi_showtimes(
         logger.info("parse_serpapi: no 'showtimes' key in response. Top-level keys: %s", list(raw.keys()))
         return results
 
-    logger.info("parse_serpapi: target_date=%s, day blocks: %s", target_date,
-                [(b.get('day'), b.get('date')) for b in showtimes_list])
+    all_theaters = {t.get("name") for b in showtimes_list for t in b.get("theaters", [])}
+    logger.info("parse_serpapi: target_date=%s, day blocks: %s, all theaters: %s", target_date,
+                [(b.get('day'), b.get('date')) for b in showtimes_list], all_theaters)
 
     for day_block in showtimes_list:
         day_str = day_block.get("day", "")
