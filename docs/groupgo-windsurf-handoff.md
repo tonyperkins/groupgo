@@ -572,7 +572,23 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### 1. Filter redesign — replace "In Poll / All times" toggle with "Show excluded" checkbox
+- **File:** `templates/admin/movies.html` (per-movie filter bar + global Advanced panel)
+- **Remove** the "In Poll" / "All times" mode toggle entirely from both the per-movie filter bars and the global Advanced panel.
+- **New behavior:**
+  - By default, only show `is_included = true` rows (clean view of what voters will see)
+  - Add a **"Show excluded"** checkbox (unchecked by default) — when checked, dimmed excluded rows appear alongside included ones
+  - The filter fields (venue, format, time window) always control what **"Apply as selection"** targets, regardless of whether "Show excluded" is checked
+  - **"Apply as selection"** always bulk-PATCHes: matching rows → `is_included = true`, non-matching → `is_included = false`, then refreshes the list
+  - **"Include All"** marks all currently visible rows as included
+  - **"Reset"** clears all filter fields (venue → All, format → All, time → Any/Any), unchecks "Show excluded"
+  - Count shows included/total: e.g. "18 of 35"
+- **Layout:**
+  ```
+  [All Venues ▾] [All Formats ▾] [From Any ▾ To Any ▾] [Apply as selection] [Include All]
+  □ Show excluded    Reset    18 of 35
+  ```
+- Apply the same redesign to both the per-movie filter bars and the global Advanced panel (Advanced panel keeps its "All Events" dropdown).
 
 ---
 
@@ -583,7 +599,70 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: master).
+Read docs/groupgo-windsurf-handoff.md before starting. Single focused task —
+filter redesign on the poll setup page. No SPA changes, no schema changes.
+
+---
+
+### Task 1 — Replace "In Poll / All times" toggle with "Show excluded" checkbox
+File: templates/admin/movies.html
+
+Remove the In Poll / All times mode toggle from both the per-movie filter
+bars and the global Advanced panel. Replace with this simpler approach:
+
+**Default state:** only is_included=true rows are shown (voters' view)
+
+**"Show excluded" checkbox** (unchecked by default):
+- When unchecked: only included rows visible
+- When checked: all rows visible, excluded rows dimmed (opacity ~0.45)
+- Checking/unchecking does NOT trigger any API call — display only
+
+**Filter fields** (All Venues, All Formats, From/To time window):
+- Always control what "Apply as selection" targets
+- Narrowing these does NOT automatically hide rows — they filter the
+  target of Apply, not the visible rows
+- Exception: if "Show excluded" is unchecked, non-included rows stay
+  hidden regardless of filter state
+
+**"Apply as selection" button:**
+- Always bulk-PATCHes based on current filter criteria:
+  - Rows matching all active filters → is_included = true
+  - All other rows → is_included = false
+- After API calls complete, refresh the times list
+- Use existing PATCH endpoint for toggling is_included
+
+**"Include All" button:**
+- Marks all currently visible rows (after filter) as is_included = true
+
+**"Reset" button:**
+- Clears all filter fields to defaults (All Venues, All Formats, Any/Any)
+- Unchecks "Show excluded"
+- Does NOT change any is_included values
+
+**Count display:** "N of M" where N = included count, M = total for this movie
+
+**Layout (both per-movie and global Advanced panel):**
+Row 1: [All Venues ▾] [All Formats ▾] [From Any ▾] [To Any ▾] [Apply as selection] [Include All]
+Row 2: [□ Show excluded]   [Reset]   [N of M]
+
+Apply same pattern to global Advanced panel — it also gets the
+"Show excluded" checkbox. Advanced panel keeps its "All Events" dropdown
+as the first filter.
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "ux: replace In Poll/All times toggle with Show excluded checkbox on filter bars"`
+4. Push: `git push origin master`
 
 ---
 
