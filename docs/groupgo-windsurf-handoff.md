@@ -369,6 +369,14 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Completed
 
+### Session 12 — March 15, 2026
+- `templates/admin/dashboard.html` — fixed `openSendEmailModal` crash: `/api/admin/users` returns a plain array not `{users:[]}`, and filter field is `is_admin` not `role`; removed `overflow-hidden` from poll cards so overflow dropdown is not clipped; bumped dropdown z-index from `z-30` to `z-50`
+- `templates/admin/showtimes.html` — full redesign: all movie events consolidated into a single "Movies" section at top with movie selection pills, theater selector, date × theater grid with `↗ verify` links to `website_url?showDate=YYYY-MM-DD`, Fetch button, and flat cached-times table inside; non-movie events each keep their own collapsible section below; `triggerMoviesFetch()` JS replaces `triggerEventFetch()` and deduplicates dates; `toggleMoviesSection()` added
+- `templates/components/admin_session_list.html` — "All Events" dropdown now filters to `event_type == 'movie'` only, so non-movie events (concerts, restaurants) no longer appear in the movie filter
+- `app/services/showtime_service.py` — added `logger`; `fetch_showtimes_from_serpapi()` now appends human-readable date (e.g. "March 22") to query so Google returns date-specific showtimes widget; added fallback retry without date when date-specific query returns no `showtimes` key; parser now checks `date` field ("Mar 22") before `day` field ("SunMar 22"); added `_format_date_for_query()` helper; added `_DOW_ABBREVS` / `_resolve_dow_to_date()` for bare weekday fallback; all parse debug logs promoted to INFO level
+- `Venue.website_url` — confirmed Cinemark Cedar Park has `website_url` set; verify links use it directly
+> ℹ️ The date-specific SerpAPI query fix resolved 0-session fetches: root cause was bare DOW strings (`Sun`, `Mon`) returned by Google's weekly view when no date was specified. Appending the date to the query triggers the date-specific showtimes widget. Fallback retry handles cases where a date-specific query returns no showtimes key (e.g. movie not playing that day).
+
 ### Session 11 — March 15, 2026
 - `voter-spa/src/components/ShowtimeCard.tsx` — unchecked boxes now show empty square (no ✓ glyph); checked boxes remain green; unchecked border uses `C.borderLight`; locked state uses `C.locked` bg
 - `voter-spa/src/components/ResultsTab.tsx` — voter pills now get tinted background + border matching their avatar color (e.g. Tony green, Bob amber)
@@ -470,20 +478,7 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-#### 1. UX: Times page — combine all movies into one section with fetch controls + cached times inside
-- **File:** `templates/admin/showtimes.html`
-- Current layout: one collapsible section per event (movies and non-movies each get their own).
-- New layout:
-  - **One "Movies" section** at the top containing:
-    - Movie selection pills (one per movie in the poll, all checked by default)
-    - Theater selector
-    - Date selector
-    - "Fetch Showtimes" button
-    - The "All cached times" flat table with time window filter (currently separate at bottom)
-  - **Individual sections for each non-movie event** below (unchanged — each has its own times list + Add Time form)
-- The "All cached times" table moves inside the Movies section and is no longer a separate bottom section
-- If the poll has no movie events, the Movies section is hidden entirely (non-movie sections only)
-- This is a significant rework of the HTMX template — do not convert to React
+_Nothing pending._
 
 ---
 
@@ -494,46 +489,4 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ---
 
-You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting. Single focused task
-on the admin Times page template. Do not touch React SPA, backend logic,
-or auth.
-
----
-
-### Task 1 — Times page: combine movies into one section
-File: templates/admin/showtimes.html
-
-Rework the Times page layout:
-
-**Movies section (shown only if poll has movie events):**
-- Single collapsible section with header "Movies"
-- Inside: movie selection pills, theater selector, date selector,
-  Fetch Showtimes button (same controls as before, scoped to movies)
-- Below the fetch controls: the full "All cached times" flat table
-  with time window filter (move it here from the bottom)
-- Each movie in the poll gets a pill/checkbox to include/exclude from fetch
-
-**Non-movie sections (unchanged):**
-- Each non-movie event keeps its own collapsible section
-- Times list + inline Add Time form per event
-- No fetch controls
-
-**Remove:** the standalone "All cached times" section at the bottom
-  (its content moves inside the Movies section)
-
-The existing HTMX endpoints are unchanged — only the template layout changes.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "ux: Times page — combine movies into one section with fetch controls and cached times"`
-4. Push: `git push origin master`
+_Nothing pending._

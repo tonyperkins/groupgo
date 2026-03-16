@@ -230,17 +230,26 @@ def _format_date_for_query(date: str) -> str:
 
 async def fetch_showtimes_from_serpapi(query: str, date: str) -> dict:
     date_label = _format_date_for_query(date)
-    params = {
-        "engine": "google",
-        "q": f"{query} {date_label}",
-        "api_key": settings.SERPAPI_KEY,
-        "hl": "en",
-        "gl": "us",
-    }
     async with httpx.AsyncClient(timeout=20) as client:
+        # Try date-specific query first
+        params = {
+            "engine": "google",
+            "q": f"{query} {date_label}",
+            "api_key": settings.SERPAPI_KEY,
+            "hl": "en",
+            "gl": "us",
+        }
         resp = await client.get(settings.serpapi_base_url, params=params)
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        if data.get("showtimes"):
+            return data
+        # Fallback: query without date (returns weekly view — parser handles DOW matching)
+        logger.info("fetch_serpapi: no showtimes for date-specific query %r, retrying without date", f"{query} {date_label}")
+        params["q"] = query
+        resp2 = await client.get(settings.serpapi_base_url, params=params)
+        resp2.raise_for_status()
+        return resp2.json()
 
 
 def get_or_create_sessions(sessions_data: list[dict], db: Session) -> list[Showtime]:
