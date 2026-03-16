@@ -580,6 +580,12 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 - It should filter and include/exclude times for that movie only (scoped to that event's sessions).
 - The global Advanced panel time window filter remains unchanged.
 
+#### 4. UX: Move status badge to upper right of poll management page header
+- **File:** `templates/admin/movies.html`
+- The OPEN/DRAFT/CLOSED status badge currently sits as the first item in the right-side action row, appearing to the left of Invite Link and Actions.
+- Move it to be the last item in the right-side row (after the Actions button), so the visual order is: Invite Link → Actions → OPEN badge.
+- Alternatively, position it absolutely in the top-right corner of the header card.
+
 ---
 
 ## Implementation Prompt
@@ -637,6 +643,17 @@ The per-movie time filter should:
 
 ---
 
+### Task 4 — UX: Move status badge to upper right in poll header
+File: templates/admin/movies.html
+
+The status badge (OPEN/DRAFT/CLOSED) is the first item in the right-side
+action row, appearing before Invite Link and Actions buttons.
+Move it to be the last item so order is: Invite Link → Actions → status badge.
+The badge should appear visually grouped with the action buttons in the
+top-right corner of the header card.
+
+---
+
 ### After completing all tasks
 
 1. In docs/groupgo-windsurf-handoff.md:
@@ -646,5 +663,5 @@ The per-movie time filter should:
    c. Replace everything after the blockquote in `## Implementation Prompt`
       with: `_Nothing pending._`
 2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu; actions menu clipping; per-movie time filter"`
+3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu; actions menu clipping; per-movie time filter; status badge position"`
 4. Push: `git push origin master`
