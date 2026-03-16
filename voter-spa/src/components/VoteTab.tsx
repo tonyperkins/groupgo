@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { C, FS } from "../tokens";
 import { VoterSession, VoterEvent } from "../api/voter";
 import { ShowtimeCard, SessionVote } from "./ShowtimeCard";
+import { HelpIcon } from "./HelpIcon";
 
 interface VoteTabProps {
   sessions: VoterSession[];
@@ -45,8 +46,9 @@ function FlexibleToggle({ isFlexible, disabled, onToggle }: FlexibleToggleProps)
       opacity: disabled ? 0.4 : 1,
     }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, marginBottom: 3 }}>
+        <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, marginBottom: 3, display: "flex", alignItems: "center" }}>
           I'm In — Whatever You Choose!
+          <HelpIcon title="Flexible voting" body="Turn this on if you're happy with whatever the group picks. You'll count as available for every option, giving them a boost." />
         </div>
         <div style={{ fontSize: FS.base, color: C.textMuted, lineHeight: 1.4 }}>
           Skip showtime voting and count yourself as available for every option.

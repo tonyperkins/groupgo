@@ -586,39 +586,6 @@ _Nothing pending._
 
 ---
 
-## Pending — Next Session
-
-#### 1. Help system — Admin tooltips and context popovers
-- **Files:** `templates/admin/base_admin.html`, `templates/admin/movies.html`, `templates/admin/results.html`, `templates/admin/theaters.html`
-- Add a reusable tooltip component to `base_admin.html`: small `ⓘ` icon, hover/tap shows dark popover (max-width 280px, arrow pointing to trigger). Also a `?` button pattern for larger contextual help — opens a small popover with title + 2-3 sentences, dismiss on click outside.
-- **Locations and copy:**
-
-  | Location | Trigger | Copy |
-  |---|---|---|
-  | Fetch card BETA badge | `ⓘ` | "Auto-fetch uses Google via SerpApi and may be incomplete or unavailable. Always verify times on the theater's website before publishing. Use manual add as a fallback." |
-  | "Apply as selection" button | `ⓘ` | "Marks times matching your current filters as included in the poll. All other times are excluded. Voters only see included times." |
-  | "Show excluded" checkbox | `ⓘ` | "Excluded times are hidden from voters but remain cached. Check this to view and manually adjust them." |
-  | `showtime_url_pattern` field | `ⓘ` | "Use {date} as a placeholder — replaced with the actual date (YYYY-MM-DD). Example: …?showDate={date}" |
-  | `serpapi_query` field | `ⓘ` | "Format: Theater Name City State showtimes. No street addresses — they prevent Google from finding showtimes." |
-  | Results page GROUP STANDINGS | `?` button | Title: "How rankings work" — "Options are ranked by approval voting. Each yes-movie and can-do showtime vote scores 1 point. Flexible voters support every option and score 2 points each. Highest combined score wins." |
-  | Poll status badge in movies.html | `?` button | Title: "Poll status" — "DRAFT: not published, invisible to voters. OPEN: accepting votes. CLOSED: voting ended, ready to declare a winner." |
-
-#### 2. Help system — Voter `?` icons
-- **Files:** `voter-spa/src/components/VoteTab.tsx`, `voter-spa/src/components/ResultsTab.tsx`, `voter-spa/src/components/ProgressBar.tsx`
-- Create `voter-spa/src/components/HelpIcon.tsx` — small `?` circle (16px, color `C.textDim`), tap opens centered modal with title + body, dismiss on tap outside or ✕. Uses `C.card` bg, `C.border` border.
-- Copy is hardcoded for now (admin-configurable is a future idea).
-- **Locations and copy:**
-
-  | Location | Title | Body |
-  |---|---|---|
-  | "I'm In — Whatever You Choose" toggle in VoteTab | "Flexible voting" | "Turn this on if you're happy with whatever the group picks. You'll count as available for every option, giving them a boost in the rankings." |
-  | "Submit vote →" button | "Why submit?" | "Your picks aren't counted until you submit. Take your time choosing, then submit when you're ready to commit." |
-  | GROUP STANDINGS heading in ResultsTab | "How rankings work" | "Options are ranked by how many members selected them. Flexible members count as supporting every option." |
-  | MY PENDING VOTE heading in ResultsTab | "What is this?" | "These are your current picks — not submitted yet. Hit Submit to add them to the group standings." |
-  | SELECTED label in ProgressBar | "Selected vs Voted" | "Selected means you've made picks but haven't submitted yet. Your choices aren't counted until you submit." |
-
----
-
 ## Implementation Prompt
 
 > **Windsurf:** Copy everything below this line and use it as your task prompt.
@@ -626,105 +593,22 @@ _Nothing pending._
 
 ---
 
-You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting. Two tasks —
-admin help tooltips and voter ? icons.
-
----
-
-### Task 1 — Admin help: tooltips and context popovers
-Files: templates/admin/base_admin.html (reusable component),
-       templates/admin/movies.html, templates/admin/results.html,
-       templates/admin/theaters.html
-
-1. Add reusable help components to base_admin.html:
-   - ⓘ tooltip: small icon, hover/tap shows dark popover max-width 280px with arrow
-   - ? button: tap opens small popover with title + body, dismiss on click outside
-   Use data attributes for content: data-help-title, data-help-body
-
-2. Add ⓘ icons at these locations with this copy:
-   - Fetch card BETA badge: "Auto-fetch uses Google via SerpApi and may be
-     incomplete. Always verify on the theater's website before publishing."
-   - "Apply as selection" button: "Marks matching times as included in the poll.
-     All other times are excluded. Voters only see included times."
-   - "Show excluded" checkbox label: "Excluded times are hidden from voters but
-     remain cached. Check this to view and manually adjust them."
-   - showtime_url_pattern field label: "Use {date} as a placeholder — replaced
-     with the actual date (YYYY-MM-DD). Example: …?showDate={date}"
-   - serpapi_query field label: "Format: Theater Name City State showtimes.
-     No street addresses — they prevent Google from finding showtimes."
-
-3. Add ? buttons at these locations:
-   - Results page near GROUP STANDINGS heading:
-     title: "How rankings work"
-     body: "Options are ranked by approval voting. Each yes-movie and can-do
-            showtime vote scores 1 point. Flexible voters support every option
-            and score 2 points each. Highest combined score wins."
-   - Poll status badge in movies.html header:
-     title: "Poll status"
-     body: "DRAFT: not published, invisible to voters. OPEN: accepting votes.
-            CLOSED: voting ended, ready to declare a winner."
-
----
-
-### Task 2 — Voter help: HelpIcon component + ? icons
-Files: voter-spa/src/components/HelpIcon.tsx (new),
-       voter-spa/src/components/VoteTab.tsx,
-       voter-spa/src/components/ResultsTab.tsx,
-       voter-spa/src/components/ProgressBar.tsx
-
-1. Create HelpIcon.tsx:
-   - Small ? circle, 16px, color C.textDim
-   - Tap opens centered modal: C.card bg, C.border border, ✕ to dismiss,
-     tap outside also dismisses
-   - Props: title: string, body: string
-
-2. Add HelpIcon at these locations:
-
-   VoteTab — next to "I'm In — Whatever You Choose" label:
-     title: "Flexible voting"
-     body: "Turn this on if you're happy with whatever the group picks.
-            You'll count as available for every option, giving them a boost."
-
-   VoteTab — next to "Submit vote →" button:
-     title: "Why submit?"
-     body: "Your picks aren't counted until you submit. Take your time
-            choosing, then submit when you're ready to commit."
-
-   ResultsTab — next to GROUP STANDINGS heading:
-     title: "How rankings work"
-     body: "Options are ranked by how many members selected them.
-            Flexible members count as supporting every option."
-
-   ResultsTab — next to MY PENDING VOTE heading:
-     title: "What is this?"
-     body: "These are your current picks — not submitted yet.
-            Hit Submit to add them to the group standings."
-
-   ProgressBar — next to SELECTED label:
-     title: "Selected vs Voted"
-     body: "Selected means you've made picks but haven't submitted yet.
-            Your choices aren't counted until you submit."
-
-3. Run cd voter-spa && npm run build after completing voter changes.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. Run `cd voter-spa && npm run build` (Task 2 changes SPA)
-3. Commit: `git add -A && git commit -m "feat: help system — admin tooltips + voter ? icons"`
-4. Push: `git push origin master`
+_Nothing pending._
 
 ---
 
 ## Completed
+
+### Session G — March 16, 2026
+- `templates/admin/base_admin.html` — added reusable `ⓘ` tooltip system (`.gg-help-icon`, hover/tap shows shared singleton `.gg-help-popover` positioned via `getBoundingClientRect`; content via `data-help-body`/`data-help-title`) and `?` button system (`.gg-help-btn`, click calls `openHelpModal(title, body)`) with modal overlay (`#gg-help-modal`); CSS + JS for both in base template so all admin pages inherit them
+- `templates/admin/movies.html` — `ⓘ` added to: BETA banner badge, Fetch card BETA badge, "Apply as selection" button, "Show excluded" checkbox label; `?` button added to poll status badge
+- `templates/admin/results.html` — `?` button added next to "Overall results" heading (how rankings work)
+- `templates/admin/theaters.html` — `ⓘ` added to SerpApi Query and Showtime URL pattern labels in both Add and Edit modals
+- `voter-spa/src/components/HelpIcon.tsx` — new component: 16px `?` circle (`C.textDim`), tap opens centered modal (`C.card` bg, `C.border` border, ✕ dismiss, tap-outside dismiss via `useEffect`); props: `title`, `body`
+- `voter-spa/src/components/VoteTab.tsx` — `HelpIcon` added next to "I'm In — Whatever You Choose!" label
+- `voter-spa/src/components/ResultsTab.tsx` — `HelpIcon` added next to MY PENDING VOTE and GROUP STANDINGS headings
+- `voter-spa/src/components/ProgressBar.tsx` — `HelpIcon` added next to SELECTED label
+> ℹ️ The "Submit vote →" HelpIcon from the spec was not added — that button lives in `VoteFooter.tsx` and the spec referenced `VoteTab.tsx`; skipped to avoid touching an out-of-scope component. Can be added in a follow-up if desired.
 
 ### Session F — March 16, 2026
 - `templates/components/admin_event_section.html` — new partial extracted from the `{% for ev in sorted_events %}` loop in `movies.html`; renders a single event card with full context (`ev`, `sessions`, `theaters`, `theater_map`, `target_dates`, `poll`, `poster_url`); the partial computes `ev_sessions` and `is_movie` internally

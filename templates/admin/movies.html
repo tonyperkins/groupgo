@@ -73,7 +73,7 @@
             class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-slate-700">Delete</button>
         </div>
       </div>
-      <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
+      <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span><button class="gg-help-btn" onclick="openHelpModal('Poll status','DRAFT: not published, invisible to voters. OPEN: accepting votes. CLOSED: voting ended, ready to declare a winner.')">?</button>
     </div>
   </div>
   <div class="step-strip mt-6">
@@ -100,7 +100,7 @@
 
 <!-- Beta banner -->
 <div class="flex items-start gap-3 p-3 rounded-xl border border-amber-700/60 bg-amber-950/30 mb-4">
-  <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/60 text-amber-300 whitespace-nowrap mt-0.5">BETA</span>
+  <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/60 text-amber-300 whitespace-nowrap mt-0.5">BETA</span><span class="gg-help-icon" data-help-body="Auto-fetch uses Google via SerpApi and may be incomplete. Always verify on the theater&#39;s website before publishing.">ⓘ</span>
   <span class="text-sm text-amber-200">Auto-fetch from Google may be incomplete or unavailable for some theaters. Always verify times before publishing. Use manual add as a fallback.</span>
 </div>
 
@@ -114,7 +114,7 @@
       <div>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-bold text-white text-base">Fetch all movie times from Google</span>
-          <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/40 text-amber-400">BETA</span>
+          <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/40 text-amber-400">BETA</span><span class="gg-help-icon" data-help-body="Auto-fetch uses Google via SerpApi and may be incomplete. Always verify on the theater&#39;s website before publishing.">ⓘ</span>
         </div>
         <div class="text-xs text-slate-500 mt-0.5">
           {{ movie_events | map(attribute='title') | join(' · ') }} — {{ movie_sessions | length }} cached time{{ 's' if movie_sessions | length != 1 else '' }}
@@ -246,14 +246,14 @@
               <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
               {% endfor %}{% endfor %}
             </select>
-            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply as selection</button>
+            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply as selection</button><span class="gg-help-icon" data-help-body="Marks times matching your current filters as included in the poll. All other times are excluded. Voters only see included times.">ⓘ</span>
             <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button>
           </div>
           <!-- Row 2: show excluded checkbox + reset + count -->
           <div class="flex items-center gap-3">
             <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer select-none">
               <input type="checkbox" id="gf-show-excluded" onchange="filterSessions()" class="w-3 h-3 accent-indigo-500"/>
-              Show excluded
+              Show excluded<span class="gg-help-icon" data-help-body="Excluded times are hidden from voters but remain cached. Check this to view and manually adjust them.">ⓘ</span>
             </label>
             <button onclick="resetSessionFilters()" class="text-xs text-slate-500 hover:text-slate-300">Reset</button>
             <span id="sf-count" class="text-xs text-slate-500"></span>

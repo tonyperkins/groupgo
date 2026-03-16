@@ -97,6 +97,59 @@
     [data-theme="light"] tbody td { color: #334155; }
     [data-theme="light"] .font-medium { color: #1e293b; }
     [data-theme="light"] .text-xs.text-slate-500 { color: #64748b; }
+    /* ── Help tooltip (ⓘ) ─────────────────────────────────────────────────── */
+    .gg-help-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 999px;
+      font-size: 10px; font-weight: 700; line-height: 1;
+      color: var(--text-muted); border: 1px solid var(--text-muted);
+      cursor: pointer; flex-shrink: 0; vertical-align: middle;
+      margin-left: 4px; opacity: 0.7; transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+      position: relative; user-select: none;
+    }
+    .gg-help-icon:hover { opacity: 1; color: #818cf8; border-color: #818cf8; }
+    .gg-help-popover {
+      position: fixed; z-index: 9999;
+      background: #1e293b; border: 1px solid rgba(148,163,184,0.22);
+      border-radius: 10px; padding: 10px 12px;
+      max-width: 280px; width: max-content;
+      font-size: 12px; line-height: 1.5; color: #cbd5e1;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+    .gg-help-popover.has-title .gg-help-popover-title {
+      font-weight: 700; color: #f1f5f9; margin-bottom: 4px; font-size: 12px;
+    }
+    /* ── Help ? button ─────────────────────────────────────────────────────── */
+    .gg-help-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; line-height: 1;
+      color: var(--text-muted); border: 1px solid var(--border);
+      cursor: pointer; flex-shrink: 0; vertical-align: middle;
+      margin-left: 5px; opacity: 0.65; transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+      background: transparent; user-select: none;
+    }
+    .gg-help-btn:hover { opacity: 1; color: #818cf8; border-color: #818cf8; }
+    /* ── Help modal (? button click) ──────────────────────────────────────── */
+    #gg-help-modal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 24px;
+    }
+    #gg-help-modal.open { display: flex; }
+    #gg-help-modal-box {
+      background: #1e293b; border: 1px solid rgba(148,163,184,0.22);
+      border-radius: 14px; padding: 20px 20px 18px;
+      max-width: 360px; width: 100%;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    #gg-help-modal-title { font-size: 14px; font-weight: 800; color: #f1f5f9; margin-bottom: 8px; }
+    #gg-help-modal-body { font-size: 13px; line-height: 1.6; color: #94a3b8; }
+    #gg-help-modal-close {
+      float: right; font-size: 16px; color: #64748b; cursor: pointer;
+      margin: -4px -4px 0 8px; padding: 4px; line-height: 1; transition: color 0.15s;
+    }
+    #gg-help-modal-close:hover { color: #f1f5f9; }
     /* breadcrumb chevron alignment */
     .breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; flex-wrap: wrap; }
     .breadcrumb > * { display: inline-flex; align-items: center; line-height: 1; }
@@ -167,6 +220,21 @@
     </div>
   </div>
 
+  <!-- Help tooltip popover (shared singleton) -->
+  <div id="gg-help-popover" class="gg-help-popover" style="display:none;">
+    <div class="gg-help-popover-title"></div>
+    <div class="gg-help-popover-body"></div>
+  </div>
+
+  <!-- Help modal (? button) -->
+  <div id="gg-help-modal" onclick="if(event.target===this)closeHelpModal()">
+    <div id="gg-help-modal-box">
+      <span id="gg-help-modal-close" onclick="closeHelpModal()">✕</span>
+      <div id="gg-help-modal-title"></div>
+      <div id="gg-help-modal-body"></div>
+    </div>
+  </div>
+
   <script src="/static/js/app.js"></script>
   <script>
     // ── Theme ──────────────────────────────────────────────────────────────────
@@ -181,6 +249,57 @@
       applyTheme(next);
     }
     applyTheme(localStorage.getItem('gg-theme') || 'dark');
+
+    // ── Help tooltip (ⓘ hover) ────────────────────────────────────────────────
+    (function() {
+      const pop = document.getElementById('gg-help-popover');
+      let hideTimer = null;
+      function showHelpTooltip(el) {
+        clearTimeout(hideTimer);
+        const body = el.dataset.helpBody || '';
+        const title = el.dataset.helpTitle || '';
+        pop.querySelector('.gg-help-popover-title').textContent = title;
+        pop.querySelector('.gg-help-popover-body').textContent = body;
+        pop.classList.toggle('has-title', !!title);
+        pop.style.display = 'block';
+        const r = el.getBoundingClientRect();
+        const pw = 280; const ph = pop.offsetHeight || 80;
+        let left = r.left + r.width / 2 - pw / 2;
+        let top = r.bottom + 6;
+        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+        if (left < 8) left = 8;
+        if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+        pop.style.maxWidth = pw + 'px';
+      }
+      function hideHelpTooltip() {
+        hideTimer = setTimeout(() => { pop.style.display = 'none'; }, 120);
+      }
+      document.addEventListener('mouseover', e => {
+        const el = e.target.closest('.gg-help-icon');
+        if (el) showHelpTooltip(el);
+      });
+      document.addEventListener('mouseout', e => {
+        if (e.target.closest('.gg-help-icon')) hideHelpTooltip();
+      });
+      document.addEventListener('click', e => {
+        const el = e.target.closest('.gg-help-icon');
+        if (el) { e.stopPropagation(); showHelpTooltip(el); }
+        else hideHelpTooltip();
+      });
+    })();
+
+    // ── Help modal (? button) ─────────────────────────────────────────────────
+    function openHelpModal(title, body) {
+      document.getElementById('gg-help-modal-title').textContent = title;
+      document.getElementById('gg-help-modal-body').textContent = body;
+      document.getElementById('gg-help-modal').classList.add('open');
+    }
+    function closeHelpModal() {
+      document.getElementById('gg-help-modal').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelpModal(); });
 
     // ── Confirm dialog ─────────────────────────────────────────────────────────
     function showConfirm(msg, onOk, okLabel = 'Confirm', danger = true) {

@@ -14,3 +14,4 @@ export { ShowtimeCard } from "./ShowtimeCard";
 export type { SessionVote } from "./ShowtimeCard";
 export { VoteTab } from "./VoteTab";
 export { ResultsTab } from "./ResultsTab";
+export { HelpIcon } from "./HelpIcon";

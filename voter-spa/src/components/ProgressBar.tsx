@@ -1,4 +1,5 @@
 import { C, FS } from "../tokens";
+import { HelpIcon } from "./HelpIcon";
 
 const SEGMENTS = ["Joined", "Selected", "Voted"] as const;
 
@@ -26,7 +27,13 @@ export function ProgressBar({ step }: ProgressBarProps) {
             fontSize: FS.xs, fontWeight: i < step ? 700 : 400,
             color: i < step ? C.accent : C.textDim,
             letterSpacing: "0.03em",
-          }}>{label.toUpperCase()}</div>
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {label.toUpperCase()}
+            {label === "Selected" && (
+              <HelpIcon title="Selected vs Voted" body="Selected means you've made picks but haven't submitted yet. Your choices aren't counted until you submit." />
+            )}
+          </div>
         ))}
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C } from "../tokens";
 import { voterApi, ResultsResponse, ResultsEntry, VoterSession, VoterEvent } from "../api/voter";
+import { HelpIcon } from "./HelpIcon";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -428,7 +429,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
           borderRadius: 14, padding: "14px",
           display: "flex", flexDirection: "column", gap: 10,
         }}>
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted }}>MY PENDING VOTE</div>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted, display: "flex", alignItems: "center" }}>MY PENDING VOTE<HelpIcon title="What is this?" body="These are your current picks — not submitted yet. Hit Submit to add them to the group standings." /></div>
           {hasAnySelections ? (
             <>
               <div style={{ fontSize: 13, color: C.textMuted }}>
@@ -510,8 +511,8 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
             cursor: "pointer",
           }}
         >
-          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted, flex: 1 }}>
-            GROUP STANDINGS
+          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: C.textMuted, flex: 1, display: "flex", alignItems: "center" }}>
+            GROUP STANDINGS<HelpIcon title="How rankings work" body="Options are ranked by how many members selected them. Flexible members count as supporting every option." />
           </span>
           {!isClosed && <LiveDot flashing={dotFlashing} />}
           {/* Filter pills */}
