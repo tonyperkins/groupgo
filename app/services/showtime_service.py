@@ -152,6 +152,10 @@ def parse_serpapi_showtimes(
                         day_str, date_str, block_date, target_date)
             continue
 
+        theater_names_in_block = [tb.get("name") for tb in day_block.get("theaters", [])]
+        logger.info("parse_serpapi: day=%r matched target=%s, theaters in block: %s",
+                    day_str, target_date, theater_names_in_block)
+
         for theater_block in day_block.get("theaters", []):
             # Match theater by name if we have one to compare against
             if theater_name:
@@ -167,6 +171,8 @@ def parse_serpapi_showtimes(
                     logger.info("parse_serpapi: theater mismatch %r vs %r (words: %r)",
                                 theater_name, theater_block.get("name"), word_overlap)
                     continue
+                logger.info("parse_serpapi: theater matched %r -> %r",
+                            theater_name, theater_block.get("name"))
 
             theater_booking_url = None
             for key in BOOKING_URL_KEYS:
