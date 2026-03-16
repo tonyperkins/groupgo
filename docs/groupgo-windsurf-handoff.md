@@ -512,11 +512,72 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 - `templates/components/admin_movie_list.html` — edit pencil icon for manual events; warning/badge gated on `event_type == "movie"`
 - `templates/components/admin_session_list.html` — string cleanup
 
+### AI agent — auto-discover venue verify URL pattern
+- When an admin adds a new theater/venue, an AI agent could automatically discover the correct showtime URL pattern for that venue's website (e.g. detect that Cinemark uses `?showDate={date}` format).
+- Agent would fetch the venue's website, identify the showtimes page structure, and infer the URL pattern — saving the admin from having to look it up and enter it manually.
+- Depends on: AI agent infrastructure being in place first.
+
+### AI-assisted self-healing scraper (when direct scrapers replace SerpApi)
+- When a theater scraper fails (zero results, parse exception, HTML structure change detected), automatically invoke Claude via the Anthropic API to diagnose and fix the scraper.
+- Detection: confidence scoring — expected N showtimes based on history, got 0; HTML structure hash changed from last successful run.
+- Agent loop: fetch raw HTML → send to Claude with current scraper + failure context → Claude proposes fix → validate against live site → auto-promote if valid, escalate to admin if not.
+- Safeguards: never auto-deploy without validation; human escalation after N failed attempts; diff size limit; full audit log.
+- Tony's note: excited to revisit this — did similar work when webscraping was first becoming a thing.
+
 ---
 
 ## Pending — Next Session
 
-_Nothing pending._
+#### Session A — Venue URL pattern field (surgical, do first)
+##### 1. Add `showtime_url_pattern` field to Venue model
+- **File:** `app/models.py`, `templates/admin/theaters.html`, `app/routers/api.py`
+- Add `showtime_url_pattern: Optional[str] = Field(default=None)` to the `Venue` model.
+- Run: `ALTER TABLE theaters ADD COLUMN showtime_url_pattern VARCHAR`
+- Add the field to the theater create/edit form in `templates/admin/theaters.html`:
+  - Label: "Showtime URL pattern"
+  - Help text: "Use {date} where the date should appear (YYYY-MM-DD format). Example: https://www.cinemark.com/theatre/my-theater?showDate={date}"
+  - Show a live preview of the generated URL using the first poll date as the example
+  - Common patterns hint block (Cinemark, AMC, Regal examples)
+- Include in the theater PATCH/POST API endpoints.
+
+##### 2. Use `showtime_url_pattern` for verify links on Times page
+- **File:** `templates/admin/showtimes.html`
+- Replace the current hardcoded `{{ t.website_url }}?showDate={{ d }}` verify link logic with:
+  - If `t.showtime_url_pattern` is set: replace `{date}` in the pattern with the actual date → use as the verify link href
+  - If only `t.website_url` is set (no pattern): link to `t.website_url` with no date param
+  - If neither: no verify link shown
+- The link label stays "↗ verify"
+
+---
+
+#### Session B — Unified poll setup page (heavy, queue after Session A)
+
+Collapse the two-step admin wizard (Events page + Times page) into one "Build your poll" page. Each event card contains its times directly. See mockups in conversation history (March 2026).
+
+##### Layout (top to bottom)
+1. Page header: "Build your poll" + 2-step indicator (Step 1: Events + Times / Step 2: Results)
+2. Amber beta banner: "Auto-fetch may be incomplete. Verify before publishing."
+3. "Fetch all movie times" card (only shown if poll has movie events):
+   - Movie pills, theater pills, date pills (all checked by default)
+   - "Fetch times" + "Check API status" buttons
+   - After fetch: per-theater status (✓ N times found / ⚠ 0 times found) + verify link per theater per date
+4. Per-event cards (movies first, then non-movies grouped by type):
+   - Header: event name + type badge + time count + chevron
+   - Body: per-movie re-fetch mini-panel (movie events only); fetch status + verify links (movie events only); times list with include toggle + delete; inline "+ Add time" form (expands on click)
+   - "No times" amber warning if empty
+5. "+ Add event" button at bottom
+
+##### Fetched times placement
+- Times populate directly into the movie's own card
+- "All cached times" flat table moves inside the "Fetch all movie times" card as a collapsed "Advanced" panel. Time window bulk filter lives there.
+
+##### URL / navigation
+- New unified page replaces both `/movies` and `/showtimes` routes — use `/admin/polls/{id}/setup` or keep `/movies` as the route
+- "Next: Times →" button on Events page goes away
+- Step indicator updates accordingly
+
+##### Implementation note
+This is the largest single template change in the project. Read `templates/admin/movies.html` and `templates/admin/showtimes.html` fully before starting. All existing HTMX endpoints are unchanged — template structure only.
 
 ---
 
@@ -527,4 +588,56 @@ _Nothing pending._
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: master).
+Read docs/groupgo-windsurf-handoff.md before starting. Two surgical tasks —
+venue URL pattern field and verify link fix. Do not touch voter SPA,
+scoring, or auth.
+
+---
+
+### Task 1 — Add showtime_url_pattern to Venue model
+Files: app/models.py, app/routers/api.py, templates/admin/theaters.html
+
+1. Add to Venue model:
+   showtime_url_pattern: Optional[str] = Field(default=None)
+
+2. Run migration:
+   ALTER TABLE theaters ADD COLUMN showtime_url_pattern VARCHAR
+
+3. In templates/admin/theaters.html add field to create + edit forms:
+   - Label: "Showtime URL pattern (optional)"
+   - Help text: Use {date} where the date should appear (YYYY-MM-DD).
+     Example: https://www.cinemark.com/theatre/my-theater?showDate={date}
+   - Show a small hint block with common patterns:
+       Cinemark: …?showDate={date}
+       AMC:      …/showtimes?date={date}
+       Regal:    …?date={date}&theatreId=…
+   - Include in the POST/PATCH API payloads
+
+---
+
+### Task 2 — Use showtime_url_pattern for verify links
+File: templates/admin/showtimes.html
+
+Replace the current verify link logic with:
+  {% if t.showtime_url_pattern %}
+    <a href="{{ t.showtime_url_pattern | replace('{date}', d) }}" ...>↗ verify</a>
+  {% elif t.website_url %}
+    <a href="{{ t.website_url }}" ...>↗ verify</a>
+  {% endif %}
+
+Remove the old hardcoded ?showDate= appending logic entirely.
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move Session A items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "feat: venue showtime_url_pattern field + dynamic verify links"`
+4. Push: `git push origin master`
