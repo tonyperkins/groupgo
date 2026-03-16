@@ -349,7 +349,17 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Future Ideas (not scheduled)
 
-### Showtime scraping — direct theater scrapers via Webshare proxies
+### SOPS + age secrets management (revisit if multi-tenant or multi-server)
+- **Problem:** Plaintext `.env` files keep getting accidentally committed despite `.gitignore` — happened twice. Windsurf and other AI coding tools are the main risk vector.
+- **Current prod setup:** Portainer manages all env vars via its UI — no `.env` file on the server at all. This means no secrets on disk, but vars must be manually updated in Portainer whenever one is added/changed/removed.
+- **SOPS + age tradeoff:**
+  - Pros: encrypted secrets live in the repo alongside the code — always in sync, new server deploy is just "copy age key + git clone + docker compose up"
+  - Cons: age key management (losing it = losing access to all secrets); Portainer's native Git-backed stack deploy can't run a decrypt step — would need to switch to SSH-based deploys with a custom script
+- **The real friction:** Portainer Git-backed deploy is zero-touch. SOPS adds a decrypt step Portainer can't do natively. Not worth the complexity for a single server + single admin setup.
+- **Better near-term fix:** Keep Portainer env vars as-is. Add a `.env.example` file listing every required var name (no values) so a new server deploy has a clear checklist. Solve secret leakage with `.windsurfignore` + `.gitignore` discipline — that's the actual risk, not secret storage.
+- **Revisit SOPS** if: multiple servers, CI/CD pipeline, or multi-tenant path where other people need deploy access.
+
+
 - **Problem:** SerpApi showtime reliability is ~50-70% at best — data comes from Google's knowledge panel which is stale, inconsistent, and schema-changes without notice.
 - **Better approach:** Write targeted scrapers for each major theater chain (Cinemark, AMC, Regal) that hit the theater's own website directly. Use Webshare rotating proxies to avoid IP-based rate limiting.
 - **Why better:** Source of truth data, predictable structure, fixable when it breaks.
