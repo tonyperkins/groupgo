@@ -41,6 +41,33 @@ def send_email(to_address: str, subject: str, body_text: str, body_html: str | N
         return False
 
 
+def send_poll_invite(
+    to_address: str,
+    voter_name: str,
+    poll_title: str,
+    invite_url: str,
+) -> bool:
+    """Notify a member that a new poll is open and ready for their vote."""
+    subject = f"You're invited to vote: {poll_title}"
+    body_text = (
+        f"Hi {voter_name},\n\n"
+        f"A new GroupGo poll is open: \"{poll_title}\".\n"
+        f"Click the link below to view the options and cast your vote:\n\n"
+        f"{invite_url}\n\n"
+        f"Thanks!"
+    )
+    body_html = (
+        f"<p>Hi {voter_name},</p>"
+        f"<p>A new GroupGo poll is open: <strong>{poll_title}</strong>.</p>"
+        f"<p><a href=\"{invite_url}\" style=\"display:inline-block;padding:10px 20px;"
+        f"background:#4F46E5;color:#fff;border-radius:6px;text-decoration:none;"
+        f"font-weight:bold;\">Vote Now</a></p>"
+        f"<p style='color:#888;font-size:12px'>Or copy this URL: {invite_url}</p>"
+        f"<p>Thanks!</p>"
+    )
+    return send_email(to_address, subject, body_text, body_html)
+
+
 def send_revote_notification(
     to_address: str,
     voter_name: str,

@@ -7,10 +7,25 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8000"
-    env_file:
-      - .env
     environment:
       DATABASE_URL: sqlite:////data/groupgo.db
+      APP_ENV: ${APP_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY}
+      APP_BASE_URL: ${APP_BASE_URL:-https://groupgo.org}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      GOOGLE_KG_API_KEY: ${GOOGLE_KG_API_KEY:-}
+      SERPAPI_RATE_LIMIT_HOURS: ${SERPAPI_RATE_LIMIT_HOURS:-12}
+      GROUP_SIZE: ${GROUP_SIZE:-5}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - db_data:/data
     healthcheck:

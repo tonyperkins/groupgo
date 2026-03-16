@@ -1409,8 +1409,6 @@ async def admin_set_poll_groups(request: Request, poll_id: int, db: Session = De
         if gid not in existing_gids:
             db.add(PollGroup(poll_id=poll_id, group_id=gid))
     poll.group_id = new_gids[0] if new_gids else None
-    db.add(poll)
-    db.commit()
     return {"poll_id": poll_id, "group_ids": new_gids}
 
 
@@ -1419,6 +1417,10 @@ async def admin_publish_poll(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
     verify_admin(request, db)
+    from app.models import UserGroup, PollGroup
+    from app.services import email_service
+    from app.services.security_service import build_poll_invite_url, ensure_poll_access_uuid
+
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
@@ -1433,22 +1435,85 @@ async def admin_publish_poll(
     db.add(poll)
     db.commit()
     ensure_poll_access_uuid(poll, db)
-    return {"id": poll.id, "status": poll.status}
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    should_email = bool(body.get("send_email", True))
+
+    emails_sent = 0
+    if should_email:
+        invite_url = build_poll_invite_url(poll, db)
+        poll_group_ids = {pg.group_id for pg in db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()}
+        if poll_group_ids:
+            member_ids = {ug.user_id for ug in db.exec(select(UserGroup).where(UserGroup.group_id.in_(poll_group_ids))).all()}
+            members = db.exec(select(User).where(User.id.in_(member_ids), User.role != "admin")).all()
+        else:
+            members = db.exec(select(User).where(User.role != "admin")).all()
+        for member in members:
+            if member.email:
+                sent = email_service.send_poll_invite(
+                    to_address=member.email,
+                    voter_name=member.name,
+                    poll_title=poll.title,
+                    invite_url=invite_url,
+                )
+                if sent:
+                    emails_sent += 1
+
+    return {"id": poll.id, "status": poll.status, "emails_sent": emails_sent}
 
 
-@router.post("/api/admin/polls/{poll_id}/invite-link")
-async def admin_poll_invite_link(
+@router.post("/api/admin/polls/{poll_id}/send-email")
+async def admin_send_poll_email(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
+    """Send the poll invite email to selected user IDs (or all members if none given)."""
     verify_admin(request, db)
+    from app.models import UserGroup, PollGroup
+    from app.services import email_service
+    from app.services.security_service import build_poll_invite_url
+
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
     if poll.status != "OPEN":
-        raise HTTPException(status_code=400, detail="Invite links are only available for OPEN polls")
+        raise HTTPException(status_code=422, detail="Poll must be open to send invites")
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    user_ids = body.get("user_ids")
 
     invite_url = build_poll_invite_url(poll, db)
-    return {"poll_id": poll.id, "access_uuid": poll.access_uuid, "invite_url": invite_url}
+
+    if user_ids:
+        members = db.exec(select(User).where(User.id.in_(user_ids), User.role != "admin")).all()
+    else:
+        poll_group_ids = {pg.group_id for pg in db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()}
+        if poll_group_ids:
+            member_ids = {ug.user_id for ug in db.exec(select(UserGroup).where(UserGroup.group_id.in_(poll_group_ids))).all()}
+            members = db.exec(select(User).where(User.id.in_(member_ids), User.role != "admin")).all()
+        else:
+            members = db.exec(select(User).where(User.role != "admin")).all()
+
+    emails_sent = 0
+    for member in members:
+        if member.email:
+            sent = email_service.send_poll_invite(
+                to_address=member.email,
+                voter_name=member.name,
+                poll_title=poll.title,
+                invite_url=invite_url,
+            )
+            if sent:
+                emails_sent += 1
+
+    return {"ok": True, "emails_sent": emails_sent}
 
 
 @router.post("/api/admin/polls/{poll_id}/regenerate-invite")

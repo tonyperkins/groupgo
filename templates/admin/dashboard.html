@@ -115,7 +115,7 @@
             data-poll-group-ids="{{ item.group_ids | join(',') }}"
             onclick="openEditPollModalFromButton(this)" class="btn-ghost text-xs">Edit Details</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="publishPollFromButton(this)" class="btn-primary text-xs">Publish</button>
+          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="openPublishModalFromButton(this)" class="btn-primary text-xs">Publish</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'OPEN' %}
           <!-- Tier 1: Navigation -->
@@ -143,6 +143,10 @@
                 onclick="duplicatePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
                 class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Duplicate</button>
               <!-- Tier 3: Destructive -->
+              <div class="border-t border-slate-700 my-1"></div>
+              <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+                onclick="openSendEmailModalFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">📧 Send Email</button>
               <div class="border-t border-slate-700 my-1"></div>
               <button type="button" data-poll-id="{{ poll.id }}"
                 onclick="clearVotesFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
@@ -187,6 +191,50 @@
   {% endfor %}
 </div>
 {% endif %}
+
+<!-- Publish Modal -->
+<div id="publish-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-sm">
+    <h2 class="text-lg font-bold text-white mb-2">Publish poll?</h2>
+    <p class="text-sm text-slate-400 mb-5">Voters will be able to see and vote. This cannot be undone from this screen.</p>
+    <label class="flex items-start gap-3 cursor-pointer mb-6 group">
+      <input id="publish-email-cb" type="checkbox" class="mt-0.5 accent-indigo-400 w-4 h-4 flex-shrink-0" checked />
+      <span class="text-sm text-slate-300 leading-snug">Email all members with the voting link</span>
+    </label>
+    <div class="flex justify-end gap-3">
+      <button type="button" onclick="closePublishModal()" class="btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="confirmPublish()" class="btn-primary text-sm">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Send Email Modal -->
+<div id="send-email-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-bold text-white">Send invite email</h2>
+        <p id="send-email-subtitle" class="text-sm text-slate-400 mt-1"></p>
+      </div>
+      <button type="button" onclick="closeSendEmailModal()" class="text-slate-500 hover:text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="send-email-member-list" class="space-y-1.5 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 max-h-60 overflow-y-auto mb-4">
+      <p class="text-slate-400 text-sm">Loading members…</p>
+    </div>
+    <div class="flex items-center gap-2 mb-4">
+      <button type="button" onclick="sendEmailSelectAll(true)" class="text-xs text-indigo-400 hover:text-indigo-300">Select all</button>
+      <span class="text-slate-600">·</span>
+      <button type="button" onclick="sendEmailSelectAll(false)" class="text-xs text-slate-400 hover:text-slate-300">Deselect all</button>
+    </div>
+    <div id="send-email-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
+    <div class="flex justify-end gap-3">
+      <button type="button" onclick="closeSendEmailModal()" class="btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="confirmSendEmail()" class="btn-primary text-sm">Send Email</button>
+    </div>
+  </div>
+</div>
 
 <!-- Clear Votes Modal -->
 <div id="clear-votes-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -480,16 +528,38 @@ async function submitPollForm(e) {
 
 async function createPoll(e) { return submitPollForm(e); }
 
-function publishPoll(id) {
-  showConfirm('Publish this poll? Voters will be able to see and vote on it.', async () => {
-    const r = await fetch(`/api/admin/polls/${id}/publish`, {method:'POST'});
-    if (r.ok) window.location.reload();
-    else { const d = await r.json(); showToast(d.detail || 'Error publishing.', 'error'); }
-  }, 'Publish', false);
-}
+let _publishPollId = null;
 
-function publishPollFromButton(button) {
-  publishPoll(Number(button.dataset.pollId));
+function openPublishModal(id, title) {
+  _publishPollId = id;
+  document.getElementById('publish-email-cb').checked = true;
+  document.getElementById('publish-modal').classList.remove('hidden');
+}
+function openPublishModalFromButton(button) {
+  openPublishModal(Number(button.dataset.pollId), button.dataset.pollTitle || '');
+}
+function closePublishModal() {
+  document.getElementById('publish-modal').classList.add('hidden');
+  _publishPollId = null;
+}
+async function confirmPublish() {
+  if (!_publishPollId) return;
+  const sendEmail = document.getElementById('publish-email-cb').checked;
+  closePublishModal();
+  const r = await fetch(`/api/admin/polls/${_publishPollId}/publish`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({send_email: sendEmail}),
+  });
+  if (r.ok) {
+    const d = await r.json();
+    const note = sendEmail ? ` · ${d.emails_sent} email(s) sent` : '';
+    showToast(`Poll published${note}.`, 'info');
+    window.location.reload();
+  } else {
+    const d = await r.json();
+    showToast(d.detail || 'Error publishing.', 'error');
+  }
 }
 
 function closePoll(id) {
@@ -665,6 +735,77 @@ async function copyInviteLink() {
   }
 }
 
+
+// ── Send Email ───────────────────────────────────────────────────────────────
+let _sendEmailPollId = null;
+let _sendEmailMembers = [];
+
+async function openSendEmailModal(pollId, pollTitle) {
+  _sendEmailPollId = pollId;
+  _sendEmailMembers = [];
+  document.getElementById('send-email-subtitle').textContent = `Send voting link for "${pollTitle}" to selected members.`;
+  document.getElementById('send-email-error').classList.add('hidden');
+  const list = document.getElementById('send-email-member-list');
+  list.innerHTML = '<p class="text-slate-400 text-sm">Loading members…</p>';
+  document.getElementById('send-email-modal').classList.remove('hidden');
+
+  const r = await fetch(`/api/admin/polls/${pollId}/voter-breakdown`);
+  if (!r.ok) { list.innerHTML = '<p class="text-red-400 text-sm">Failed to load members.</p>'; return; }
+  const data = await r.json();
+
+  const r2 = await fetch('/api/admin/users');
+  const allUsers = r2.ok ? (await r2.json()).users : [];
+  _sendEmailMembers = allUsers.filter(u => u.role !== 'admin' && u.email);
+
+  if (!_sendEmailMembers.length) {
+    list.innerHTML = '<p class="text-slate-400 text-sm">No members with email addresses found.</p>';
+    return;
+  }
+  const votedIds = new Set((data.voters || []).filter(v => v.has_completed_voting).map(v => v.user_id));
+  list.innerHTML = _sendEmailMembers.map(m => {
+    const voted = votedIds.has(m.id) ? ' <span class="text-green-400 text-xs">(voted)</span>' : '';
+    return `<label class="flex items-center gap-2 cursor-pointer py-0.5">
+      <input type="checkbox" class="send-email-member-cb accent-indigo-500 w-4 h-4" value="${m.id}" checked />
+      <span class="text-sm text-white">${m.name}${voted}</span>
+      <span class="text-xs text-slate-500 truncate">${m.email}</span>
+    </label>`;
+  }).join('');
+}
+function openSendEmailModalFromButton(button) {
+  openSendEmailModal(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll');
+}
+function closeSendEmailModal() {
+  document.getElementById('send-email-modal').classList.add('hidden');
+  _sendEmailPollId = null;
+}
+function sendEmailSelectAll(checked) {
+  document.querySelectorAll('.send-email-member-cb').forEach(cb => cb.checked = checked);
+}
+async function confirmSendEmail() {
+  if (!_sendEmailPollId) return;
+  const userIds = [...document.querySelectorAll('.send-email-member-cb:checked')].map(cb => parseInt(cb.value));
+  const errEl = document.getElementById('send-email-error');
+  errEl.classList.add('hidden');
+  if (!userIds.length) {
+    errEl.textContent = 'Select at least one member.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const r = await fetch(`/api/admin/polls/${_sendEmailPollId}/send-email`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({user_ids: userIds}),
+  });
+  if (r.ok) {
+    const d = await r.json();
+    closeSendEmailModal();
+    showToast(`${d.emails_sent} email(s) sent.`, 'info');
+  } else {
+    const d = await r.json();
+    errEl.textContent = d.detail || 'Failed to send emails.';
+    errEl.classList.remove('hidden');
+  }
+}
 
 // ── Clear Votes ───────────────────────────────────────────────────────────────
 let _clearVotesPollId = null;
