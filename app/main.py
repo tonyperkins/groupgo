@@ -81,3 +81,35 @@ async def forbidden_handler(request, exc):
         {"error": {"code": "FORBIDDEN", "message": str(exc.detail), "status": 403}},
         status_code=403,
     )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    import traceback
+    logging.getLogger(__name__).error(
+        "Unhandled exception on %s %s: %s\n%s",
+        request.method, request.url.path,
+        exc, traceback.format_exc(),
+    )
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return HTMLResponse(
+            """<!DOCTYPE html><html><head><title>Error — GroupGo</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;
+display:flex;align-items:center;justify-content:center;min-height:100dvh;margin:0;}
+.card{background:rgba(30,41,59,0.9);border:1px solid rgba(148,163,184,0.15);
+border-radius:1.25rem;padding:2.5rem 2rem;max-width:420px;text-align:center;}
+h1{font-size:1.25rem;margin-bottom:.5rem;}p{color:#94a3b8;font-size:.9rem;}
+a{color:#818cf8;}</style></head>
+<body><div class="card"><div style="font-size:2.5rem;margin-bottom:1rem">⚠️</div>
+<h1>Something went wrong</h1>
+<p>An unexpected error occurred. The issue has been logged.</p>
+<p style="margin-top:1.5rem"><a href="javascript:history.back()">← Go back</a>
+&nbsp;&nbsp;<a href="/admin">Admin home</a></p>
+</div></body></html>""",
+            status_code=500,
+        )
+    return JSONResponse(
+        {"error": {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred.", "status": 500}},
+        status_code=500,
+    )
