@@ -10,7 +10,8 @@ Columns added:
 """
 import sqlite3
 
-DB_PATH = "data/groupgo.db"
+import sys
+DB_PATH = sys.argv[1] if len(sys.argv) > 1 else "data/groupgo.db"
 
 NEW_COLUMNS = [
     ("event_type",   "VARCHAR NOT NULL DEFAULT 'movie'"),

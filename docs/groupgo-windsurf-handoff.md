@@ -2,7 +2,7 @@
 > Single source of truth for Claude (planning) and Windsurf (implementation).
 > Last updated by: Claude, March 2026.
 >
-> **Windsurf:** Before starting any session, run `/groupgo-sync` or `git pull origin v2-generic-events`.
+> **Windsurf:** Before starting any session, run `/groupgo-sync` or `git pull origin master`.
 > Complete all items in `## Pending — Next Session`, then follow the
 > instructions in `## Implementation Prompt` to mark tasks done and push.
 
@@ -21,6 +21,7 @@ GroupGo is a family movie-night coordinator — and in V2, a generic group activ
 - Docker + Portainer, deployed via `docker compose up -d --build`
 
 **Repo:** `master` branch, git remote is GitHub (`tonyperkins/groupgo`)
+**Deployment:** Docker on Portainer (self-hosted). Stack managed via `docker compose up -d --build` from `/opt/groupgo` on the server, or as a Portainer Git-backed stack (Repository → `https://github.com/tonyperkins/groupgo`, branch `master`, compose path `docker-compose.yml`).
 
 ---
 
@@ -112,7 +113,7 @@ PollDate      poll_id, date(YYYY-MM-DD)
 
 Event         id, tmdb_id, title, year, synopsis, poster_path, trailer_key,
               tmdb_rating, runtime_mins, genres(JSON), rating,
-              event_type, image_url, external_url, venue_name, is_custom_event
+              event_type, image_url, external_url, booking_url, venue_name, is_custom_event
 
 PollEvent     poll_id, event_id, sort_order
 
@@ -139,7 +140,9 @@ AuthSession     id, user_id, session_type, device_hint, expires_at,
 ```
 
 **No Alembic.** Adding columns = `ALTER TABLE x ADD COLUMN y TYPE DEFAULT z`.
-`Showtime.theater_id` is nullable — migration script at `scripts/migrate_theater_id_nullable.py` must be run on production after deploy (idempotent).
+Migration scripts live in `scripts/` and are idempotent. Run them via `docker exec` against `/data/groupgo.db` inside the container.
+- `scripts/migrate_theater_id_nullable.py` — makes `Showtime.theater_id` nullable (already run on prod)
+- `scripts/migrate_events_v2_columns.py` — adds v2 generic-event columns to `events` table (already run on prod); accepts DB path as first argument
 
 ---
 
@@ -191,7 +194,8 @@ GET  /api/voter/events/{id}/reviews
 ```
 POST   /api/admin/polls
 PATCH  /api/admin/polls/{id}          # accepts title, dates, group_id
-POST   /api/admin/polls/{id}/publish
+POST   /api/admin/polls/{id}/publish      # body: {send_email: bool} defaults true
+POST   /api/admin/polls/{id}/send-email   # body: {user_ids?: int[]} — sends invite to selected/all members
 POST   /api/admin/polls/{id}/invite-link
 POST   /api/admin/polls/{id}/close
 POST   /api/admin/polls/{id}/declare-winner
@@ -291,10 +295,26 @@ SMTP_FROM=...
 
 ## Building & Deploying
 
+See `.windsurf/workflows/release.md` for the full release workflow (`/release`).
+
+Key steps:
 ```powershell
-cd voter-spa && npm run build && cd ..
-git add -A && git commit -m "..." && git push origin v2-generic-events
-ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
+cd voter-spa && npm run build && cd ..   # only if voter-spa/src/ changed
+git add -A && git commit -m "..." && git push origin master
+scp .env.production asperkins65@portainer.homelab.lan:/opt/groupgo/.env
+ssh asperkins65@portainer.homelab.lan "cd /opt/groupgo && git pull origin master && docker compose up -d --build"
+```
+
+**Admin seed** (fresh DB only):
+```powershell
+scp scripts/seed_admin.py asperkins65@portainer.homelab.lan:/tmp/seed_admin.py
+ssh asperkins65@portainer.homelab.lan "docker cp /tmp/seed_admin.py groupgo:/app/seed_admin.py && docker exec groupgo python seed_admin.py"
+```
+
+**DB migration** (run inside container against volume-mounted DB):
+```powershell
+scp scripts/migrate_X.py asperkins65@portainer.homelab.lan:/tmp/migrate.py
+ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/migrate.py && docker exec groupgo python3 /tmp/migrate.py /data/groupgo.db"
 ```
 
 ---
@@ -302,7 +322,9 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 ## Gotchas
 
 - No Alembic — `ALTER TABLE` or drop+recreate for schema changes
-- `Showtime.theater_id` is nullable in Python model — run `scripts/migrate_theater_id_nullable.py` on production (idempotent)
+- Migration scripts must run inside the container (`docker exec`) — the DB lives in a Docker volume at `/data/groupgo.db`, not directly accessible on the host without sudo
+- `.env.production` is **not in git** — must be `scp`'d to server as `.env` on every deploy (or after any `git reset --hard`)
+- `docker-compose.yml` no longer uses `env_file` — all env vars come from `.env` on the host (which docker compose auto-loads) or from Portainer stack env UI
 - SerpApi free tier = 100 searches/month — reserved for showtime scraping only
 - `GOOGLE_KG_API_KEY` used for the "Find" button enrichment — free tier, no billing required
 - `access_uuid` regeneration immediately invalidates all existing voter links
@@ -310,6 +332,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 - `is_included` on Showtime controls voter visibility
 - Browse mode = Discover tab only, no voting
 - `gg_browse_poll_id` is always overwritten on every `/join/{access_uuid}` visit
+- Admin login SMTP errors now return a friendly error page instead of 500 — root cause will be in `docker logs groupgo`
 
 ---
 
@@ -321,7 +344,6 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 - `/api/results/json` 401s in browse mode
 - Old HTMX voter templates still present but unused
 - No Playwright tests for SPA yet
-- Production needs `scripts/migrate_theater_id_nullable.py` run after next deploy
 
 ---
 
@@ -346,6 +368,21 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 ---
 
 ## Completed
+
+### Session 11 — March 15, 2026
+- `voter-spa/src/components/ShowtimeCard.tsx` — unchecked boxes now show empty square (no ✓ glyph); checked boxes remain green; unchecked border uses `C.borderLight`; locked state uses `C.locked` bg
+- `voter-spa/src/components/ResultsTab.tsx` — voter pills now get tinted background + border matching their avatar color (e.g. Tony green, Bob amber)
+- `voter-spa/src/components/StatusChip.tsx` — menu item padding increased to `18px 22px`; font bumped to `FS.md`; all 6 menu items across all chip states now have emoji icons
+- `voter-spa/src/components/VoteTab.tsx` — locked banner fixed to use CSS vars (`C.card`, `C.text`, `C.textMuted`) instead of hardcoded dark hex values
+- `app/routers/admin.py` — `admin_login_submit` now catches SMTP exceptions and returns friendly error page instead of 500; added `logging` import and `logger`
+- `app/main.py` — global `@app.exception_handler(Exception)` added: HTML requests get a styled error page, API requests get JSON; all exceptions logged server-side
+- `app/services/email_service.py` — added `send_poll_invite()` function for notifying members when a poll opens
+- `app/routers/api.py` — publish endpoint now accepts `{send_email: bool}` body (defaults `true`), emails all scoped members on publish; new `POST /api/admin/polls/{id}/send-email` endpoint accepts `{user_ids?: int[]}`
+- `templates/admin/dashboard.html` — Publish button now opens a modal with "Email all members" checkbox (default checked); OPEN poll overflow menu gains "📧 Send Email" item opening a member-select modal with select-all/deselect-all
+- `docker-compose.yml` — removed `env_file` directive; all env vars now declared as `${VAR:-default}` substitutions — compatible with Portainer Git-backed stack env UI
+- `scripts/migrate_events_v2_columns.py` — now accepts DB path as CLI argument; run on prod via `docker exec groupgo python3 /tmp/migrate.py /data/groupgo.db`
+- `.windsurf/workflows/release.md` — added step 5 to `scp .env.production` to server before deploy; added note about `.env` not being in git
+- **Production:** v2-generic-events merged to master; DB migrated (added `booking_url` to events table); deployed at https://groupgo.org
 
 ### Session 10 — March 15, 2026
 - `app/models.py` — added `is_editing: bool = Field(default=False)` to `UserPollPreference`
@@ -457,7 +494,7 @@ ssh user@server "cd /opt/groupgo && git pull && docker compose up -d --build"
 
 ---
 
-You are continuing development on GroupGo (branch: v2-generic-events).
+You are continuing development on GroupGo (branch: master).
 Read docs/groupgo-windsurf-handoff.md before starting. Single focused task
 on the admin Times page template. Do not touch React SPA, backend logic,
 or auth.
@@ -499,4 +536,4 @@ The existing HTMX endpoints are unchanged — only the template layout changes.
       with: `_Nothing pending._`
 2. No SPA changes — skip npm run build
 3. Commit: `git add -A && git commit -m "ux: Times page — combine movies into one section with fetch controls and cached times"`
-4. Push: `git push origin v2-generic-events`
+4. Push: `git push origin master`
