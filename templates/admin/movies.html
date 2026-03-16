@@ -213,25 +213,25 @@
         <div class="card p-4 mb-4 space-y-2">
           <!-- Row 1: filter controls + action buttons -->
           <div class="flex flex-wrap items-center gap-2">
-            <select id="sf-movie-filter" class="input-base text-xs">
+            <select id="sf-movie-filter" class="input-base text-xs" style="width:auto" onchange="filterSessions()">
               <option value="">All Events</option>
               {% set seen = [] %}
               {% for s in movie_sessions %}{% set ev = event_map.get(s.event_id) %}{% if ev and ev.title not in seen %}
               <option value="{{ ev.id }}">{{ ev.title }}</option>{% set _ = seen.append(ev.title) %}{% endif %}{% endfor %}
             </select>
-            <select id="sf-theater-filter" class="input-base text-xs">
+            <select id="sf-theater-filter" class="input-base text-xs" style="width:auto" onchange="filterSessions()">
               <option value="">All Venues</option>
               {% set seen_th = [] %}
               {% for s in movie_sessions %}{% set th = theater_map.get(s.theater_id) %}{% if th and th.name not in seen_th %}
               <option value="{{ th.id }}">{{ th.name }}</option>{% set _ = seen_th.append(th.name) %}{% endif %}{% endfor %}
             </select>
-            <select id="sf-format-filter" class="input-base text-xs">
+            <select id="sf-format-filter" class="input-base text-xs" style="width:auto" onchange="filterSessions()">
               <option value="">All Formats</option>
               {% for fmt in ['Standard','IMAX','Dolby','3D','D-BOX','4DX','Laser'] %}
               <option value="{{ fmt }}">{{ fmt }}</option>{% endfor %}
             </select>
             <span class="text-xs text-slate-500">From</span>
-            <select id="filter-time-start" class="input-base text-xs">
+            <select id="filter-time-start" class="input-base text-xs" style="width:auto">
               <option value="">Any</option>
               {% for h in range(8, 24) %}{% for m in [0, 30] %}
               {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
@@ -239,7 +239,7 @@
               {% endfor %}{% endfor %}
             </select>
             <span class="text-xs text-slate-500">To</span>
-            <select id="filter-time-end" class="input-base text-xs">
+            <select id="filter-time-end" class="input-base text-xs" style="width:auto">
               <option value="">Any</option>
               {% for h in range(8, 24) %}{% for m in [0, 30] %}
               {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
