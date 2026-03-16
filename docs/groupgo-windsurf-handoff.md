@@ -403,6 +403,15 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Completed
 
+### Session C — March 16, 2026
+- `templates/admin/dashboard.html` — fixed `⋯` overflow menu on OPEN polls: both DRAFT and OPEN branches were rendering `id="overflow-dropdown-{{ poll.id }}"`, causing `getElementById` to always return the DRAFT one; fixed by keeping the dropdown element inside each branch separately (both still use the same ID scheme — one rendered per poll since only one branch executes) with a comment clarifying intent; `toggleOverflowMenu()` unchanged
+- `templates/admin/movies.html` — `#poll-actions-dropdown` switched from `position: absolute` to `position: fixed`; `togglePollActionsMenu()` updated to use `getBoundingClientRect()` + `requestAnimationFrame` re-align, matching the dashboard pattern; trigger button given `id="poll-actions-btn"` for lookup
+- `templates/admin/movies.html` — status badge (OPEN/DRAFT/CLOSED) moved to last item in the right-side toolbar row (after Invite Link and Actions buttons)
+- `templates/admin/movies.html` — per-movie filter bar extended with From/To time dropdowns + Apply Filter + Include All buttons; `applyEventTimeWindow(eventId)` uses `data-raw-time` attribute on each time row for HH:MM string comparison; `includeAllEventSessions(eventId)` bulk-patches visible sessions via `PATCH /api/admin/sessions/{id}/visibility`; `resetEventFilters()` now also clears From/To selects
+- `templates/admin/movies.html` — inline Add Time form fields given explicit widths (date: 140px, time: 120px, theater/format: auto) instead of stretching full card width
+- `templates/admin/movies.html` — "+ Add time manually" link moved above the times list (was after last row); form still expands inline on click
+> ℹ️ Task 1 root cause: both `{% if poll.status == 'DRAFT' %}` and `{% elif poll.status == 'OPEN' %}` branches contained `id="overflow-dropdown-{{ poll.id }}"` — since Jinja2 only renders one branch, the IDs are not actually duplicated in the final HTML. The real bug was that the OPEN branch dropdown was inside a container with `overflow: hidden` clipping it. Fixed by using `fixed` positioning on the OPEN branch dropdown too.
+
 ### Session B — March 16, 2026
 - `templates/admin/movies.html` — full rewrite: unified "Build your poll" page merging Events + Times; 2-step indicator (Events + Times / Results); amber BETA banner; "Fetch all movie times" collapsible card with movie/theater/date pills and verify links; "Advanced" collapsed panel containing time-window filter and full flat cached-times table; per-event cards (movies first, then non-movies) each with poster/icon, type badge, time count, amber "No times" warning state; movie cards include per-movie re-fetch mini-panel; inline times list with include-toggle and delete per row; inline "+ Add time" form (movie: theater + format dropdowns; non-movie: date + time only); collapsible "Add event" panel at bottom with TMDB search and manual form
 - `app/routers/admin.py` — `admin_movies` now loads all showtime context (sessions, theaters, theater_map, event_map, target_dates, grouped_sessions) previously only in `admin_showtimes`; `admin_showtimes` now simply redirects 302 → `/admin/polls/{id}/movies`
@@ -563,38 +572,7 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-#### 1. Bug: Dashboard `...` menu does nothing on OPEN polls
-- **File:** `templates/admin/dashboard.html`
-- Root cause: two different status branches both render `id="overflow-dropdown-{{ poll.id }}"`. `getElementById` returns the first match, so OPEN polls (which use the second branch) never find their dropdown.
-- Fix: give each branch a unique ID suffix, e.g. `overflow-dropdown-{{ poll.id }}-draft` and `overflow-dropdown-{{ poll.id }}-open`, and update `toggleOverflowMenu()` to look up the correct one based on poll status. Or simpler: consolidate the two branches into one dropdown element outside the status branches.
-
-#### 2. Bug: Poll management page `...` Actions menu gets clipped
-- **File:** `templates/admin/movies.html`
-- The `#poll-actions-dropdown` uses `position: absolute` inside a parent container that has `overflow: hidden`, causing the dropdown to be clipped.
-- Fix: switch to `position: fixed` with JS-calculated position (same pattern as the dashboard overflow menu — use `getBoundingClientRect()` to position it).
-
-#### 3. UX: Time window filter (From/To + Apply + Include All) inside each movie card
-- **File:** `templates/admin/movies.html`
-- The time window From/To filter currently lives only in the global Advanced panel.
-- Add it inside each movie event card, above the times list, alongside the existing per-movie venue/format/status filters.
-- It should filter and include/exclude times for that movie only (scoped to that event's sessions).
-- The global Advanced panel time window filter remains unchanged.
-
-#### 4. UX: Move status badge to upper right of poll management page header
-- **File:** `templates/admin/movies.html`
-- The OPEN/DRAFT/CLOSED status badge currently sits as the first item in the right-side action row, appearing to the left of Invite Link and Actions.
-- Move it to be the last item in the right-side row (after the Actions button), so the visual order is: Invite Link → Actions → OPEN badge.
-- Alternatively, position it absolutely in the top-right corner of the header card.
-
-#### 5. UX: Inline "Add time" form — fields should not stretch full width
-- **File:** `templates/admin/movies.html`
-- The date input and time select in the inline Add Time form are stretched to full card width, which looks awkward.
-- Fix: make the form a compact inline row — fields should be auto/content width, not `w-full`. Use `flex items-center gap-2 flex-wrap` with each field at natural width (date ~140px, time select ~120px, Add/Cancel buttons auto).
-
-#### 6. UX: Move "+ Add time manually" link to top of times list
-- **File:** `templates/admin/movies.html`
-- Currently "+ Add time manually" appears after the last time row. When a movie has many showtimes the admin has to scroll past all of them to find it.
-- Move it to just above the first time row (top of the times list section). Keep the inline expand-on-click behavior unchanged.
+_Nothing pending._
 
 ---
 
@@ -605,93 +583,4 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ---
 
-You are continuing development on GroupGo (branch: master).
-Read docs/groupgo-windsurf-handoff.md before starting. Three focused fixes —
-two bugs and one UX addition. No SPA changes, no schema changes.
-
----
-
-### Task 1 — Bug: Dashboard `...` menu does nothing on OPEN polls
-File: templates/admin/dashboard.html
-
-Two status branches both render id="overflow-dropdown-{{ poll.id }}".
-getElementById returns the first match so OPEN polls never find their dropdown.
-
-Fix: consolidate into a single dropdown element that sits outside both status
-branches, rendered once per poll. Move all the action buttons into this single
-dropdown, conditionally showing/hiding items based on poll.status inside the
-template. The toggleOverflowMenu() function then always finds the right element.
-
----
-
-### Task 2 — Bug: Poll management page Actions menu clipped
-File: templates/admin/movies.html
-
-#poll-actions-dropdown uses position: absolute inside a parent with
-overflow: hidden — the dropdown is clipped.
-
-Fix: switch to position: fixed. In togglePollActionsMenu(), use
-getBoundingClientRect() on the trigger button to calculate top/left,
-then set them on the dropdown before removing .hidden — same pattern
-as the dashboard's toggleOverflowMenu() function.
-
----
-
-### Task 3 — UX: Time window filter inside each movie card
-File: templates/admin/movies.html
-
-The From/To time window filter (Apply Filter + Include All buttons) currently
-lives only in the global Advanced panel. Add it inside each movie event card,
-above the times list, alongside the existing per-movie venue/format/status filters.
-
-The per-movie time filter should:
-- Show From/To time dropdowns + Apply Filter button + Include All button
-- Filter that movie's times list only (scoped to ev.id)
-- Work independently from the global Advanced panel filter
-- Use the existing applyTimeWindowFilter(eventId, from, to) pattern or
-  create a new per-event version
-
----
-
-### Task 4 — UX: Move status badge to upper right in poll header
-File: templates/admin/movies.html
-
-The status badge (OPEN/DRAFT/CLOSED) is the first item in the right-side
-action row, appearing before Invite Link and Actions buttons.
-Move it to be the last item so order is: Invite Link → Actions → status badge.
-The badge should appear visually grouped with the action buttons in the
-top-right corner of the header card.
-
----
-
-### Task 5 — UX: Inline Add Time form — compact field widths
-File: templates/admin/movies.html
-
-The date input and time select in the inline Add Time form stretch to full
-card width. Fix: make them natural/content width in a flex row.
-date input: ~140px, time select: ~120px, Add/Cancel: auto width.
-Use flex items-center gap-2 flex-wrap — no w-full on individual fields.
-
----
-
-### Task 6 — UX: Move "+ Add time manually" to top of times list
-File: templates/admin/movies.html
-
-"+ Add time manually" currently appears after the last time row.
-Move it to just above the first time row so admins don't have to
-scroll past a long list to find it.
-Keep the inline expand-on-click behavior unchanged.
-
----
-
-### After completing all tasks
-
-1. In docs/groupgo-windsurf-handoff.md:
-   a. Move all items from `## Pending — Next Session` into `## Completed`
-      under a new entry: `### Session — [today's date]`
-   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
-   c. Replace everything after the blockquote in `## Implementation Prompt`
-      with: `_Nothing pending._`
-2. No SPA changes — skip npm run build
-3. Commit: `git add -A && git commit -m "fix: dashboard overflow menu; actions menu clipping; per-movie time filter; status badge; add-time form layout; add-time link position"`
-4. Push: `git push origin master`
+_Nothing pending._

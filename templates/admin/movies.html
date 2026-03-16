@@ -11,7 +11,7 @@
 </nav>
 
 <section class="page-hero mb-6">
-  <span class="page-eyebrow">Poll setup</span>
+  <!-- <span class="page-eyebrow">Poll setup</span> -->
   <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div>
       <div class="flex items-center gap-3">
@@ -32,7 +32,6 @@
       <p class="page-subtitle mt-3">Add events and their times, then publish for your group to vote.</p>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
       {% if poll.status == 'OPEN' %}
       <button type="button"
         data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
@@ -40,8 +39,8 @@
         class="btn-primary text-xs">🔗 Invite Link</button>
       {% endif %}
       <div class="relative" id="poll-actions-menu">
-        <button type="button" onclick="togglePollActionsMenu()" class="btn-ghost text-xs" title="Poll actions">⋯ Actions</button>
-        <div id="poll-actions-dropdown" class="hidden absolute right-0 top-full mt-1 z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
+        <button id="poll-actions-btn" type="button" onclick="togglePollActionsMenu()" class="btn-ghost text-xs" title="Poll actions">⋯ Actions</button>
+        <div id="poll-actions-dropdown" class="hidden fixed z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
           {% if poll.status == 'DRAFT' %}
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
             onclick="openPublishModalFromButton(this); closePollActionsMenu()"
@@ -74,6 +73,7 @@
             class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-slate-700">Delete</button>
         </div>
       </div>
+      <span class="text-xs px-2.5 py-1 rounded-full font-medium status-{{ poll.status | lower }}">{{ poll.status }}</span>
     </div>
   </div>
   <div class="step-strip mt-6">
@@ -337,7 +337,7 @@
       <div id="fetch-job-area-{{ ev.id }}"></div>
       {% endif %}
 
-      <!-- Task 5: Inline filter bar (movie events only, scoped to this event) -->
+      <!-- Task 5 (updated): Inline filter bar + time window — movie events only, scoped to this event -->
       {% if is_movie and ev_sessions %}
       {% set ev_theaters = [] %}
       {% for s in ev_sessions %}{% if s.theater_id and theater_map.get(s.theater_id) %}{% if s.theater_id not in ev_theaters | map(attribute='id') | list %}{% set _ = ev_theaters.append(theater_map.get(s.theater_id)) %}{% endif %}{% endif %}{% endfor %}
@@ -358,10 +358,39 @@
           <option value="true">✓ Included</option>
           <option value="false">○ Excluded</option>
         </select>
+        <!-- Task 3: From/To time window filter -->
+        <span class="text-xs text-slate-500">From</span>
+        <select id="ef-from-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+          <option value="">Any</option>
+          {% for h in range(8, 24) %}{% for m in [0, 30] %}
+          {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+          <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+          {% endfor %}{% endfor %}
+        </select>
+        <span class="text-xs text-slate-500">To</span>
+        <select id="ef-to-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+          <option value="">Any</option>
+          {% for h in range(8, 24) %}{% for m in [0, 30] %}
+          {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+          <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+          {% endfor %}{% endfor %}
+        </select>
+        <button type="button" onclick="applyEventTimeWindow({{ ev.id }})" class="text-xs bg-indigo-700/50 text-indigo-300 border border-indigo-700 rounded-lg px-2 py-1 hover:bg-indigo-700">Apply</button>
+        <button type="button" onclick="includeAllEventSessions({{ ev.id }})" class="text-xs bg-slate-700/50 text-slate-300 border border-slate-600 rounded-lg px-2 py-1 hover:bg-slate-700">Include All</button>
         <span id="ef-count-{{ ev.id }}" class="text-xs text-slate-500 ml-auto">{{ ev_sessions | length }} times</span>
         <button type="button" onclick="resetEventFilters({{ ev.id }})" class="text-xs text-slate-500 hover:text-slate-300">Reset</button>
       </div>
       {% endif %}
+
+      <!-- Task 6: + Add time manually moved above times list -->
+      <button type="button"
+        class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+        onclick="toggleAddTimeForm({{ ev.id }})">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        Add time manually
+      </button>
 
       <!-- Times list -->
       {% if ev_sessions %}
@@ -371,7 +400,8 @@
         <div class="flex items-center gap-3 py-2 ev-time-row-{{ ev.id }} {% if not s.is_included %}opacity-40{% endif %}"
           data-theater-id="{{ s.theater_id or '' }}"
           data-format="{{ s.format or '' }}"
-          data-included="{{ 'true' if s.is_included else 'false' }}">
+          data-included="{{ 'true' if s.is_included else 'false' }}"
+          data-raw-time="{{ s.session_time }}">
           <span class="text-xs text-slate-400 w-16 shrink-0">{{ s.session_date | short_date }}</span>
           <span class="text-sm font-medium w-16 shrink-0">{{ s.session_time | display_time }}</span>
           <span class="text-xs text-slate-400 flex-1 truncate">
@@ -405,27 +435,18 @@
       </div>
       {% endif %}
 
-      <!-- + Add time button + inline form -->
-      <button type="button"
-        class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 mt-1"
-        onclick="toggleAddTimeForm({{ ev.id }})">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
-        Add time manually
-      </button>
-
+      <!-- Inline add-time form (Task 5: compact natural-width fields) -->
       <form id="add-time-form-{{ ev.id }}"
             hx-post="/api/admin/showtimes"
             hx-target="#event-section-{{ ev.id }}"
             hx-swap="outerHTML"
-            class="hidden p-3 rounded-xl bg-slate-900/50 border border-slate-600/60 border-dashed space-y-2 mt-1">
-        <div class="text-xs font-medium text-slate-400">Add a time</div>
+            class="hidden p-3 rounded-xl bg-slate-900/50 border border-slate-600/60 border-dashed mt-1">
+        <div class="text-xs font-medium text-slate-400 mb-2">Add a time</div>
         <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
         <input type="hidden" name="event_id" value="{{ ev.id }}"/>
         <div class="flex items-center gap-2 flex-wrap">
           {% if is_movie %}
-          <select name="theater_id" class="input-base text-xs">
+          <select name="theater_id" class="input-base text-xs" style="width:auto">
             {% for t in theaters %}
             <option value="{{ t.id }}">{{ t.name }}</option>
             {% endfor %}
@@ -433,16 +454,16 @@
           {% else %}
           <input type="hidden" name="theater_id" value=""/>
           {% endif %}
-          <input type="date" name="session_date" class="input-base text-xs"
+          <input type="date" name="session_date" class="input-base text-xs" style="width:140px"
             value="{{ target_dates[0] if target_dates else '' }}"/>
-          <select name="session_time" class="input-base text-xs">
+          <select name="session_time" class="input-base text-xs" style="width:120px">
             {% for h in range(8, 24) %}{% for m in [0, 30] %}
             {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
             <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
             {% endfor %}{% endfor %}
           </select>
           {% if is_movie %}
-          <select name="format" class="input-base text-xs">
+          <select name="format" class="input-base text-xs" style="width:auto">
             <option>Standard</option><option>IMAX</option><option>D-BOX</option><option>Dolby</option>
           </select>
           {% else %}
@@ -967,7 +988,7 @@ async function triggerSingleMovieFetch(eventId) {
   _startJobPoller(data.job_id, 'fetch-job-area-' + eventId);
 }
 
-/* ── Per-movie inline filters (Task 5) ──────────────────────────────────── */
+/* ── Per-movie inline filters (Tasks 5 & 3) ─────────────────────────────── */
 function filterEventSessions(eventId) {
   const theater = document.getElementById('ef-theater-' + eventId)?.value || '';
   const format = document.getElementById('ef-format-' + eventId)?.value || '';
@@ -987,11 +1008,43 @@ function filterEventSessions(eventId) {
 }
 
 function resetEventFilters(eventId) {
-  ['ef-theater-', 'ef-format-', 'ef-included-'].forEach(prefix => {
+  ['ef-theater-', 'ef-format-', 'ef-included-', 'ef-from-', 'ef-to-'].forEach(prefix => {
     const el = document.getElementById(prefix + eventId);
     if (el) el.value = '';
   });
   filterEventSessions(eventId);
+}
+
+/* ── Per-movie time window filter (Task 3) ──────────────────────────────── */
+function applyEventTimeWindow(eventId) {
+  const from = document.getElementById('ef-from-' + eventId)?.value || '';
+  const to = document.getElementById('ef-to-' + eventId)?.value || '';
+  const rows = document.querySelectorAll('.ev-time-row-' + eventId);
+  let visible = 0;
+  rows.forEach(row => {
+    const rawTime = row.dataset.rawTime || '';
+    const inWindow = (!from || rawTime >= from) && (!to || rawTime <= to);
+    row.style.display = inWindow ? '' : 'none';
+    if (inWindow) visible++;
+  });
+  const count = document.getElementById('ef-count-' + eventId);
+  if (count) count.textContent = `${visible} of ${rows.length}`;
+}
+
+async function includeAllEventSessions(eventId) {
+  const rows = document.querySelectorAll('.ev-time-row-' + eventId);
+  const visibleSessionIds = [];
+  rows.forEach(row => {
+    if (row.style.display !== 'none') {
+      const btn = row.querySelector('[data-session-id]');
+      if (btn) visibleSessionIds.push(Number(btn.dataset.sessionId));
+    }
+  });
+  if (!visibleSessionIds.length) { showToast('No visible times to include.', 'warn'); return; }
+  await Promise.all(visibleSessionIds.map(id =>
+    fetch(`/api/admin/sessions/${id}/visibility`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_included: true}) })
+  ));
+  window.location.reload();
 }
 
 /* ── Init per-movie date pills on page load ─────────────────────────────── */
@@ -1104,9 +1157,23 @@ async function checkSerpApi() {
   }
 }
 
-/* ── Poll actions menu ──────────────────────────────────────────────────── */
+/* ── Poll actions menu (Task 2: fixed positioning to escape overflow:hidden) */
 function togglePollActionsMenu() {
-  document.getElementById('poll-actions-dropdown').classList.toggle('hidden');
+  const dropdown = document.getElementById('poll-actions-dropdown');
+  const btn = document.getElementById('poll-actions-btn');
+  if (!dropdown || !btn) return;
+  const isHidden = dropdown.classList.contains('hidden');
+  if (isHidden) {
+    const rect = btn.getBoundingClientRect();
+    dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    dropdown.style.left = (rect.right + window.scrollX - 180) + 'px';
+    dropdown.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      dropdown.style.left = (rect.right + window.scrollX - dropdown.offsetWidth) + 'px';
+    });
+  } else {
+    dropdown.classList.add('hidden');
+  }
 }
 function closePollActionsMenu() {
   document.getElementById('poll-actions-dropdown').classList.add('hidden');
