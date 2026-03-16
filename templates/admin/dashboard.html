@@ -544,9 +544,10 @@ function closePublishModal() {
 }
 async function confirmPublish() {
   if (!_publishPollId) return;
+  const pollId = _publishPollId;
   const sendEmail = document.getElementById('publish-email-cb').checked;
   closePublishModal();
-  const r = await fetch(`/api/admin/polls/${_publishPollId}/publish`, {
+  const r = await fetch(`/api/admin/polls/${pollId}/publish`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({send_email: sendEmail}),
