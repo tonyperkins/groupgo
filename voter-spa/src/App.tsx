@@ -286,6 +286,68 @@ export default function App() {
 
   // ── Browse mode (no PIN — viewer only) ─────────────────────────────────────
   if (meData.state === "browse") {
+    const joinBanner = meData.join_url ? (
+      <div style={{
+        background: C.accentGlow, borderBottom: `1px solid ${C.accentDim}`,
+        padding: "10px 16px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", gap: 12, flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>
+          🎟️ Enter your PIN to join and vote
+        </span>
+        <a
+          href={meData.join_url}
+          style={{
+            background: C.accent, color: "#000", fontWeight: 700,
+            fontSize: 11, padding: "5px 14px", borderRadius: 99,
+            textDecoration: "none", whiteSpace: "nowrap",
+          }}
+        >
+          Join to Vote
+        </a>
+      </div>
+    ) : null;
+
+    const browseContent = (
+      <DiscoverTab
+        events={meData.events}
+        sessions={meData.sessions}
+        isParticipating={false}
+        hasCompletedVoting={false}
+        joinUrl={meData.join_url}
+      />
+    );
+
+    if (isDesktop) {
+      return (
+        <div style={{
+          background: C.bg, color: C.text,
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          height: "100dvh", display: "flex", flexDirection: "column",
+        }}>
+          <AppHeader
+            userName="Viewer"
+            pollTitle={meData.poll?.title ?? null}
+            votingClosesAt={meData.poll?.voting_closes_at ?? null}
+            statusChip={null}
+          />
+          {joinBanner}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            <SideNav votedSessionCount={0} isParticipating={false} isFlexible={false} />
+            <div style={{
+              flex: 1, display: "flex", flexDirection: "column",
+              overflow: "hidden", alignItems: "center",
+              background: C.bg,
+            }}>
+              <ScrollArea style={{ width: "100%", maxWidth: 720 }}>
+                {browseContent}
+              </ScrollArea>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={{
         background: C.bg, color: C.text,
@@ -298,36 +360,9 @@ export default function App() {
           votingClosesAt={meData.poll?.voting_closes_at ?? null}
           statusChip={null}
         />
-        {/* Join banner */}
-        {meData.join_url && (
-          <div style={{
-            background: C.accentGlow, borderBottom: `1px solid ${C.accentDim}`,
-            padding: "10px 16px", display: "flex", alignItems: "center",
-            justifyContent: "space-between", gap: 12, flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>
-              🎟️ Enter your PIN to join and vote
-            </span>
-            <a
-              href={meData.join_url}
-              style={{
-                background: C.accent, color: "#000", fontWeight: 700,
-                fontSize: 11, padding: "5px 14px", borderRadius: 99,
-                textDecoration: "none", whiteSpace: "nowrap",
-              }}
-            >
-              Join to Vote
-            </a>
-          </div>
-        )}
+        {joinBanner}
         <ScrollArea>
-          <DiscoverTab
-            events={meData.events}
-            sessions={meData.sessions}
-            isParticipating={false}
-            hasCompletedVoting={false}
-            joinUrl={meData.join_url}
-          />
+          {browseContent}
         </ScrollArea>
       </div>
     );
