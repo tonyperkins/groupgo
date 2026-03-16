@@ -349,7 +349,18 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Future Ideas (not scheduled)
 
-### Showtime scraping — direct theater scrapers via Webshare proxies
+### SOPS + age secrets management (near-term, do before wider sharing)
+- **Problem:** Plaintext `.env` files keep getting accidentally committed despite `.gitignore` — happened twice. Windsurf and other AI coding tools are the main risk vector; they sometimes write real credentials into env files without realizing.
+- **Solution:** SOPS + age. Encrypt secrets at rest in the repo (`secrets.enc.env`). Age key lives on dev machine and prod server only — AI tools never see plaintext values.
+- **Tony already has this wired in his homelab repo** — the same age key and credential store is used there. Extension to GroupGo is low-effort.
+- **Two-layer defense:**
+  1. `.windsurfignore` + `.gitignore` — hard block on any plaintext `.env*` file ever being committed
+  2. SOPS + age — encrypted secrets committed safely, decrypted on server at deploy time
+- **Deploy change:** `sops --decrypt secrets.enc.env > .env && docker compose up -d --build`
+- **Scope:** ~1-2 hours. Mostly wiring, not new concepts since homelab setup already done.
+- **Note:** SOPS protects files *intended* for the repo. The gitignore/windsurfignore layer protects against unintended plaintext commits. Both are needed.
+
+
 - **Problem:** SerpApi showtime reliability is ~50-70% at best — data comes from Google's knowledge panel which is stale, inconsistent, and schema-changes without notice.
 - **Better approach:** Write targeted scrapers for each major theater chain (Cinemark, AMC, Regal) that hit the theater's own website directly. Use Webshare rotating proxies to avoid IP-based rate limiting.
 - **Why better:** Source of truth data, predictable structure, fixable when it breaks.
