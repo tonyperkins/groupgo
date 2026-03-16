@@ -122,15 +122,31 @@ def parse_serpapi_showtimes(
         logger.info("parse_serpapi: no 'showtimes' key in response. Top-level keys: %s", list(raw.keys()))
         return results
 
-    logger.info("parse_serpapi: target_date=%s, day blocks: %s", target_date, [b.get('day') for b in showtimes_list])
+    logger.info("parse_serpapi: target_date=%s, day blocks: %s", target_date,
+                [(b.get('day'), b.get('date')) for b in showtimes_list])
 
     for day_block in showtimes_list:
         day_str = day_block.get("day", "")
-        block_date = _parse_day_string(day_str, target_date)
+        date_str = day_block.get("date", "")  # e.g. "Mar 21" or "Nov 8"
+
+        # Prefer the 'date' field (has month+day) over 'day' (has 'Today'/'Sun' etc.)
+        if date_str:
+            # date_str is like "Mar 21" or "Nov 8" — parse it with a fake weekday prefix
+            block_date = _parse_day_string("Mon" + date_str, target_date)
+        else:
+            block_date = _parse_day_string(day_str, target_date)
+
+        # If still unresolved, try DOW resolution on 'day' string
+        if block_date == target_date and not re.search(r'\d', day_str) and not date_str:
+            resolved = _resolve_dow_to_date(day_str, target_date)
+            if resolved:
+                block_date = resolved
+                logger.info("parse_serpapi: DOW %r resolved to %s", day_str, block_date)
 
         # Only include days that match the target date
         if block_date != target_date:
-            logger.info("parse_serpapi: skipping day block %r (parsed=%r, target=%r)", day_str, block_date, target_date)
+            logger.info("parse_serpapi: skipping day block day=%r date=%r (parsed=%r, target=%r)",
+                        day_str, date_str, block_date, target_date)
             continue
 
         for theater_block in day_block.get("theaters", []):
@@ -176,10 +192,47 @@ def parse_serpapi_showtimes(
     return results
 
 
+_DOW_ABBREVS = {
+    "sun": 6, "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5,
+}
+
+
+def _resolve_dow_to_date(dow_str: str, target_date: str) -> str | None:
+    """
+    If SerpAPI returns bare day-of-week strings like 'Sat' or 'Sun',
+    map them to an actual date by finding the closest occurrence of that
+    weekday on or after target_date.
+    """
+    key = dow_str.strip()[:3].lower()
+    if key not in _DOW_ABBREVS:
+        return None
+    from datetime import date as date_cls, timedelta
+    try:
+        base = date_cls.fromisoformat(target_date)
+    except ValueError:
+        return None
+    target_dow = _DOW_ABBREVS[key]
+    # Find next occurrence of target_dow on or after base
+    days_ahead = (target_dow - base.weekday()) % 7
+    result = base + timedelta(days=days_ahead)
+    return result.isoformat()
+
+
+def _format_date_for_query(date: str) -> str:
+    """Convert 'YYYY-MM-DD' to 'March 21' for appending to search query."""
+    try:
+        from datetime import date as date_cls
+        d = date_cls.fromisoformat(date)
+        return d.strftime("%B %d").lstrip("0")
+    except Exception:
+        return date
+
+
 async def fetch_showtimes_from_serpapi(query: str, date: str) -> dict:
+    date_label = _format_date_for_query(date)
     params = {
         "engine": "google",
-        "q": query,
+        "q": f"{query} {date_label}",
         "api_key": settings.SERPAPI_KEY,
         "hl": "en",
         "gl": "us",
