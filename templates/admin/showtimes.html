@@ -127,8 +127,13 @@
               <input type="checkbox" value="{{ d }}" data-theater="{{ t.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500 date-cb-movies"/>
               <span class="text-white font-mono">{{ d | display_date }}</span>
             </label>
-            {% if t.website_url %}
-            <a href="{{ t.website_url }}{% if '?' in t.website_url %}&{% else %}?{% endif %}showDate={{ d }}"
+            {% if t.showtime_url_pattern %}
+            <a href="{{ t.showtime_url_pattern | replace('{date}', d) }}"
+               target="_blank" rel="noopener"
+               title="Verify showtimes on {{ t.name }} for {{ d | display_date }}"
+               class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗ verify</a>
+            {% elif t.website_url %}
+            <a href="{{ t.website_url }}"
                target="_blank" rel="noopener"
                title="Verify showtimes on {{ t.name }} for {{ d | display_date }}"
                class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗ verify</a>

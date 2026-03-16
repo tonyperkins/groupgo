@@ -138,6 +138,7 @@ class Venue(SQLModel, table=True):
     address: Optional[str] = Field(default=None)
     website_url: Optional[str] = Field(default=None)
     serpapi_query: str
+    showtime_url_pattern: Optional[str] = Field(default=None)
     is_active: bool = Field(default=True)
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)

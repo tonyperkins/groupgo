@@ -82,7 +82,7 @@
         </td>
         <td class="px-5 py-4">
           <div class="flex items-center gap-1 justify-end">
-            <button data-theater-id="{{ t.id }}" data-name="{{ t.name }}" data-address="{{ t.address or '' }}" data-website-url="{{ t.website_url or '' }}" data-query="{{ t.serpapi_query }}"
+            <button data-theater-id="{{ t.id }}" data-name="{{ t.name }}" data-address="{{ t.address or '' }}" data-website-url="{{ t.website_url or '' }}" data-query="{{ t.serpapi_query }}" data-url-pattern="{{ t.showtime_url_pattern or '' }}"
               onclick="editTheaterFromButton(this)"
               class="text-slate-500 hover:text-indigo-400 transition-colors p-1.5 rounded">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -158,6 +158,17 @@
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
         <p class="text-xs text-slate-500 mt-1">Use: <span class="font-mono">Theater Name City State showtimes</span> — no street addresses</p>
       </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Showtime URL pattern <span class="text-slate-600">(optional)</span></label>
+        <input id="new-theater-url-pattern" type="text" placeholder="https://www.cinemark.com/theatre/my-theater?showDate={date}"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
+        <p class="text-xs text-slate-500 mt-1">Use <span class="font-mono">{date}</span> where the date goes (YYYY-MM-DD). Examples:</p>
+        <div class="mt-1 space-y-0.5 text-xs text-slate-600 font-mono">
+          <div>Cinemark: <span class="text-slate-500">…?showDate={date}</span></div>
+          <div>AMC: <span class="text-slate-500">…/showtimes?date={date}</span></div>
+          <div>Regal: <span class="text-slate-500">…?date={date}</span></div>
+        </div>
+      </div>
     </div>
     <div class="flex gap-2 justify-end mt-5">
       <button onclick="document.getElementById('add-theater-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
@@ -213,6 +224,18 @@
           placeholder="Theater Name City State showtimes"/>
         <p class="text-xs text-slate-500 mt-1">Use: <span class="font-mono">Theater Name City State showtimes</span> — no street addresses</p>
       </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block font-medium">Showtime URL pattern <span class="text-slate-600">(optional)</span></label>
+        <input id="edit-theater-url-pattern" type="text"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+          placeholder="https://www.cinemark.com/theatre/my-theater?showDate={date}"/>
+        <p class="text-xs text-slate-500 mt-1">Use <span class="font-mono">{date}</span> where the date goes (YYYY-MM-DD). Examples:</p>
+        <div class="mt-1 space-y-0.5 text-xs text-slate-600 font-mono">
+          <div>Cinemark: <span class="text-slate-500">…?showDate={date}</span></div>
+          <div>AMC: <span class="text-slate-500">…/showtimes?date={date}</span></div>
+          <div>Regal: <span class="text-slate-500">…?date={date}</span></div>
+        </div>
+      </div>
     </div>
     <div class="flex gap-2 justify-end mt-5">
       <button onclick="document.getElementById('edit-theater-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
@@ -246,29 +269,31 @@ async function addTheater() {
   const address = document.getElementById('new-theater-address').value.trim();
   const website_url = document.getElementById('new-theater-website-url').value.trim();
   const serpapi_query = document.getElementById('new-theater-query').value.trim();
+  const showtime_url_pattern = document.getElementById('new-theater-url-pattern').value.trim() || null;
   if (!name || !serpapi_query) { showToast('Name and SerpApi query are required.', 'error'); return; }
   const r = await fetch('/api/admin/theaters', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name, address, website_url, serpapi_query})
+    body: JSON.stringify({name, address, website_url, serpapi_query, showtime_url_pattern})
   });
   if (r.ok) window.location.reload();
   else { const d = await r.json(); showToast(d.detail || 'Error adding.', 'error'); }
 }
 
 function editTheaterFromButton(button) {
-  editTheater(Number(button.dataset.theaterId), button.dataset.name || '', button.dataset.address || '', button.dataset.websiteUrl || '', button.dataset.query || '');
+  editTheater(Number(button.dataset.theaterId), button.dataset.name || '', button.dataset.address || '', button.dataset.websiteUrl || '', button.dataset.query || '', button.dataset.urlPattern || '');
 }
 
 function deleteTheaterFromButton(button) {
   deleteTheater(Number(button.dataset.theaterId), button.dataset.name || '');
 }
 
-function editTheater(id, name, address, websiteUrl, query) {
+function editTheater(id, name, address, websiteUrl, query, urlPattern) {
   document.getElementById('edit-theater-id').value = id;
   document.getElementById('edit-theater-name').value = name;
   document.getElementById('edit-theater-address').value = address;
   document.getElementById('edit-theater-website-url').value = websiteUrl;
   document.getElementById('edit-theater-query').value = query;
+  document.getElementById('edit-theater-url-pattern').value = urlPattern || '';
   updateEditMapsLink(address);
   document.getElementById('edit-theater-modal').classList.remove('hidden');
 }
@@ -292,9 +317,10 @@ async function saveTheater() {
   const address = document.getElementById('edit-theater-address').value.trim();
   const website_url = document.getElementById('edit-theater-website-url').value.trim();
   const serpapi_query = document.getElementById('edit-theater-query').value.trim();
+  const showtime_url_pattern = document.getElementById('edit-theater-url-pattern').value.trim() || null;
   const r = await fetch(`/api/admin/theaters/${id}`, {
     method: 'PATCH', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name, address, website_url, serpapi_query})
+    body: JSON.stringify({name, address, website_url, serpapi_query, showtime_url_pattern})
   });
   if (r.ok) window.location.reload();
   else { const d = await r.json(); showToast(d.detail || 'Error saving.', 'error'); }

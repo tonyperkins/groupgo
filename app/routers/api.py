@@ -1051,9 +1051,10 @@ async def admin_add_theater(
     address = body.get("address", "")
     website_url = body.get("website_url", "").strip() or None
     serpapi_query = body.get("serpapi_query", "").strip()
+    showtime_url_pattern = body.get("showtime_url_pattern", "").strip() or None
     if not name or not serpapi_query:
         raise HTTPException(status_code=400, detail="name and serpapi_query required")
-    t = theater_service.add_theater(name, address, website_url, serpapi_query, db)
+    t = theater_service.add_theater(name, address, website_url, serpapi_query, db, showtime_url_pattern=showtime_url_pattern)
     return JSONResponse(
         {"id": t.id, "name": t.name, "address": t.address, "website_url": t.website_url, "is_active": t.is_active},
         status_code=201,
@@ -1090,6 +1091,7 @@ async def admin_update_theater(
             address=body.get("address"),
             website_url=body.get("website_url"),
             serpapi_query=body.get("serpapi_query"),
+            showtime_url_pattern=body.get("showtime_url_pattern"),
             is_active=body.get("is_active"),
             db=db,
         )
