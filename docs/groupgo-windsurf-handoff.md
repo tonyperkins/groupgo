@@ -349,16 +349,15 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Future Ideas (not scheduled)
 
-### SOPS + age secrets management (near-term, do before wider sharing)
-- **Problem:** Plaintext `.env` files keep getting accidentally committed despite `.gitignore` — happened twice. Windsurf and other AI coding tools are the main risk vector; they sometimes write real credentials into env files without realizing.
-- **Solution:** SOPS + age. Encrypt secrets at rest in the repo (`secrets.enc.env`). Age key lives on dev machine and prod server only — AI tools never see plaintext values.
-- **Tony already has this wired in his homelab repo** — the same age key and credential store is used there. Extension to GroupGo is low-effort.
-- **Two-layer defense:**
-  1. `.windsurfignore` + `.gitignore` — hard block on any plaintext `.env*` file ever being committed
-  2. SOPS + age — encrypted secrets committed safely, decrypted on server at deploy time
-- **Deploy change:** `sops --decrypt secrets.enc.env > .env && docker compose up -d --build`
-- **Scope:** ~1-2 hours. Mostly wiring, not new concepts since homelab setup already done.
-- **Note:** SOPS protects files *intended* for the repo. The gitignore/windsurfignore layer protects against unintended plaintext commits. Both are needed.
+### SOPS + age secrets management (revisit if multi-tenant or multi-server)
+- **Problem:** Plaintext `.env` files keep getting accidentally committed despite `.gitignore` — happened twice. Windsurf and other AI coding tools are the main risk vector.
+- **Current prod setup:** Portainer manages all env vars via its UI — no `.env` file on the server at all. This means no secrets on disk, but vars must be manually updated in Portainer whenever one is added/changed/removed.
+- **SOPS + age tradeoff:**
+  - Pros: encrypted secrets live in the repo alongside the code — always in sync, new server deploy is just "copy age key + git clone + docker compose up"
+  - Cons: age key management (losing it = losing access to all secrets); Portainer's native Git-backed stack deploy can't run a decrypt step — would need to switch to SSH-based deploys with a custom script
+- **The real friction:** Portainer Git-backed deploy is zero-touch. SOPS adds a decrypt step Portainer can't do natively. Not worth the complexity for a single server + single admin setup.
+- **Better near-term fix:** Keep Portainer env vars as-is. Add a `.env.example` file listing every required var name (no values) so a new server deploy has a clear checklist. Solve secret leakage with `.windsurfignore` + `.gitignore` discipline — that's the actual risk, not secret storage.
+- **Revisit SOPS** if: multiple servers, CI/CD pipeline, or multi-tenant path where other people need deploy access.
 
 
 - **Problem:** SerpApi showtime reliability is ~50-70% at best — data comes from Google's knowledge panel which is stale, inconsistent, and schema-changes without notice.
