@@ -211,6 +211,18 @@
       <div id="advanced-times-panel" class="hidden p-5">
         {% if sessions %}
         <div class="card p-4 mb-4">
+          <!-- Global mode toggle: In Poll / All times -->
+          <div class="flex flex-wrap items-center gap-3 mb-3">
+            <div class="flex rounded-lg border border-slate-600 overflow-hidden text-xs">
+              <button type="button" id="gf-mode-inpoll"
+                onclick="setGlobalFilterMode('inpoll')"
+                class="px-3 py-1.5 bg-indigo-700 text-white font-medium">In Poll</button>
+              <button type="button" id="gf-mode-all"
+                onclick="setGlobalFilterMode('all')"
+                class="px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-white">All times</button>
+            </div>
+            <span class="text-xs text-slate-500">In Poll = only included times visible to voters</span>
+          </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-semibold text-white">Time Window</span>
             <div class="flex items-center gap-2">
@@ -229,9 +241,8 @@
                 {% endfor %}{% endfor %}
               </select>
             </div>
-            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply Filter</button>
+            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply</button>
             <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button>
-            <span class="text-xs text-slate-500">Excluded rows are dimmed and hidden from voters</span>
           </div>
         </div>
         {% endif %}
@@ -337,48 +348,56 @@
       <div id="fetch-job-area-{{ ev.id }}"></div>
       {% endif %}
 
-      <!-- Task 5 (updated): Inline filter bar + time window — movie events only, scoped to this event -->
-      {% if is_movie and ev_sessions %}
+      <!-- Per-movie filter bar (Task 2: In Poll / All times toggle) -->
+      {% if is_movie %}
       {% set ev_theaters = [] %}
       {% for s in ev_sessions %}{% if s.theater_id and theater_map.get(s.theater_id) %}{% if s.theater_id not in ev_theaters | map(attribute='id') | list %}{% set _ = ev_theaters.append(theater_map.get(s.theater_id)) %}{% endif %}{% endif %}{% endfor %}
       {% set ev_formats = ev_sessions | map(attribute='format') | select | unique | list %}
-      <div class="p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 flex flex-wrap items-center gap-2">
-        <select id="ef-theater-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
-          <option value="">All Venues</option>
-          {% for t in ev_theaters %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
-        </select>
-        {% if ev_formats | length > 1 %}
-        <select id="ef-format-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
-          <option value="">All Formats</option>
-          {% for f in ev_formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
-        </select>
-        {% endif %}
-        <select id="ef-included-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
-          <option value="">All</option>
-          <option value="true">✓ Included</option>
-          <option value="false">○ Excluded</option>
-        </select>
-        <!-- Task 3: From/To time window filter -->
-        <span class="text-xs text-slate-500">From</span>
-        <select id="ef-from-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
-          <option value="">Any</option>
-          {% for h in range(8, 24) %}{% for m in [0, 30] %}
-          {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
-          <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
-          {% endfor %}{% endfor %}
-        </select>
-        <span class="text-xs text-slate-500">To</span>
-        <select id="ef-to-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
-          <option value="">Any</option>
-          {% for h in range(8, 24) %}{% for m in [0, 30] %}
-          {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
-          <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
-          {% endfor %}{% endfor %}
-        </select>
-        <button type="button" onclick="applyEventTimeWindow({{ ev.id }})" class="text-xs bg-indigo-700/50 text-indigo-300 border border-indigo-700 rounded-lg px-2 py-1 hover:bg-indigo-700">Apply</button>
-        <button type="button" onclick="includeAllEventSessions({{ ev.id }})" class="text-xs bg-slate-700/50 text-slate-300 border border-slate-600 rounded-lg px-2 py-1 hover:bg-slate-700">Include All</button>
-        <span id="ef-count-{{ ev.id }}" class="text-xs text-slate-500 ml-auto">{{ ev_sessions | length }} times</span>
-        <button type="button" onclick="resetEventFilters({{ ev.id }})" class="text-xs text-slate-500 hover:text-slate-300">Reset</button>
+      <div class="p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 space-y-2">
+        <!-- Mode toggle: In Poll / All times -->
+        <div class="flex items-center gap-2">
+          <div class="flex rounded-lg border border-slate-600 overflow-hidden text-xs">
+            <button type="button" id="ef-mode-inpoll-{{ ev.id }}"
+              onclick="setEventFilterMode({{ ev.id }}, 'inpoll')"
+              class="px-3 py-1 bg-indigo-700 text-white font-medium">In Poll</button>
+            <button type="button" id="ef-mode-all-{{ ev.id }}"
+              onclick="setEventFilterMode({{ ev.id }}, 'all')"
+              class="px-3 py-1 bg-slate-800 text-slate-400 hover:text-white">All times</button>
+          </div>
+          <span id="ef-count-{{ ev.id }}" class="text-xs text-slate-500">{{ ev_sessions | selectattr('is_included') | list | length }} of {{ ev_sessions | length }}</span>
+          <button type="button" onclick="resetEventFilters({{ ev.id }})" class="text-xs text-slate-500 hover:text-slate-300 ml-auto">Reset</button>
+        </div>
+        <!-- Filter controls -->
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="ef-theater-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">All Venues</option>
+            {% for t in ev_theaters %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+          </select>
+          {% if ev_formats | length > 1 %}
+          <select id="ef-format-{{ ev.id }}" onchange="filterEventSessions({{ ev.id }})" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">All Formats</option>
+            {% for f in ev_formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+          </select>
+          {% endif %}
+          <span class="text-xs text-slate-500">From</span>
+          <select id="ef-from-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">Any</option>
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+          <span class="text-xs text-slate-500">To</span>
+          <select id="ef-to-{{ ev.id }}" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1">
+            <option value="">Any</option>
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+          <button type="button" onclick="applyEventFilter({{ ev.id }})" class="text-xs bg-indigo-700/50 text-indigo-300 border border-indigo-700 rounded-lg px-2 py-1 hover:bg-indigo-700">Apply</button>
+          <button type="button" onclick="includeAllEventSessions({{ ev.id }})" class="text-xs bg-slate-700/50 text-slate-300 border border-slate-600 rounded-lg px-2 py-1 hover:bg-slate-700">Include All</button>
+        </div>
       </div>
       {% endif %}
 
@@ -988,47 +1007,83 @@ async function triggerSingleMovieFetch(eventId) {
   _startJobPoller(data.job_id, 'fetch-job-area-' + eventId);
 }
 
-/* ── Per-movie inline filters (Tasks 5 & 3) ─────────────────────────────── */
-function filterEventSessions(eventId) {
-  const theater = document.getElementById('ef-theater-' + eventId)?.value || '';
-  const format = document.getElementById('ef-format-' + eventId)?.value || '';
-  const included = document.getElementById('ef-included-' + eventId)?.value || '';
-  const rows = document.querySelectorAll('.ev-time-row-' + eventId);
-  let visible = 0;
-  rows.forEach(row => {
-    const match =
-      (!theater || String(row.dataset.theaterId) === theater) &&
-      (!format || row.dataset.format === format) &&
-      (!included || row.dataset.included === included);
-    row.style.display = match ? '' : 'none';
-    if (match) visible++;
-  });
-  const count = document.getElementById('ef-count-' + eventId);
-  if (count) count.textContent = `${visible} of ${rows.length}`;
-}
+/* ── Per-movie filter mode state ────────────────────────────────────────── */
+const _eventFilterMode = {}; // eventId -> 'inpoll' | 'all'
 
-function resetEventFilters(eventId) {
-  ['ef-theater-', 'ef-format-', 'ef-included-', 'ef-from-', 'ef-to-'].forEach(prefix => {
-    const el = document.getElementById(prefix + eventId);
-    if (el) el.value = '';
-  });
+function setEventFilterMode(eventId, mode) {
+  _eventFilterMode[eventId] = mode;
+  const inpollBtn = document.getElementById('ef-mode-inpoll-' + eventId);
+  const allBtn = document.getElementById('ef-mode-all-' + eventId);
+  if (inpollBtn && allBtn) {
+    if (mode === 'inpoll') {
+      inpollBtn.className = 'px-3 py-1 bg-indigo-700 text-white font-medium';
+      allBtn.className = 'px-3 py-1 bg-slate-800 text-slate-400 hover:text-white';
+    } else {
+      allBtn.className = 'px-3 py-1 bg-indigo-700 text-white font-medium';
+      inpollBtn.className = 'px-3 py-1 bg-slate-800 text-slate-400 hover:text-white';
+    }
+  }
   filterEventSessions(eventId);
 }
 
-/* ── Per-movie time window filter (Task 3) ──────────────────────────────── */
-function applyEventTimeWindow(eventId) {
+function filterEventSessions(eventId) {
+  const mode = _eventFilterMode[eventId] || 'inpoll';
+  const theater = document.getElementById('ef-theater-' + eventId)?.value || '';
+  const format = document.getElementById('ef-format-' + eventId)?.value || '';
   const from = document.getElementById('ef-from-' + eventId)?.value || '';
   const to = document.getElementById('ef-to-' + eventId)?.value || '';
   const rows = document.querySelectorAll('.ev-time-row-' + eventId);
   let visible = 0;
   rows.forEach(row => {
-    const rawTime = row.dataset.rawTime || '';
-    const inWindow = (!from || rawTime >= from) && (!to || rawTime <= to);
-    row.style.display = inWindow ? '' : 'none';
-    if (inWindow) visible++;
+    const inpollMatch = mode === 'inpoll' ? row.dataset.included === 'true' : true;
+    const theaterMatch = !theater || String(row.dataset.theaterId) === theater;
+    const formatMatch = !format || row.dataset.format === format;
+    const timeMatch = (!from || (row.dataset.rawTime || '') >= from) && (!to || (row.dataset.rawTime || '') <= to);
+    const show = inpollMatch && theaterMatch && formatMatch && timeMatch;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
   });
   const count = document.getElementById('ef-count-' + eventId);
   if (count) count.textContent = `${visible} of ${rows.length}`;
+}
+
+async function applyEventFilter(eventId) {
+  const mode = _eventFilterMode[eventId] || 'inpoll';
+  const theater = document.getElementById('ef-theater-' + eventId)?.value || '';
+  const format = document.getElementById('ef-format-' + eventId)?.value || '';
+  const from = document.getElementById('ef-from-' + eventId)?.value || '';
+  const to = document.getElementById('ef-to-' + eventId)?.value || '';
+  const rows = document.querySelectorAll('.ev-time-row-' + eventId);
+  if (mode === 'all') {
+    // Just filter the visible list — no API call
+    filterEventSessions(eventId);
+    return;
+  }
+  // In Poll mode: bulk-update is_included — matching rows -> true, non-matching -> false
+  const updates = [];
+  rows.forEach(row => {
+    const btn = row.querySelector('[data-session-id]');
+    if (!btn) return;
+    const id = Number(btn.dataset.sessionId);
+    const theaterMatch = !theater || String(row.dataset.theaterId) === theater;
+    const formatMatch = !format || row.dataset.format === format;
+    const timeMatch = (!from || (row.dataset.rawTime || '') >= from) && (!to || (row.dataset.rawTime || '') <= to);
+    const shouldInclude = theaterMatch && formatMatch && timeMatch;
+    updates.push(fetch(`/api/admin/sessions/${id}/visibility`, {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({is_included: shouldInclude})
+    }));
+  });
+  await Promise.all(updates);
+  window.location.reload();
+}
+
+function resetEventFilters(eventId) {
+  ['ef-theater-', 'ef-format-', 'ef-from-', 'ef-to-'].forEach(prefix => {
+    const el = document.getElementById(prefix + eventId);
+    if (el) el.value = '';
+  });
+  setEventFilterMode(eventId, 'inpoll');
 }
 
 async function includeAllEventSessions(eventId) {
@@ -1091,9 +1146,17 @@ async function toggleSessionVisibility(id, currentIncluded) {
   else { const d = await resp.json(); showToast(d.detail || 'Error toggling visibility.', 'error'); }
 }
 
+let _globalFilterMode = 'inpoll';
+
 async function applyTimeFilter() {
   const timeStart = document.getElementById('filter-time-start').value;
   const timeEnd = document.getElementById('filter-time-end').value;
+  if (_globalFilterMode === 'all') {
+    // All times mode: just filter the visible rows, no API call
+    filterSessions();
+    return;
+  }
+  // In Poll mode: bulk-update is_included via API
   const resp = await fetch('/api/admin/sessions/bulk-visibility', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({poll_id: adminShowtimesPollId, time_start: timeStart, time_end: timeEnd})
@@ -1111,7 +1174,24 @@ async function includeAll() {
   else { const d = await resp.json(); showToast(d.detail || 'Error.', 'error'); }
 }
 
-/* ── Flat table row filter (advanced panel) ─────────────────────────────── */
+/* ── Global filter mode ───────────────────────────────────────────────────── */
+function setGlobalFilterMode(mode) {
+  _globalFilterMode = mode;
+  const inpollBtn = document.getElementById('gf-mode-inpoll');
+  const allBtn = document.getElementById('gf-mode-all');
+  if (inpollBtn && allBtn) {
+    if (mode === 'inpoll') {
+      inpollBtn.className = 'px-3 py-1.5 bg-indigo-700 text-white font-medium';
+      allBtn.className = 'px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-white';
+    } else {
+      allBtn.className = 'px-3 py-1.5 bg-indigo-700 text-white font-medium';
+      inpollBtn.className = 'px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-white';
+    }
+  }
+  filterSessions();
+}
+
+/* ── Flat table row filter (advanced panel) ───────────────────────────────── */
 function filterSessions() {
   const movie = document.getElementById('sf-movie')?.value || '';
   const theater = document.getElementById('sf-theater')?.value || '';
@@ -1120,7 +1200,9 @@ function filterSessions() {
   const rows = document.querySelectorAll('#session-tbody tr');
   let visible = 0;
   rows.forEach(row => {
+    const inpollMatch = _globalFilterMode === 'inpoll' ? row.dataset.included === 'yes' : true;
     const match =
+      inpollMatch &&
       (!movie || row.dataset.movie === movie) &&
       (!theater || row.dataset.theater === theater) &&
       (!format || row.dataset.format === format) &&
@@ -1137,7 +1219,7 @@ function resetSessionFilters() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  filterSessions();
+  setGlobalFilterMode('inpoll');
 }
 
 /* ── SerpApi status ─────────────────────────────────────────────────────── */

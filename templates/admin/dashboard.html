@@ -109,10 +109,9 @@
         {% if poll.status == 'DRAFT' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Edit</a>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="openPublishModalFromButton(this)" class="btn-primary text-xs">Publish</button>
-          <!-- Single overflow dropdown — outside both branches to avoid duplicate ID bug -->
-          <div class="relative" id="overflow-menu-{{ poll.id }}">
+          <div class="relative" id="overflow-menu-{{ poll.id }}-draft">
             <button type="button" onclick="toggleOverflowMenu('{{ poll.id }}')" class="btn-ghost text-xs" title="More actions">⋯</button>
-            <div id="overflow-dropdown-{{ poll.id }}" class="hidden fixed z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
+            <div id="overflow-dropdown-{{ poll.id }}-draft" class="hidden fixed z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
               <button type="button"
                 data-poll-id="{{ poll.id }}"
                 data-poll-title="{{ poll.title }}"
@@ -131,10 +130,9 @@
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
             onclick="showInviteLinkFromButton(this)" class="btn-ghost text-xs">Invite Link</button>
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
-          <!-- Single overflow dropdown — outside both branches to avoid duplicate ID bug -->
-          <div class="relative" id="overflow-menu-{{ poll.id }}">
+          <div class="relative" id="overflow-menu-{{ poll.id }}-open">
             <button type="button" onclick="toggleOverflowMenu('{{ poll.id }}')" class="btn-ghost text-xs" title="More actions">⋯</button>
-            <div id="overflow-dropdown-{{ poll.id }}" class="hidden fixed z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
+            <div id="overflow-dropdown-{{ poll.id }}-open" class="hidden fixed z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">
               <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
                 onclick="openPublishModalFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
                 class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Unpublish</button>
@@ -916,17 +914,17 @@ function showVoterBreakdownFromButton(button) {
 
 // ── Overflow menu ─────────────────────────────────────────────────────────────
 function toggleOverflowMenu(pollId) {
-  const dropdown = document.getElementById('overflow-dropdown-' + pollId);
-  const btn = document.querySelector(`#overflow-menu-${pollId} > button`);
+  const dropdown = document.getElementById('overflow-dropdown-' + pollId + '-draft')
+                || document.getElementById('overflow-dropdown-' + pollId + '-open');
+  const btn = document.querySelector(`[id^="overflow-menu-${pollId}"] > button`);
   if (!dropdown || !btn) return;
   const isHidden = dropdown.classList.contains('hidden');
   document.querySelectorAll('[id^="overflow-dropdown-"]').forEach(d => d.classList.add('hidden'));
   if (isHidden) {
     const rect = btn.getBoundingClientRect();
     dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    dropdown.style.left = (rect.right + window.scrollX - dropdown.offsetWidth || rect.right - 180) + 'px';
+    dropdown.style.left = (rect.right + window.scrollX - 180) + 'px';
     dropdown.classList.remove('hidden');
-    // Re-align after rendering (offsetWidth now available)
     requestAnimationFrame(() => {
       dropdown.style.left = (rect.right + window.scrollX - dropdown.offsetWidth) + 'px';
     });

@@ -6,27 +6,82 @@ A lightweight, mobile-first web app for coordinating group movie outings. Elimin
 
 ---
 
-## Quick Start
+## Local Development
+
+### Windows (PowerShell)
 
 ```powershell
-# 1. Clone and set up environment
+# 1. Clone
 git clone <repo-url> groupgo
 cd groupgo
+
+# 2. Create and activate a virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 2. Configure environment
+# 4. Create your local .env
 Copy-Item .env.example .env
-# Edit .env with your TMDB_API_KEY, SERPAPI_KEY, ADMIN_PASSWORD, and APP_BASE_URL
+# Open .env and set at minimum:
+#   ADMIN_PASSWORD=anything
+#   APP_BASE_URL=http://localhost:8001
+#   DATABASE_URL=sqlite:///./data/groupgo.db
+#   APP_ENV=development
+# API keys (TMDB_API_KEY, SERPAPI_KEY, GOOGLE_KG_API_KEY) are optional for basic local use
 
-# 3. Run
-uvicorn app.main:app --reload --port 8000
+# 5. Create the data directory (if it doesn't exist)
+New-Item -ItemType Directory -Force -Path data
+
+# 6. Start the server
+python -m uvicorn app.main:app --reload --port 8001
 ```
 
-App runs at `http://localhost:8000` · Admin at `http://localhost:8000/admin`
+### Linux / macOS (bash)
 
-See **[docs/dev-setup.md](docs/dev-setup.md)** for full setup, Docker deployment, and Cloudflare Tunnel configuration.
+```bash
+# 1. Clone
+git clone <repo-url> groupgo
+cd groupgo
+
+# 2. Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Create your local .env
+cp .env.example .env
+# Open .env and set at minimum:
+#   ADMIN_PASSWORD=anything
+#   APP_BASE_URL=http://localhost:8001
+#   DATABASE_URL=sqlite:///./data/groupgo.db
+#   APP_ENV=development
+# API keys (TMDB_API_KEY, SERPAPI_KEY, GOOGLE_KG_API_KEY) are optional for basic local use
+
+# 5. Create the data directory (if it doesn't exist)
+mkdir -p data
+
+# 6. Start the server
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+**App:** `http://localhost:8001` · **Admin:** `http://localhost:8001/admin`  
+Admin credentials are `ADMIN_USERNAME` / `ADMIN_PASSWORD` from your `.env` (defaults: `admin` / whatever you set).
+
+> **Note:** On first run the app auto-creates the SQLite database at `data/groupgo.db`. No migration step needed.
+
+### Docker (alternative)
+
+```bash
+cp .env.example .env
+# edit .env as above
+docker compose up --build
+```
+
+App runs on port 8001 (mapped in `docker-compose.yml`).
 
 ---
 
