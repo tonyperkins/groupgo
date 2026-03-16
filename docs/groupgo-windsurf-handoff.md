@@ -579,4 +579,96 @@ This is the largest single template change in the project. Read `templates/admin
 
 ---
 
-_Nothing pending._
+You are continuing development on GroupGo (branch: master).
+Read docs/groupgo-windsurf-handoff.md before starting.
+Read docs/mockups/unified-poll-setup.html and docs/mockups/venue-pattern-and-add-time.html fully before touching any code — these are your primary design reference.
+This is the largest single template change in the project. Take your time.
+
+---
+
+### Task — Unified poll setup page (merge Events + Times into one page)
+
+**Goal:** Collapse the two-step admin wizard (separate Events page + Times page) into a single "Build your poll" page where each event card contains its times directly.
+
+**Files to read first:**
+- `templates/admin/movies.html` — current Events page
+- `templates/admin/showtimes.html` — current Times page
+- `docs/mockups/unified-poll-setup.html` — target layout (full annotated mockup)
+- `docs/mockups/venue-pattern-and-add-time.html` — inline add time form variants
+
+**Files to modify:**
+- `templates/admin/movies.html` — this becomes the unified page
+- `templates/admin/showtimes.html` — gutted, redirects to movies page or removed
+- `app/routers/admin.py` — update route context if needed
+
+**All existing HTMX endpoints are unchanged — template structure only.**
+
+---
+
+#### Layout requirements (top to bottom)
+
+1. **Page header:** "Build your poll" — replaces current "Build the event shortlist"
+
+2. **Step indicator:** 2 steps only (was 3):
+   - Step 1: "Events + Times" (active on this page)
+   - Step 2: "Results"
+   - Remove the old Step 2 "Times" chip entirely
+
+3. **Beta banner** (amber, always shown):
+   "Auto-fetch from Google may be incomplete. Verify times before publishing."
+
+4. **"Fetch all movie times" card** (only shown when poll has movie events):
+   - Movie pills (one per movie, all checked by default)
+   - Theater pills (from poll's venues)
+   - Date pills (from poll's PollDate records)
+   - "↓ Fetch times" button + "Check API status" button
+   - After fetch: per-theater status row (✓ N times found / ⚠ 0 times found) + verify link per theater per date (uses Venue.showtime_url_pattern — already implemented in Session A)
+   - Collapsible "All cached times (N)" advanced panel at bottom of this card (collapsed by default) — contains the existing flat table with time window filter
+
+5. **Per-event cards** (movies first, then non-movies grouped by event_type):
+   Each card:
+   - Header: event name + type badge + time count + chevron (click to expand/collapse)
+   - Body when expanded:
+     - **Movie events only:** per-movie re-fetch mini-panel (theater pills + date pills + "↓ Fetch" button)
+     - **Movie events only:** fetch status rows (✓/⚠ per theater) + verify links
+     - **All events:** times list (date, time, venue/theater, format badge, Auto/Manual status, include toggle ✓, delete ×)
+     - **All events:** inline "+ Add time" form (hidden, expands on click):
+       - Movie events: date picker + time picker + theater dropdown + format dropdown
+       - Non-movie events: date picker + time picker ONLY (no theater/format — use event.venue_name silently)
+     - "+ Add time" / "+ Add time manually" link at bottom
+   - "No times" amber warning state when event has zero times
+
+6. **"+ Add event" button** at very bottom of page
+
+---
+
+#### URL / navigation
+
+- Keep `/admin/polls/{id}/movies` as the route (or rename to `/setup` if cleaner)
+- The "Next: Times →" button goes away — replace with "Next: Results →"
+- The showtimes page (`/admin/polls/{id}/showtimes`) should redirect to the movies/setup page
+- Update breadcrumbs and "← Events" / "Results →" nav buttons accordingly
+- The step 2 breadcrumb chip that said "Times" on the old showtimes page is gone
+
+---
+
+#### Fetched times placement
+
+- Fetched times for a movie populate directly into that movie's event card
+- The "All cached times" flat table (with time window filter) moves inside the "Fetch all movie times" card as a collapsible advanced panel
+- Non-movie-only polls: hide the Fetch card entirely, just show per-event cards
+
+---
+
+### After completing all tasks
+
+1. In docs/groupgo-windsurf-handoff.md:
+   a. Move all items from `## Pending — Next Session` into `## Completed`
+      under a new entry: `### Session B — [today's date]`
+   b. Add implementation note if anything differed — format: `> ℹ️ [one or two sentences]`
+      Skip if it went exactly as specified.
+   c. Replace everything after the blockquote in `## Implementation Prompt`
+      with: `_Nothing pending._`
+2. No SPA changes — skip npm run build
+3. Commit: `git add -A && git commit -m "feat: unified poll setup page — merge Events + Times into one page"`
+4. Push: `git push origin master`
