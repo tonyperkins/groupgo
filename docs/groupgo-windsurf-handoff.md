@@ -403,6 +403,12 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Completed
 
+### Session B — March 16, 2026
+- `templates/admin/movies.html` — full rewrite: unified "Build your poll" page merging Events + Times; 2-step indicator (Events + Times / Results); amber BETA banner; "Fetch all movie times" collapsible card with movie/theater/date pills and verify links; "Advanced" collapsed panel containing time-window filter and full flat cached-times table; per-event cards (movies first, then non-movies) each with poster/icon, type badge, time count, amber "No times" warning state; movie cards include per-movie re-fetch mini-panel; inline times list with include-toggle and delete per row; inline "+ Add time" form (movie: theater + format dropdowns; non-movie: date + time only); collapsible "Add event" panel at bottom with TMDB search and manual form
+- `app/routers/admin.py` — `admin_movies` now loads all showtime context (sessions, theaters, theater_map, event_map, target_dates, grouped_sessions) previously only in `admin_showtimes`; `admin_showtimes` now simply redirects 302 → `/admin/polls/{id}/movies`
+- `templates/admin/results.html` — step strip updated from 3-step to 2-step (removed Times step, renamed Events → Events + Times)
+> ℹ️ Kept `/admin/polls/{id}/movies` as the unified route (not `/setup`). `/showtimes` redirects permanently. `showtimes.html` template is still on disk but no longer served — can be deleted in a future cleanup session.
+
 ### Session A — March 16, 2026
 - `app/models.py` — added `showtime_url_pattern: Optional[str] = Field(default=None)` to `Venue` model
 - `app/services/theater_service.py` — added `showtime_url_pattern` param to `add_theater()` and `update_theater()`
@@ -537,38 +543,7 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 
 ## Pending — Next Session
 
-#### Session B — Unified poll setup page (heavy)
-
-Collapse the two-step admin wizard (Events page + Times page) into one "Build your poll" page. Each event card contains its times directly.
-
-**Mockup files (read these before starting):**
-- `docs/mockups/unified-poll-setup.html` — full page layout with all event card states
-- `docs/mockups/venue-pattern-and-add-time.html` — inline add time form variants
-
-##### Layout (top to bottom)
-1. Page header: "Build your poll" + 2-step indicator (Step 1: Events + Times / Step 2: Results)
-2. Amber beta banner: "Auto-fetch may be incomplete. Verify before publishing."
-3. "Fetch all movie times" card (only shown if poll has movie events):
-   - Movie pills, theater pills, date pills (all checked by default)
-   - "Fetch times" + "Check API status" buttons
-   - After fetch: per-theater status (✓ N times found / ⚠ 0 times found) + verify link per theater per date
-4. Per-event cards (movies first, then non-movies grouped by type):
-   - Header: event name + type badge + time count + chevron
-   - Body: per-movie re-fetch mini-panel (movie events only); fetch status + verify links (movie events only); times list with include toggle + delete; inline "+ Add time" form (expands on click)
-   - "No times" amber warning if empty
-5. "+ Add event" button at bottom
-
-##### Fetched times placement
-- Times populate directly into the movie's own card
-- "All cached times" flat table moves inside the "Fetch all movie times" card as a collapsed "Advanced" panel. Time window bulk filter lives there.
-
-##### URL / navigation
-- New unified page replaces both `/movies` and `/showtimes` routes — use `/admin/polls/{id}/setup` or keep `/movies` as the route
-- "Next: Times →" button on Events page goes away
-- Step indicator updates accordingly
-
-##### Implementation note
-This is the largest single template change in the project. Read `templates/admin/movies.html` and `templates/admin/showtimes.html` fully before starting. All existing HTMX endpoints are unchanged — template structure only.
+_Nothing pending._
 
 ---
 

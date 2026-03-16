@@ -1,8 +1,14 @@
 """Add showtime_url_pattern column to theaters table. Idempotent."""
+import os
 import sqlite3
 import sys
 
-db_path = sys.argv[1] if len(sys.argv) > 1 else "/data/groupgo.db"
+if len(sys.argv) > 1:
+    db_path = sys.argv[1]
+elif os.path.exists("data/groupgo.db"):
+    db_path = "data/groupgo.db"
+else:
+    db_path = "/data/groupgo.db"
 conn = sqlite3.connect(db_path)
 cur = conn.cursor()
 

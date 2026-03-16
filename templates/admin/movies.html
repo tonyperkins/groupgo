@@ -1,5 +1,5 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}Events — GroupGo Admin{% endblock %}
+{% block title %}Build your poll — GroupGo Admin{% endblock %}
 
 {% block content %}
 <nav class="breadcrumb">
@@ -7,15 +7,15 @@
   <span class="sep">›</span>
   <span class="active">{{ poll.title }}</span>
   <span class="sep">›</span>
-  <span class="current">Events</span>
+  <span class="current">Setup</span>
 </nav>
 
 <section class="page-hero mb-6">
   <span class="page-eyebrow">Poll setup</span>
   <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div>
-      <h1 class="page-title text-white">Build the event shortlist</h1>
-      <p class="page-subtitle mt-3">Search TMDB for movies, or add any event manually — concerts, restaurants, bars, and more.</p>
+      <h1 class="page-title text-white">Build your poll</h1>
+      <p class="page-subtitle mt-3">Add events and their times, then publish for your group to vote.</p>
     </div>
     <div class="inline-pills">
       <span class="soft-pill soft-pill-strong">{{ poll.title }}</span>
@@ -26,48 +26,369 @@
     <a href="/admin/polls/{{ poll.id }}/movies" class="step-chip is-active">
       <span class="step-index">1</span>
       <span class="step-copy">
-        <span class="step-label">Events</span>
-        <span class="step-meta">Curate the shortlist</span>
-      </span>
-    </a>
-    <a href="/admin/polls/{{ poll.id }}/showtimes" class="step-chip">
-      <span class="step-index">2</span>
-      <span class="step-copy">
-        <span class="step-label">Times</span>
-        <span class="step-meta">Fetch and review sessions</span>
+        <span class="step-label">Events + Times</span>
+        <span class="step-meta">Add events and set times</span>
       </span>
     </a>
     <a href="/admin/polls/{{ poll.id }}/results" class="step-chip">
-      <span class="step-index">3</span>
+      <span class="step-index">2</span>
       <span class="step-copy">
         <span class="step-label">Results</span>
-        <span class="step-meta">Track the winning combo</span>
+        <span class="step-meta">Declare the winner</span>
       </span>
     </a>
   </div>
 </section>
 
-<div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-  <!-- Add event panel -->
-  <div class="card p-5 sm:p-6">
+{% set movie_events = events | selectattr('event_type', 'equalto', 'movie') | list %}
+{% set non_movie_events = events | rejectattr('event_type', 'equalto', 'movie') | list %}
+{% set movie_sessions = sessions | selectattr('event_id', 'in', movie_events | map(attribute='id') | list) | list %}
+
+<!-- Beta banner -->
+<div class="flex items-start gap-3 p-3 rounded-xl border border-amber-700/60 bg-amber-950/30 mb-4">
+  <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/60 text-amber-300 whitespace-nowrap mt-0.5">BETA</span>
+  <span class="text-sm text-amber-200">Auto-fetch from Google may be incomplete or unavailable for some theaters. Always verify times before publishing. Use manual add as a fallback.</span>
+</div>
+
+<!-- ── Fetch all movie times card ─────────────────────────────────────────── -->
+{% if movie_events %}
+<div class="card mb-4" id="movies-section">
+  <button type="button"
+    class="w-full flex items-center justify-between gap-4 p-5 text-left"
+    onclick="toggleMoviesSection()">
+    <div class="flex items-center gap-3 min-w-0">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-white text-base">Fetch all movie times from Google</span>
+          <span class="text-xs px-2 py-0.5 rounded font-semibold bg-amber-900/40 text-amber-400">BETA</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-0.5">
+          {{ movie_events | map(attribute='title') | join(' · ') }} — {{ movie_sessions | length }} cached time{{ 's' if movie_sessions | length != 1 else '' }}
+        </div>
+      </div>
+    </div>
+    <svg id="chevron-movies" class="w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+    </svg>
+  </button>
+
+  <div id="movies-section-body" class="border-t border-slate-700">
+    <div class="p-5 space-y-4 border-b border-slate-700/60 bg-slate-800/30">
+
+      <!-- Movie pills -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 w-16 shrink-0">Movies</span>
+        <div class="flex flex-wrap gap-2" id="movie-checkboxes">
+          {% for ev in movie_events %}
+          <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ ev.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500" id="movie-cb-{{ ev.id }}"/>
+            <span class="text-white font-medium">{{ ev.title }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Theater pills -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 w-16 shrink-0">Theaters</span>
+        <div class="flex flex-wrap gap-2" id="theater-checkboxes-movies">
+          {% for t in theaters %}
+          <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ t.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500"/>
+            <span class="text-white font-medium">{{ t.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Date pills with verify links -->
+      <div>
+        <span class="text-xs text-slate-400 block mb-2">Dates</span>
+        <div id="date-checkboxes-movies">
+          {% for t in theaters %}
+          <div class="flex flex-wrap gap-2 mb-1.5 items-center">
+            <span class="text-xs text-slate-500 w-28 shrink-0 truncate">{{ t.name.split()[0] }}…</span>
+            {% for d in target_dates %}
+            <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-1.5 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+              <input type="checkbox" value="{{ d }}" data-theater="{{ t.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500 date-cb-movies"/>
+              <span class="text-white font-mono">{{ d | display_date }}</span>
+            </label>
+            {% if t.showtime_url_pattern %}
+            <a href="{{ t.showtime_url_pattern | replace('{date}', d) }}"
+               target="_blank" rel="noopener"
+               title="Verify showtimes on {{ t.name }} for {{ d | display_date }}"
+               class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗ verify</a>
+            {% elif t.website_url %}
+            <a href="{{ t.website_url }}"
+               target="_blank" rel="noopener"
+               title="Verify showtimes on {{ t.name }} for {{ d | display_date }}"
+               class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗ verify</a>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Fetch buttons -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <button onclick="triggerMoviesFetch()" class="btn-primary text-xs gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+          </svg>
+          Fetch times
+        </button>
+        <span id="serpapi-status-badge"></span>
+        <button onclick="checkSerpApi()" class="btn-ghost text-xs">Check API</button>
+        <span class="text-xs text-slate-600">Counts toward monthly quota.</span>
+      </div>
+      <div id="fetch-job-area-movies" class="mt-1"></div>
+    </div>
+
+    <!-- Advanced panel: all cached times flat table -->
+    <div>
+      <button type="button" onclick="toggleAdvancedPanel()"
+        class="w-full flex items-center justify-between px-5 py-3 text-xs text-slate-400 hover:text-slate-300 border-b border-slate-700/40 bg-slate-800/10">
+        <span>All cached times ({{ movie_sessions | length }}) — filter, include/exclude, delete</span>
+        <svg id="chevron-advanced" class="w-4 h-4 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="advanced-times-panel" class="hidden p-5">
+        {% if sessions %}
+        <div class="card p-4 mb-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm font-semibold text-white">Time Window</span>
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-slate-400">From</label>
+              <select id="filter-time-start" class="input-base pr-8 appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23cbd5e1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
+                {% for h in range(8, 24) %}{% for m in [0, 30] %}
+                {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+                <option value="{{ hh }}:{{ mm }}" {% if h == 9 and m == 0 %}selected{% endif %}>{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+                {% endfor %}{% endfor %}
+              </select>
+              <label class="text-xs text-slate-400">To</label>
+              <select id="filter-time-end" class="input-base pr-8 appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23cbd5e1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
+                {% for h in range(8, 24) %}{% for m in [0, 30] %}
+                {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+                <option value="{{ hh }}:{{ mm }}" {% if h == 18 and m == 0 %}selected{% endif %}>{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+                {% endfor %}{% endfor %}
+              </select>
+            </div>
+            <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply Filter</button>
+            <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button>
+            <span class="text-xs text-slate-500">Excluded rows are dimmed and hidden from voters</span>
+          </div>
+        </div>
+        {% endif %}
+        {% set theaters = theater_map %}
+        {% set events = event_map %}
+        {% include "components/admin_session_list.html" %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Per-event cards ────────────────────────────────────────────────────── -->
+{% set sorted_events = movie_events + non_movie_events %}
+{% for ev in sorted_events %}
+{% set ev_sessions = sessions | selectattr('event_id', 'equalto', ev.id) | list %}
+{% set is_movie = ev.event_type == 'movie' %}
+<div class="card mb-4 {% if not ev_sessions %}border-amber-800/40{% endif %}" id="event-section-{{ ev.id }}">
+
+  <!-- Card header -->
+  <div class="flex items-center gap-3 p-4 cursor-pointer" onclick="toggleEventSection({{ ev.id }})">
+    {% if is_movie and ev.poster_path %}
+    <img src="{{ poster_url(ev.poster_path, 'w92') }}" alt="{{ ev.title }}" class="w-10 h-14 rounded object-cover bg-slate-700 flex-shrink-0">
+    {% else %}
+    <div class="w-10 h-14 rounded bg-slate-700 flex items-center justify-center text-slate-500 text-xl flex-shrink-0">
+      {% if ev.event_type == 'restaurant' %}🍽️
+      {% elif ev.event_type == 'concert' %}🎵
+      {% elif ev.event_type == 'bar' %}🍺
+      {% elif ev.event_type == 'movie' %}🎬
+      {% else %}📍{% endif %}
+    </div>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-medium text-white">{{ ev.title }}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+          {% if is_movie %}bg-indigo-900/60 text-indigo-300
+          {% elif ev.event_type == 'restaurant' %}bg-amber-900/60 text-amber-300
+          {% elif ev.event_type == 'concert' %}bg-purple-900/60 text-purple-300
+          {% elif ev.event_type == 'bar' %}bg-orange-900/60 text-orange-300
+          {% else %}bg-slate-700 text-slate-300{% endif %}">
+          {% if is_movie %}🎬 Movie
+          {% elif ev.event_type == 'restaurant' %}🍽️ Restaurant
+          {% elif ev.event_type == 'concert' %}🎵 Concert
+          {% elif ev.event_type == 'bar' %}🍺 Bar
+          {% else %}📍 {{ ev.event_type | capitalize }}{% endif %}
+        </span>
+      </div>
+      {% if not is_movie and ev.venue_name %}
+      <div class="text-xs text-slate-500 mt-0.5">📍 {{ ev.venue_name }}</div>
+      {% elif is_movie and ev.year %}
+      <div class="text-xs text-slate-500 mt-0.5">{{ ev.year }}{% if ev.runtime_mins %} · {{ ev.runtime_mins // 60 }}h {{ ev.runtime_mins % 60 }}m{% endif %}</div>
+      {% endif %}
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      {% if ev_sessions %}
+      <span class="text-xs text-slate-400">{{ ev_sessions | length }} time{{ 's' if ev_sessions | length != 1 else '' }}</span>
+      {% else %}
+      <span class="text-xs text-amber-400 font-medium">No times</span>
+      {% endif %}
+      <svg id="chevron-{{ ev.id }}" class="w-5 h-5 text-slate-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Card body -->
+  <div id="event-body-{{ ev.id }}" class="hidden border-t {% if not ev_sessions %}border-amber-800/30{% else %}border-slate-700{% endif %}">
+    <div class="p-4 space-y-3">
+
+      {% if not ev_sessions %}
+      <p class="text-xs text-amber-300/80">No times added yet. Voters won't see this event until at least one time is added.</p>
+      {% endif %}
+
+      {% if is_movie %}
+      <!-- Per-movie re-fetch mini panel -->
+      <div class="flex items-center gap-2 flex-wrap p-3 rounded-lg bg-slate-900/50 border border-slate-700">
+        <span class="text-xs text-slate-400 shrink-0">Re-fetch this movie:</span>
+        <div class="flex flex-wrap gap-1.5">
+          {% for t in theaters %}
+          <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ t.id }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-theater-cb-{{ ev.id }}"/>
+            <span class="text-white">{{ t.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          {% for d in target_dates %}
+          <label class="flex items-center gap-1.5 bg-slate-700/40 border border-slate-600 rounded-full px-2.5 py-1 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ d }}" checked class="w-3 h-3 rounded accent-indigo-500 refetch-date-cb-{{ ev.id }}"/>
+            <span class="text-white font-mono">{{ d | display_date }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <button onclick="triggerSingleMovieFetch({{ ev.id }})" class="ml-auto px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs hover:border-indigo-500 hover:text-white transition-colors">↓ Fetch</button>
+      </div>
+      <div id="fetch-job-area-{{ ev.id }}"></div>
+      {% endif %}
+
+      <!-- Times list -->
+      {% if ev_sessions %}
+      <div class="divide-y divide-slate-700/50">
+        {% for s in ev_sessions | sort(attribute='session_date') %}
+        {% set t_obj = theater_map.get(s.theater_id) if s.theater_id else none %}
+        <div class="flex items-center gap-3 py-2 {% if not s.is_included %}opacity-40{% endif %}">
+          <span class="text-xs text-slate-400 w-16 shrink-0">{{ s.session_date | short_date }}</span>
+          <span class="text-sm font-medium w-16 shrink-0">{{ s.session_time | display_time }}</span>
+          <span class="text-xs text-slate-400 flex-1 truncate">
+            {% if t_obj %}{{ t_obj.name }}{% elif ev.venue_name %}{{ ev.venue_name }}{% endif %}
+          </span>
+          {% if is_movie and s.format and s.format != 'Standard' %}
+          <span class="text-xs px-1.5 py-0.5 rounded font-semibold bg-indigo-900/60 text-indigo-300">{{ s.format }}</span>
+          {% endif %}
+          <span class="text-xs {% if s.is_custom %}text-slate-400{% else %}text-green-500{% endif %}">{{ 'Manual' if s.is_custom else 'Auto' }}</span>
+          <button data-session-id="{{ s.id }}" data-current-included="{{ 'true' if s.is_included else 'false' }}"
+            onclick="toggleSessionVisibility(Number(this.dataset.sessionId), this.dataset.currentIncluded === 'true')"
+            title="{{ 'Remove from poll' if s.is_included else 'Add to poll' }}"
+            class="w-6 h-6 rounded-full flex items-center justify-center text-xs border transition-all flex-shrink-0
+              {{ 'bg-green-900/40 text-green-400 border-green-800 hover:opacity-60' if s.is_included else 'bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800' }}">
+            {{ '✓' if s.is_included else '○' }}
+          </button>
+          <button
+            data-confirm-message="Delete this time?"
+            hx-delete="/api/admin/showtimes/{{ s.id }}"
+            hx-target="#event-section-{{ ev.id }}"
+            hx-swap="outerHTML"
+            hx-trigger="confirmed"
+            onclick="confirmHtmxButton(this); return false;"
+            class="text-slate-600 hover:text-red-400 transition-colors p-1 flex-shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- + Add time button + inline form -->
+      <button type="button"
+        class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 mt-1"
+        onclick="toggleAddTimeForm({{ ev.id }})">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        Add time manually
+      </button>
+
+      <form id="add-time-form-{{ ev.id }}"
+            hx-post="/api/admin/showtimes"
+            hx-target="#event-section-{{ ev.id }}"
+            hx-swap="outerHTML"
+            class="hidden p-3 rounded-xl bg-slate-900/50 border border-slate-600/60 border-dashed space-y-2 mt-1">
+        <div class="text-xs font-medium text-slate-400">Add a time</div>
+        <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
+        <input type="hidden" name="event_id" value="{{ ev.id }}"/>
+        <div class="flex items-center gap-2 flex-wrap">
+          {% if is_movie %}
+          <select name="theater_id" class="input-base text-xs">
+            {% for t in theaters %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <input type="hidden" name="theater_id" value=""/>
+          {% endif %}
+          <input type="date" name="session_date" class="input-base text-xs"
+            value="{{ target_dates[0] if target_dates else '' }}"/>
+          <select name="session_time" class="input-base text-xs">
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+          {% if is_movie %}
+          <select name="format" class="input-base text-xs">
+            <option>Standard</option><option>IMAX</option><option>D-BOX</option><option>Dolby</option>
+          </select>
+          {% else %}
+          <input type="hidden" name="format" value="Standard"/>
+          {% endif %}
+          <button type="submit" class="btn-primary text-xs">Add</button>
+          <button type="button" onclick="toggleAddTimeForm({{ ev.id }})" class="btn-ghost text-xs">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ── Add event panel ────────────────────────────────────────────────────── -->
+<div class="card mb-6" id="add-event-panel">
+  <button type="button" onclick="toggleAddEventPanel()"
+    class="w-full flex items-center gap-2 p-4 text-sm text-slate-400 hover:text-indigo-300 transition-colors font-semibold">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    </svg>
+    Add event
+  </button>
+
+  <div id="add-event-body" class="hidden border-t border-slate-700 p-5">
     <!-- Tab switcher -->
     <div class="flex gap-1 mb-4 border border-slate-700 rounded-lg p-1 bg-slate-900">
       <button id="tab-tmdb" onclick="switchTab('tmdb')"
-        class="flex-1 py-1.5 px-3 rounded-md text-sm font-semibold transition-all
-               bg-slate-700 text-white">🎬 Movie (TMDB)</button>
+        class="flex-1 py-1.5 px-3 rounded-md text-sm font-semibold transition-all bg-slate-700 text-white">🎬 Movie (TMDB)</button>
       <button id="tab-manual" onclick="switchTab('manual')"
-        class="flex-1 py-1.5 px-3 rounded-md text-sm font-semibold transition-all
-               text-slate-400 hover:text-white">✏️ Other Event</button>
+        class="flex-1 py-1.5 px-3 rounded-md text-sm font-semibold transition-all text-slate-400 hover:text-white">✏️ Other Event</button>
     </div>
 
     <!-- TMDB Search -->
     <div id="panel-tmdb">
-      <div class="section-heading mb-4">
-        <div>
-          <h2 class="section-title">Search TMDB</h2>
-          <p class="section-description">Find movies with posters, ratings, and metadata.</p>
-        </div>
-      </div>
       <form hx-get="/api/admin/movies/search"
             hx-target="#search-results"
             hx-swap="innerHTML"
@@ -75,15 +396,14 @@
             class="flex flex-col sm:flex-row gap-2 mb-4">
         <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
         <input type="text" name="q" placeholder="Search movie title..."
-          class="input-base flex-1 text-white placeholder:text-slate-400"
-          autofocus/>
+          class="input-base flex-1 text-white placeholder:text-slate-400"/>
         <button type="submit" class="btn-primary text-sm">
           <span id="search-spinner" class="htmx-indicator mr-1 animate-spin">⟳</span>
           Search
         </button>
       </form>
-      <div id="search-results" class="min-h-[10rem] surface-muted p-4">
-        <p class="text-slate-500 text-sm text-center py-6">Search for a movie above to start building this poll.</p>
+      <div id="search-results" class="min-h-[8rem] surface-muted p-4">
+        <p class="text-slate-500 text-sm text-center py-6">Search for a movie above to add it.</p>
       </div>
     </div>
 
@@ -91,8 +411,7 @@
     <div id="panel-manual" class="hidden">
       <div class="section-heading mb-4">
         <div>
-          <h2 id="manual-panel-title" class="section-title">Add Manually</h2>
-          <p class="section-description">Add any event — restaurant, concert, bar, or anything else.</p>
+          <h2 id="manual-panel-title" class="section-title">Add Event</h2>
         </div>
         <button id="manual-cancel-btn" onclick="cancelEditMode()" class="hidden btn-ghost text-xs text-slate-400">✕ Cancel</button>
       </div>
@@ -150,24 +469,57 @@
       </form>
     </div>
   </div>
-
-  <!-- Current poll events -->
-  <div class="card p-5 sm:p-6">
-    <div class="section-heading mb-4">
-      <div>
-        <h2 class="section-title">In this poll</h2>
-        <p class="section-description">These are the current event options voters will see.</p>
-      </div>
-      <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-sm">Next: Times →</a>
-    </div>
-    {% include "components/admin_movie_list.html" %}
-  </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
+const adminShowtimesPollId = Number('{{ poll.id }}');
 let _editEventId = null;
 let _findApplied = false;
 
+/* ── Panel toggles ──────────────────────────────────────────────────────── */
+function toggleMoviesSection() {
+  const body = document.getElementById('movies-section-body');
+  const chevron = document.getElementById('chevron-movies');
+  if (!body) return;
+  const opening = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !opening);
+  if (chevron) chevron.classList.toggle('rotate-180', opening);
+  if (opening) filterSessions();
+}
+
+function toggleAdvancedPanel() {
+  const panel = document.getElementById('advanced-times-panel');
+  const chevron = document.getElementById('chevron-advanced');
+  if (!panel) return;
+  const opening = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !opening);
+  if (chevron) chevron.classList.toggle('rotate-180', opening);
+  if (opening) filterSessions();
+}
+
+function toggleEventSection(eventId) {
+  const body = document.getElementById('event-body-' + eventId);
+  const chevron = document.getElementById('chevron-' + eventId);
+  if (!body) return;
+  const opening = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !opening);
+  if (chevron) chevron.classList.toggle('rotate-180', opening);
+}
+
+function toggleAddTimeForm(eventId) {
+  const form = document.getElementById('add-time-form-' + eventId);
+  if (form) form.classList.toggle('hidden');
+}
+
+function toggleAddEventPanel() {
+  const body = document.getElementById('add-event-body');
+  if (body) body.classList.toggle('hidden');
+}
+
+/* ── Tab switcher (inside Add event panel) ──────────────────────────────── */
 function switchTab(tab) {
   document.getElementById('panel-tmdb').classList.toggle('hidden', tab !== 'tmdb');
   document.getElementById('panel-manual').classList.toggle('hidden', tab !== 'manual');
@@ -179,6 +531,7 @@ function switchTab(tab) {
   document.getElementById('tab-manual').classList.toggle('text-slate-400', tab !== 'manual');
 }
 
+/* ── Edit mode (from event card edit pencil) ────────────────────────────── */
 function enterEditMode(btn) {
   _editEventId = btn.dataset.eventId;
   const form = document.getElementById('manual-event-form');
@@ -196,6 +549,8 @@ function enterEditMode(btn) {
   document.getElementById('find-message').classList.add('hidden');
   _findApplied = false;
   document.getElementById('clear-btn').classList.add('hidden');
+  const addEventBody = document.getElementById('add-event-body');
+  if (addEventBody && addEventBody.classList.contains('hidden')) toggleAddEventPanel();
   switchTab('manual');
   form.title.focus();
 }
@@ -205,7 +560,7 @@ function cancelEditMode() {
   _findApplied = false;
   const form = document.getElementById('manual-event-form');
   form.reset();
-  document.getElementById('manual-panel-title').textContent = 'Add Manually';
+  document.getElementById('manual-panel-title').textContent = 'Add Event';
   document.getElementById('manual-submit-btn').textContent = 'Add Event';
   document.getElementById('manual-cancel-btn').classList.add('hidden');
   document.getElementById('manual-event-error').classList.add('hidden');
@@ -220,18 +575,11 @@ async function findEvent() {
   const event_type = form.event_type.value;
   const msgEl = document.getElementById('find-message');
   const findBtn = document.getElementById('find-btn');
-  if (!title) {
-    msgEl.textContent = 'Enter a title first.';
-    msgEl.classList.remove('hidden');
-    return;
-  }
-  findBtn.textContent = 'Finding…';
-  findBtn.disabled = true;
-  msgEl.classList.add('hidden');
+  if (!title) { msgEl.textContent = 'Enter a title first.'; msgEl.classList.remove('hidden'); return; }
+  findBtn.textContent = 'Finding…'; findBtn.disabled = true; msgEl.classList.add('hidden');
   try {
     const resp = await fetch('/api/admin/events/lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, venue_name, event_type }),
     });
     const d = await resp.json();
@@ -243,15 +591,12 @@ async function findEvent() {
       msgEl.textContent = 'Fields auto-filled — review before saving.';
       msgEl.classList.remove('hidden');
     } else {
-      msgEl.textContent = 'Nothing found — enter manually.';
-      msgEl.classList.remove('hidden');
+      msgEl.textContent = 'Nothing found — enter manually.'; msgEl.classList.remove('hidden');
     }
   } catch(err) {
-    msgEl.textContent = 'Nothing found — enter manually.';
-    msgEl.classList.remove('hidden');
+    msgEl.textContent = 'Nothing found — enter manually.'; msgEl.classList.remove('hidden');
   } finally {
-    findBtn.textContent = 'Find →';
-    findBtn.disabled = false;
+    findBtn.textContent = 'Find →'; findBtn.disabled = false;
   }
 }
 
@@ -270,7 +615,6 @@ document.getElementById('manual-event-form').addEventListener('submit', async fu
   const form = e.target;
   const errEl = document.getElementById('manual-event-error');
   errEl.classList.add('hidden');
-
   const data = {
     event_type: form.event_type.value,
     title: form.title.value.trim(),
@@ -280,38 +624,161 @@ document.getElementById('manual-event-form').addEventListener('submit', async fu
     external_url: form.external_url.value.trim() || null,
     booking_url: form.booking_url.value.trim() || null,
   };
-
-  if (!data.title) {
-    errEl.textContent = 'Title is required.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-
+  if (!data.title) { errEl.textContent = 'Title is required.'; errEl.classList.remove('hidden'); return; }
   try {
     let resp;
     if (_editEventId) {
       resp = await fetch(`/api/admin/events/${_editEventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
       });
     } else {
       resp = await fetch('/api/admin/polls/{{ poll.id }}/events/manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
       });
     }
-    if (!resp.ok) {
-      const d = await resp.json();
-      throw new Error(d.detail || 'Error saving event');
-    }
+    if (!resp.ok) { const d = await resp.json(); throw new Error(d.detail || 'Error saving event'); }
     cancelEditMode();
     window.location.reload();
   } catch(err) {
-    errEl.textContent = err.message;
-    errEl.classList.remove('hidden');
+    errEl.textContent = err.message; errEl.classList.remove('hidden');
   }
 });
+
+/* ── Fetch all movies ───────────────────────────────────────────────────── */
+async function triggerMoviesFetch() {
+  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[type=checkbox]:checked');
+  const theaterBoxes = document.querySelectorAll('#theater-checkboxes-movies input[type=checkbox]:checked');
+  const dateBoxes = document.querySelectorAll('.date-cb-movies:checked');
+  const event_ids = Array.from(movieBoxes).map(cb => parseInt(cb.value));
+  const theater_ids = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
+  const dates = [...new Set(Array.from(dateBoxes).map(cb => cb.value))];
+  if (!event_ids.length) { showToast('Select at least one movie.', 'warn'); return; }
+  if (!theater_ids.length || !dates.length) { showToast('Select at least one theater and one date.', 'warn'); return; }
+  const resp = await fetch('/api/admin/showtimes/fetch', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({poll_id: adminShowtimesPollId, theater_ids, dates, event_ids})
+  });
+  if (!resp.ok) { const d = await resp.json(); showToast(d.detail || 'Error starting fetch job.', 'error'); return; }
+  const data = await resp.json();
+  _startJobPoller(data.job_id, 'fetch-job-area-movies');
+}
+
+/* ── Fetch single movie ─────────────────────────────────────────────────── */
+async function triggerSingleMovieFetch(eventId) {
+  const theaterBoxes = document.querySelectorAll('.refetch-theater-cb-' + eventId + ':checked');
+  const dateBoxes = document.querySelectorAll('.refetch-date-cb-' + eventId + ':checked');
+  const theater_ids = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
+  const dates = Array.from(dateBoxes).map(cb => cb.value);
+  if (!theater_ids.length || !dates.length) { showToast('Select at least one theater and date.', 'warn'); return; }
+  const resp = await fetch('/api/admin/showtimes/fetch', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({poll_id: adminShowtimesPollId, theater_ids, dates, event_ids: [eventId]})
+  });
+  if (!resp.ok) { const d = await resp.json(); showToast(d.detail || 'Error starting fetch job.', 'error'); return; }
+  const data = await resp.json();
+  _startJobPoller(data.job_id, 'fetch-job-area-' + eventId);
+}
+
+function _startJobPoller(jobId, areaId) {
+  const jobArea = document.getElementById(areaId);
+  if (!jobArea) return;
+  jobArea.innerHTML = `<div id="job-progress-${jobId}"
+    hx-get="/api/admin/jobs/${jobId}"
+    hx-trigger="every 2s"
+    hx-target="#job-progress-${jobId}"
+    hx-swap="outerHTML">
+    <div class="surface-muted p-3 mt-2 rounded-xl">
+      <p class="text-xs text-white">Starting fetch job...</p>
+    </div>
+  </div>`;
+  htmx.process(jobArea);
+  document.body.addEventListener('htmx:beforeSwap', function onJobSwap(evt) {
+    if (evt.detail.target?.id === `job-progress-${jobId}`) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = evt.detail.serverResponse;
+      const status = tmp.querySelector('[data-job-status]')?.dataset.jobStatus;
+      if (status === 'complete' || status === 'failed') {
+        document.body.removeEventListener('htmx:beforeSwap', onJobSwap);
+        setTimeout(() => window.location.reload(), 1200);
+      }
+    }
+  });
+}
+
+/* ── Session visibility / bulk filter ──────────────────────────────────── */
+async function toggleSessionVisibility(id, currentIncluded) {
+  const resp = await fetch(`/api/admin/sessions/${id}/visibility`, {
+    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({is_included: !currentIncluded})
+  });
+  if (resp.ok) { window.location.reload(); }
+  else { const d = await resp.json(); showToast(d.detail || 'Error toggling visibility.', 'error'); }
+}
+
+async function applyTimeFilter() {
+  const timeStart = document.getElementById('filter-time-start').value;
+  const timeEnd = document.getElementById('filter-time-end').value;
+  const resp = await fetch('/api/admin/sessions/bulk-visibility', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({poll_id: adminShowtimesPollId, time_start: timeStart, time_end: timeEnd})
+  });
+  if (resp.ok) { showToast('Time filter applied.'); window.location.reload(); }
+  else { const d = await resp.json(); showToast(d.detail || 'Error applying filter.', 'error'); }
+}
+
+async function includeAll() {
+  const resp = await fetch('/api/admin/sessions/bulk-visibility', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({poll_id: adminShowtimesPollId, time_start: null, time_end: null})
+  });
+  if (resp.ok) { showToast('All sessions included.'); window.location.reload(); }
+  else { const d = await resp.json(); showToast(d.detail || 'Error.', 'error'); }
+}
+
+/* ── Flat table row filter (advanced panel) ─────────────────────────────── */
+function filterSessions() {
+  const movie = document.getElementById('sf-movie')?.value || '';
+  const theater = document.getElementById('sf-theater')?.value || '';
+  const format = document.getElementById('sf-format')?.value || '';
+  const included = document.getElementById('sf-included')?.value || '';
+  const rows = document.querySelectorAll('#session-tbody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const match =
+      (!movie || row.dataset.movie === movie) &&
+      (!theater || row.dataset.theater === theater) &&
+      (!format || row.dataset.format === format) &&
+      (!included || row.dataset.included === included);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const count = document.getElementById('sf-count');
+  if (count) count.textContent = `${visible} of ${rows.length}`;
+}
+
+function resetSessionFilters() {
+  ['sf-movie', 'sf-theater', 'sf-format', 'sf-included'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  filterSessions();
+}
+
+/* ── SerpApi status ─────────────────────────────────────────────────────── */
+async function checkSerpApi() {
+  const badge = document.getElementById('serpapi-status-badge');
+  badge.innerHTML = '<span class="text-xs text-slate-400 animate-pulse">Checking...</span>';
+  try {
+    const resp = await fetch('/api/admin/serpapi/status');
+    const d = await resp.json();
+    if (d.ready) {
+      badge.innerHTML = '<span class="text-xs bg-green-900/50 text-green-400 border border-green-700 px-2 py-0.5 rounded-full">✓ Ready — ' + d.searches_left + ' searches left</span>';
+    } else {
+      badge.innerHTML = '<span class="text-xs bg-red-900/50 text-red-400 border border-red-700 px-2 py-0.5 rounded-full">✗ ' + (d.account_status || 'Not ready') + '</span>';
+    }
+  } catch(e) {
+    badge.innerHTML = '<span class="text-xs text-red-400">Error checking status</span>';
+  }
+}
 </script>
 {% endblock %}

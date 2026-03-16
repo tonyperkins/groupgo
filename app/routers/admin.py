@@ -154,34 +154,10 @@ async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get
 
     events = movie_service.get_poll_events(poll_id, db)
     sessions = showtime_service.get_sessions_for_poll(poll_id, db)
-    event_ids_with_sessions = {s.event_id for s in sessions}
-
-    return templates.TemplateResponse(
-        request,
-        "admin/movies.html",
-        {
-            "request": request,
-            "poll": poll,
-            "events": events,
-            "poster_url": movie_service.poster_url,
-            "event_ids_with_sessions": event_ids_with_sessions,
-        },
-    )
-
-
-@router.get("/polls/{poll_id}/showtimes", response_class=HTMLResponse)
-async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(get_db)):
-    verify_admin(request, db)
-    poll = db.get(Poll, poll_id)
-    if not poll:
-        return RedirectResponse("/admin", status_code=302)
-
-    events = movie_service.get_poll_events(poll_id, db)
-    sessions = showtime_service.get_sessions_for_poll(poll_id, db)
     theaters = theater_service.get_active_theaters(db)
     theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
     event_map = {e.id: e for e in events}
-
+    event_ids_with_sessions = {s.event_id for s in sessions}
     target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
 
     grouped_sessions: dict = {}
@@ -193,7 +169,7 @@ async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(
 
     return templates.TemplateResponse(
         request,
-        "admin/showtimes.html",
+        "admin/movies.html",
         {
             "request": request,
             "poll": poll,
@@ -204,8 +180,15 @@ async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(
             "event_map": event_map,
             "target_dates": target_dates,
             "grouped_sessions": grouped_sessions,
+            "poster_url": movie_service.poster_url,
+            "event_ids_with_sessions": event_ids_with_sessions,
         },
     )
+
+
+@router.get("/polls/{poll_id}/showtimes", response_class=HTMLResponse)
+async def admin_showtimes(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    return RedirectResponse(f"/admin/polls/{poll_id}/movies", status_code=302)
 
 
 @router.get("/theaters", response_class=HTMLResponse)
