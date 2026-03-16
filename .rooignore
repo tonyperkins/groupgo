@@ -1,0 +1,11 @@
+# Python specifics
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Docker
+.docker/

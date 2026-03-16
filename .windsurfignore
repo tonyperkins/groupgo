@@ -6,9 +6,12 @@ venv/
 site-packages/
 lib/python*/
 
-# Node.js dependencies  
+# Node.js dependencies - very explicit
 node_modules/
 **/node_modules/
+voter-spa/node_modules/
+*/node_modules/
+**/*node_modules/**
 
 # Build outputs
 dist/

@@ -2,37 +2,6 @@
 {% if not sessions %}
 <div class="empty-state text-slate-400 text-sm">No showtimes cached yet.</div>
 {% else %}
-<!-- Filter row -->
-<div class="surface-muted p-3 mb-4">
-  <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:flex-nowrap">
-  <select id="sf-movie" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
-    <option value="">All Events</option>
-    {% set seen_movies = [] %}
-    {% for s in sessions %}{% set t = events.get(s.event_id) %}{% if t and t.event_type == 'movie' and t.title not in seen_movies %}
-    <option value="{{ t.title }}">{{ t.title }}</option>{% set _ = seen_movies.append(t.title) %}{% endif %}{% endfor %}
-  </select>
-  <select id="sf-theater" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
-    <option value="">All Venues</option>
-    {% set seen_theaters = [] %}
-    {% for s in sessions %}{% set t = theaters.get(s.theater_id) %}{% if t and t.name not in seen_theaters %}
-    <option value="{{ t.name }}">{{ t.name }}</option>{% set _ = seen_theaters.append(t.name) %}{% endif %}{% endfor %}
-  </select>
-  <select id="sf-format" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
-    <option value="">All Formats</option>
-    {% for fmt in ['Standard','IMAX','Dolby','3D','D-BOX','4DX','Laser'] %}
-    <option value="{{ fmt }}">{{ fmt }}</option>{% endfor %}
-  </select>
-  <select id="sf-included" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
-    <option value="">All</option>
-    <option value="yes">In Poll</option>
-    <option value="no">Excluded</option>
-  </select>
-  <div class="flex items-center justify-between gap-3 xl:justify-end xl:flex-none">
-    <button type="button" onclick="resetSessionFilters()" class="btn-ghost text-xs px-3 py-2 whitespace-nowrap">Reset</button>
-    <span id="sf-count" class="text-xs text-slate-500 whitespace-nowrap"></span>
-  </div>
-</div>
-</div>
 <div class="table-shell overflow-x-auto">
   <table class="w-full text-sm">
     <thead>
@@ -51,9 +20,10 @@
       {% for s in sessions %}
       {% set ev = events.get(s.event_id) %}{% set th = theaters.get(s.theater_id) %}
       <tr class="hover:bg-slate-700/30 transition-colors {% if not s.is_included %}opacity-40{% endif %}"
-        data-movie="{{ ev.title if ev else '' }}"
-        data-theater="{{ th.name if th else '' }}"
+        data-event-id="{{ s.event_id }}"
+        data-theater-id="{{ s.theater_id or '' }}"
         data-format="{{ s.format }}"
+        data-raw-time="{{ s.session_time }}"
         data-included="{{ 'yes' if s.is_included else 'no' }}">
         <td class="px-4 py-3 pr-4 font-medium text-white text-xs">
           {{ events.get(s.event_id).title if events.get(s.event_id) else 'Unknown' }}
