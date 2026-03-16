@@ -156,7 +156,7 @@
         <label class="text-xs text-slate-400 mb-1 block font-medium">SerpApi Query *</label>
         <input id="new-theater-query" type="text" placeholder="Cinemark Cedar Park Texas showtimes"
           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"/>
-        <p class="text-xs text-slate-500 mt-1">e.g. "Regal Arbor Great Hills Austin showtimes"</p>
+        <p class="text-xs text-slate-500 mt-1">Use: <span class="font-mono">Theater Name City State showtimes</span> — no street addresses</p>
       </div>
     </div>
     <div class="flex gap-2 justify-end mt-5">
@@ -209,7 +209,9 @@
       <div>
         <label class="text-xs text-slate-400 mb-1 block font-medium">SerpApi Query</label>
         <input id="edit-theater-query" type="text"
-          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"/>
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+          placeholder="Theater Name City State showtimes"/>
+        <p class="text-xs text-slate-500 mt-1">Use: <span class="font-mono">Theater Name City State showtimes</span> — no street addresses</p>
       </div>
     </div>
     <div class="flex gap-2 justify-end mt-5">
@@ -327,11 +329,25 @@ async function searchNearby() {
   }
 }
 
+function buildSerpapiQuery(name, address) {
+  // Extract city + state abbreviation from address like "1234 Street, Cedar Park, TX 78613"
+  const parts = address.split(',').map(s => s.trim());
+  let location = '';
+  if (parts.length >= 3) {
+    // parts[-2] = "TX 78613" or "TX" — take state letters only
+    const statePart = parts[parts.length - 1].trim().replace(/\d+/g, '').trim(); // drop zip
+    const cityPart = parts[parts.length - 2].trim().split(' ')[0]; // first word of city
+    location = `${parts[parts.length - 2].trim()} ${statePart}`.trim();
+  } else if (parts.length === 2) {
+    location = parts[1].trim();
+  }
+  return location ? `${name} ${location} showtimes` : `${name} showtimes`;
+}
+
 function selectNearbyTheater(name, address) {
   document.getElementById('new-theater-name').value = name;
   document.getElementById('new-theater-address').value = address;
-  const city = address.split(',').slice(-2).join(',').trim();
-  document.getElementById('new-theater-query').value = `${name} ${city} showtimes`;
+  document.getElementById('new-theater-query').value = buildSerpapiQuery(name, address);
   updateAddMapsLink(address);
   document.getElementById('search-results-area').classList.add('hidden');
   document.getElementById('search-address').value = '';
