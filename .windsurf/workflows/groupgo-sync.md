@@ -6,7 +6,7 @@ description: Pulls latest and reads the handoff doc to get up to speed. No imple
 ## Step 1 — Pull latest
 
 ```bash
-git pull origin master
+git pull origin v2-generic-events
 ```
 
 If this fails, stop and report the error.

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPortal } from "react-dom";
-import { C, FS } from "../tokens";
+import { createPortal, flushSync } from "react-dom";
+import { C, FS, applyTheme } from "../tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,27 +54,38 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
     }
   }, [anchorRef]);
 
+  const [currentTheme, setCurrentTheme] = useState<"dark" | "light">(
+    () => (localStorage.getItem("gg_theme") as "dark" | "light") ?? "dark"
+  );
+
   if (!pos) return null;
 
   const menuItems: { label: string; action: () => void }[] =
     chipState === "voting"
       ? [
-          { label: "Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
-          { label: "Clear selections", action: () => { onClearSelections(); onClose(); } },
-          { label: "Opt out", action: () => { onOptOut(); onClose(); } },
+          { label: "🗳️ Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
+          { label: "🗑️ Clear selections", action: () => { onClearSelections(); onClose(); } },
+          { label: "🚪 Opt out", action: () => { onOptOut(); onClose(); } },
         ]
       : chipState === "submitted"
       ? [
-          { label: "Change vote", action: () => { onChangeVote(); onClose(); } },
-          { label: "Opt out", action: () => { onOptOut(); onClose(); } },
+          { label: "✏️ Change vote", action: () => { onChangeVote(); onClose(); } },
+          { label: "🚪 Opt out", action: () => { onOptOut(); onClose(); } },
         ]
       : chipState === "editing"
       ? [
-          { label: "Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
-          { label: "Clear selections", action: () => { onClearSelections(); onClose(); } },
-          { label: "Cancel edit", action: () => { onCancelEdit(); onClose(); } },
+          { label: "🗳️ Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
+          { label: "🗑️ Clear selections", action: () => { onClearSelections(); onClose(); } },
+          { label: "↩️ Cancel edit", action: () => { onCancelEdit(); onClose(); } },
         ]
       : [];
+
+  function toggleTheme() {
+    const next = currentTheme === "dark" ? "light" : "dark";
+    localStorage.setItem("gg_theme", next);
+    flushSync(() => { setCurrentTheme(next); onClose(); });
+    applyTheme(next);
+  }
 
   return createPortal(
     <>
@@ -107,8 +118,8 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
             key={i}
             onClick={item.action}
             style={{
-              padding: "14px 18px",
-              fontSize: FS.base,
+              padding: "18px 22px",
+              fontSize: FS.md,
               fontWeight: 700,
               color: C.text,
               cursor: "pointer",
@@ -118,6 +129,19 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
             {item.label}
           </div>
         ))}
+        <div
+          onClick={toggleTheme}
+          style={{
+            padding: "18px 22px",
+            fontSize: FS.md,
+            fontWeight: 700,
+            color: C.textMuted,
+            cursor: "pointer",
+            borderTop: `1px solid ${C.border}`,
+          }}
+        >
+          {currentTheme === "dark" ? "☀️ Light mode" : "🌙 Dark mode"}
+        </div>
       </div>
     </>,
     document.body

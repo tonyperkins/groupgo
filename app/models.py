@@ -112,9 +112,13 @@ class Event(SQLModel, table=True):
     # Generic event fields — default to "movie" so existing rows are unaffected
     event_type: str = Field(default="movie")           # "movie"|"restaurant"|"concert"|"bar"|"other"
     image_url: Optional[str] = Field(default=None)     # generic image (used when poster_path is None)
-    external_url: Optional[str] = Field(default=None)  # website / booking link
+    external_url: Optional[str] = Field(default=None)  # website link
+    booking_url: Optional[str] = Field(default=None)   # tickets / reservation link
     venue_name: Optional[str] = Field(default=None)    # freeform location (no Venue FK needed)
     created_at: str = Field(default_factory=_now)
+
+    def is_movie(self) -> bool:
+        return self.event_type == "movie"
 
 
 class PollEvent(SQLModel, table=True):
@@ -147,7 +151,7 @@ class Showtime(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     event_id: int = Field(foreign_key="events.id")
-    theater_id: int = Field(foreign_key="theaters.id")  # FK to Venue (theaters table)
+    theater_id: Optional[int] = Field(default=None, foreign_key="theaters.id")  # FK to Venue (theaters table)
     poll_id: int = Field(foreign_key="polls.id")
     session_date: str  # YYYY-MM-DD
     session_time: str  # HH:MM (24h)
@@ -199,6 +203,7 @@ class UserPollPreference(SQLModel, table=True):
     is_flexible: bool = Field(default=False)
     has_completed_voting: bool = Field(default=False)
     is_participating: bool = Field(default=False)
+    is_editing: bool = Field(default=False)
     opt_out_reason: Optional[str] = Field(default=None)
     joined_at: Optional[str] = Field(default=None)  # set when is_participating first becomes True
     updated_at: str = Field(default_factory=_now)

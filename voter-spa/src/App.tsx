@@ -108,10 +108,10 @@ export interface VoterState {
 function progressStep(state: VoterState): number {
   const prefs = state.meData?.preferences;
   if (!prefs) return 0;
+  if (!prefs.is_participating) return 1;
   if (prefs.has_completed_voting) return 3;
   if (state.votedSessionCount > 0 || prefs.is_flexible) return 2;
-  if (prefs.is_participating) return 1;
-  return 0;
+  return 1;
 }
 
 // ─── App root ─────────────────────────────────────────────────────────────────
@@ -358,6 +358,7 @@ export default function App() {
           hasCompletedVoting={prefs.has_completed_voting}
           isFlexible={prefs.is_flexible}
           isEditing={state.isEditing}
+          pollId={state.meData?.poll?.id ?? 0}
           onSessionVote={castSessionVote}
           onSetFlexible={handleSetFlexible}
           onJoin={handleJoin}
@@ -367,7 +368,12 @@ export default function App() {
         <ResultsTab
           isParticipating={prefs.is_participating}
           hasCompletedVoting={prefs.has_completed_voting}
+          isEditing={state.isEditing}
           onJoin={handleJoin}
+          onSubmitVote={handleSubmit}
+          onCancelEdit={handleCancelEdit}
+          sessions={state.meData?.sessions ?? []}
+          events={state.meData?.events ?? []}
         />
       } />
       <Route path="/vote/movies"    element={<Navigate to="/vote/discover" replace />} />

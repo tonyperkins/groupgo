@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     TMDB_API_KEY: str = ""
     SERPAPI_KEY: str = ""
     SERPAPI_RATE_LIMIT_HOURS: int = 12
+    GOOGLE_KG_API_KEY: str = ""
     GROUP_SIZE: int = 5
 
     SMTP_HOST: str = "smtp.gmail.com"

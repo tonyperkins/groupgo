@@ -1,6 +1,7 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select
@@ -8,7 +9,7 @@ from sqlmodel import Session, select
 from app.db import get_db
 from app.middleware.identity import get_current_user, get_current_user_optional, get_secure_poll_id, is_secure_entry
 from app.middleware.auth import verify_admin
-from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession, UserGroup, PollGroup
+from app.models import Poll, PollDate, FetchJob, User, Group, Event as EventModel, Venue as VenueModel, Showtime as ShowSession, Vote as VoteModel, UserGroup, PollGroup
 from app.services import vote_service, movie_service, showtime_service, theater_service
 from app.services.security_service import (
     build_poll_invite_url,
@@ -396,11 +397,29 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
     participation = vote_service.get_participation(poll.id, db)
     theater_map = {t.id: t.name for t in theater_service.get_all_theaters(db)}
 
-    # Set of "event_id:session_id" strings for the current user's picks.
-    # Compared by value in the React component, not object identity.
+    # Build personal_pick_keys from the user's own raw votes directly —
+    # not from calculate_user_results which uses the submitted-only vote_lookup.
+    # This ensures unsubmitted selections still show in MY PENDING VOTE.
+    user_votes = db.exec(
+        select(VoteModel).where(
+            VoteModel.poll_id == poll.id,
+            VoteModel.user_id == user.id,
+        )
+    ).all()
+    # Build a lookup of the user's own session votes
+    user_session_votes = {v.target_id: v.vote_value for v in user_votes if v.target_type == "session"}
+    user_event_votes = {v.target_id: v.vote_value for v in user_votes if v.target_type == "event"}
+
+    # Get all sessions in this poll to match event+session pairs
+    all_sessions = db.exec(
+        select(ShowSession).where(ShowSession.poll_id == poll.id, ShowSession.is_included == True)
+    ).all()
+
     personal_pick_keys = {
-        f"{r['event'].id}:{r['session'].id}"
-        for r in personal_results["ranked"]
+        f"{s.event_id}:{s.id}"
+        for s in all_sessions
+        if user_session_votes.get(s.id) == "can_do"
+        and user_event_votes.get(s.event_id, "yes") != "no"
     }
 
     # Distinguish the two empty states:
@@ -412,7 +431,7 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
         return {
             "rank": r["rank"],
             "score": r["score"],
-            "event": {"id": r["event"].id, "title": r["event"].title},
+            "event": {"id": r["event"].id, "title": r["event"].title, "is_movie": r["event"].is_movie(), "venue_name": getattr(r["event"], "venue_name", None), "booking_url": getattr(r["event"], "booking_url", None), "event_type": getattr(r["event"], "event_type", "movie")},
             "session": {
                 "id": r["session"].id,
                 "session_date": r["session"].session_date,
@@ -422,8 +441,8 @@ async def results_json(request: Request, db: Session = Depends(get_db)):
                 "theater_name": theater_map.get(r["session"].theater_id, ""),
                 "booking_url": r["session"].booking_url,
             },
-            "voter_names": [v["user"].name for v in r.get("voters", [])],
-            "voter_count": r.get("score", 0),
+            "voter_names": [v["user"].name for v in r.get("supporters", [])],
+            "voter_count": len(r.get("supporters", [])),
         }
 
     prefs = vote_service.get_user_poll_preferences(user.id, poll.id, db)
@@ -511,8 +530,10 @@ def _serialize_event(event) -> dict:
         "genres": genres,
         "poster_url": movie_service.poster_url(event.poster_path) if event.poster_path else None,
         "event_type": getattr(event, "event_type", "movie"),
+        "is_movie": event.is_movie(),
         "image_url": getattr(event, "image_url", None),
         "external_url": getattr(event, "external_url", None),
+        "booking_url": getattr(event, "booking_url", None),
         "venue_name": getattr(event, "venue_name", None),
     }
 
@@ -808,6 +829,75 @@ async def admin_add_manual_event(
     return {"status": "ok", "event": _serialize_event(event)}
 
 
+@router.patch("/api/admin/events/{event_id}")
+async def admin_update_event(request: Request, event_id: int, db: Session = Depends(get_db)):
+    verify_admin(request, db)
+    event = db.get(EventModel, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if not event.is_custom_event:
+        raise HTTPException(status_code=403, detail="TMDB events are read-only")
+    body = await request.json()
+    if "title" in body and body["title"].strip():
+        event.title = body["title"].strip()
+    if "event_type" in body:
+        event.event_type = body["event_type"]
+    if "venue_name" in body:
+        event.venue_name = body["venue_name"] or None
+    if "description" in body:
+        event.synopsis = body["description"] or None
+    if "image_url" in body:
+        event.image_url = body["image_url"] or None
+    if "external_url" in body:
+        event.external_url = body["external_url"] or None
+    if "booking_url" in body:
+        event.booking_url = body["booking_url"] or None
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return {"status": "ok", "event": _serialize_event(event)}
+
+
+@router.post("/api/admin/events/lookup")
+async def admin_lookup_event(request: Request, db: Session = Depends(get_db)):
+    verify_admin(request, db)
+    from app.config import settings as _s
+    import httpx as _httpx
+    if not _s.GOOGLE_KG_API_KEY:
+        raise HTTPException(status_code=503, detail="Google KG key not configured")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    venue_name = (body.get("venue_name") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title required")
+    query = f"{title} {venue_name}".strip()
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                "https://kgsearch.googleapis.com/v1/entities:search",
+                params={
+                    "query": query,
+                    "key": _s.GOOGLE_KG_API_KEY,
+                    "limit": 3,
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+    except Exception as exc:
+        return {"image_url": None, "website_url": None, "error": str(exc)}
+    image_url = None
+    website_url = None
+    for item in data.get("itemListElement", []):
+        result = item.get("result", {})
+        if not image_url:
+            image_url = (result.get("image") or {}).get("contentUrl") or None
+        if not website_url:
+            website_url = (result.get("detailedDescription") or {}).get("url") or result.get("url") or None
+        if image_url and website_url:
+            break
+    return {"image_url": image_url, "website_url": website_url}
+
+
 # ─── Admin: Showtimes ─────────────────────────────────────────────────────────
 
 @router.post("/api/admin/showtimes/fetch")
@@ -843,7 +933,8 @@ async def admin_add_manual_showtime(
     request: Request,
     poll_id: int = Form(...),
     event_id: int = Form(...),
-    theater_id: int = Form(...),
+    theater_id: Optional[int] = Form(None),
+    venue_override: Optional[str] = Form(None),
     session_date: str = Form(...),
     session_time: str = Form(...),
     format: str = Form("Standard"),
@@ -1286,11 +1377,19 @@ async def admin_update_poll(request: Request, poll_id: int, db: Session = Depend
         poll.group_id = body["group_id"] or None
     if "title" in body and body["title"].strip():
         poll.title = body["title"].strip()
+    if "dates" in body:
+        new_dates = [d for d in body["dates"] if d]
+        existing_dates = db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()
+        for pd in existing_dates:
+            db.delete(pd)
+        for d in new_dates:
+            db.add(PollDate(poll_id=poll_id, date=d))
     poll.updated_at = datetime.now(timezone.utc).isoformat()
     db.add(poll)
     db.commit()
     all_pg = db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()
-    return {"id": poll.id, "title": poll.title, "group_id": poll.group_id, "group_ids": [pg.group_id for pg in all_pg]}
+    all_dates = db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()
+    return {"id": poll.id, "title": poll.title, "group_id": poll.group_id, "group_ids": [pg.group_id for pg in all_pg], "dates": [pd.date for pd in all_dates]}
 
 
 @router.put("/api/admin/polls/{poll_id}/groups")
@@ -1495,13 +1594,16 @@ async def admin_clear_votes(
     should_email = bool(body.get("send_email", False))
 
     prefs = db.exec(select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)).all()
+    submitted_prefs = [p for p in prefs if p.is_participating and p.has_completed_voting]
+    submitted_user_ids = {p.user_id for p in submitted_prefs}
     participating_user_ids = {p.user_id for p in prefs if p.is_participating}
 
     votes = db.exec(select(Vote).where(Vote.poll_id == poll_id)).all()
     for v in votes:
-        db.delete(v)
+        if v.user_id in submitted_user_ids:
+            db.delete(v)
 
-    for pref in prefs:
+    for pref in submitted_prefs:
         pref.has_completed_voting = False
         pref.is_flexible = False
         db.add(pref)

@@ -6,7 +6,8 @@
 </div>
 {% else %}
 {% if event_ids_with_sessions is defined %}
-  {% set missing_count = events | rejectattr('id', 'in', event_ids_with_sessions) | list | length %}
+  {% set movie_events = events | selectattr('event_type', 'equalto', 'movie') | list %}
+  {% set missing_count = movie_events | rejectattr('id', 'in', event_ids_with_sessions) | list | length %}
   {% if missing_count > 0 %}
   <div class="flex items-start gap-2 bg-amber-900/30 border border-amber-700/50 text-amber-300 text-xs px-3 py-2.5 rounded-lg mb-3">
     <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -17,8 +18,17 @@
   {% endif %}
 {% endif %}
 <div class="stack-list">
-  {% for event in events %}
-  {% set has_sessions = event_ids_with_sessions is not defined or event.id in event_ids_with_sessions %}
+  {% set sidebar_movies = events | selectattr('event_type', 'equalto', 'movie') | list %}
+  {% set sidebar_non_movies = events | rejectattr('event_type', 'equalto', 'movie') | list %}
+  {% set sidebar_sorted = sidebar_movies + sidebar_non_movies %}
+  {% set ns = namespace(showed_separator=false) %}
+  {% for event in sidebar_sorted %}
+  {% set is_movie_event = event.event_type == 'movie' %}
+  {% if not is_movie_event and not ns.showed_separator and sidebar_movies | length > 0 %}
+  {% set ns.showed_separator = true %}
+  <div class="border-t border-slate-700/60 my-2"></div>
+  {% endif %}
+  {% set has_sessions = event_ids_with_sessions is not defined or event.id in event_ids_with_sessions or not is_movie_event %}
   <div class="list-card p-4 flex items-center gap-4 {{ 'opacity-60' if not has_sessions else '' }}">
     {% if event.poster_path %}
     <img src="{{ poster_url(event.poster_path, 'w92') }}"
@@ -34,28 +44,54 @@
         {% if event.year %}<span class="soft-pill">{{ event.year }}</span>{% endif %}
         {% if event.tmdb_rating %}<span class="soft-pill">★ {{ "%.1f"|format(event.tmdb_rating) }}</span>{% endif %}
         {% if event.runtime_mins %}<span class="soft-pill">{{ event.runtime_mins }} min</span>{% endif %}
-        {% if not has_sessions %}
+        {% if is_movie_event and not has_sessions %}
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 border border-amber-700/50 font-medium">
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.007v.008H12v-.008z"/><path stroke-linecap="round" stroke-linejoin="round" d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 001.636 2.875h16.214a1.914 1.914 0 001.636-2.875L13.637 3.59a1.914 1.914 0 00-3.274 0z"/></svg>
           No showtimes
         </span>
         {% endif %}
+        {% if not is_movie_event and event_ids_with_sessions is defined and event.id not in event_ids_with_sessions %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 border border-amber-700/50 font-medium">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.007v.008H12v-.008z"/><path stroke-linecap="round" stroke-linejoin="round" d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 001.636 2.875h16.214a1.914 1.914 0 001.636-2.875L13.637 3.59a1.914 1.914 0 00-3.274 0z"/></svg>
+          No times
+        </span>
+        {% endif %}
       </div>
     </div>
     {% if poll and poll.status in ('DRAFT', 'OPEN') %}
-    <button
-      id="del-movie-{{ event.id }}"
-      data-confirm-message="Remove {{ event.title }} from this poll?"
-      hx-delete="/api/admin/polls/{{ poll.id }}/movies/{{ event.id }}"
-      hx-target="#admin-movie-list"
-      hx-swap="outerHTML"
-      onclick="confirmHtmxButton(this); return false;"
-      hx-trigger="confirmed"
-      class="flex-shrink-0 text-slate-500 hover:text-red-400 transition-colors p-1">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-      </svg>
-    </button>
+    <div class="flex items-center gap-0.5 flex-shrink-0">
+      {% if event.is_custom_event %}
+      <button
+        data-event-id="{{ event.id }}"
+        data-event-type="{{ event.event_type }}"
+        data-title="{{ event.title | e }}"
+        data-venue="{{ (event.venue_name or '') | e }}"
+        data-synopsis="{{ (event.synopsis or '') | e }}"
+        data-image-url="{{ (event.image_url or '') | e }}"
+        data-external-url="{{ (event.external_url or '') | e }}"
+        data-booking-url="{{ (event.booking_url or '') | e }}"
+        onclick="enterEditMode(this)"
+        title="Edit event"
+        class="text-slate-500 hover:text-indigo-400 transition-colors p-1">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+        </svg>
+      </button>
+      {% endif %}
+      <button
+        id="del-movie-{{ event.id }}"
+        data-confirm-message="Remove {{ event.title }} from this poll?"
+        hx-delete="/api/admin/polls/{{ poll.id }}/movies/{{ event.id }}"
+        hx-target="#admin-movie-list"
+        hx-swap="outerHTML"
+        onclick="confirmHtmxButton(this); return false;"
+        hx-trigger="confirmed"
+        class="text-slate-500 hover:text-red-400 transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
     {% endif %}
   </div>
   {% endfor %}

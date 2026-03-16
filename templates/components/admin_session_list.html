@@ -6,13 +6,13 @@
 <div class="surface-muted p-3 mb-4">
   <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:flex-nowrap">
   <select id="sf-movie" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
-    <option value="">All Movies</option>
+    <option value="">All Events</option>
     {% set seen_movies = [] %}
     {% for s in sessions %}{% set t = events.get(s.event_id) %}{% if t and t.title not in seen_movies %}
     <option value="{{ t.title }}">{{ t.title }}</option>{% set _ = seen_movies.append(t.title) %}{% endif %}{% endfor %}
   </select>
   <select id="sf-theater" onchange="filterSessions()" class="input-base text-xs min-w-0 xl:flex-1">
-    <option value="">All Theaters</option>
+    <option value="">All Venues</option>
     {% set seen_theaters = [] %}
     {% for s in sessions %}{% set t = theaters.get(s.theater_id) %}{% if t and t.name not in seen_theaters %}
     <option value="{{ t.name }}">{{ t.name }}</option>{% set _ = seen_theaters.append(t.name) %}{% endif %}{% endfor %}
@@ -37,8 +37,8 @@
   <table class="w-full text-sm">
     <thead>
       <tr class="text-left text-slate-500 text-xs border-b border-slate-700 bg-slate-800/40">
-        <th class="px-4 py-3 pr-4">Movie</th>
-        <th class="px-4 py-3 pr-4">Theater</th>
+        <th class="px-4 py-3 pr-4">Event</th>
+        <th class="px-4 py-3 pr-4">Venue</th>
         <th class="px-4 py-3 pr-4">Date</th>
         <th class="px-4 py-3 pr-4">Time</th>
         <th class="px-4 py-3 pr-4">Format</th>

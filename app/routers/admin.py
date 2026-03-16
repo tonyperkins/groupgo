@@ -100,6 +100,11 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     for pg in all_pg:
         poll_group_map.setdefault(pg.poll_id, []).append(pg.group_id)
 
+    all_poll_dates = db.exec(select(PollDate)).all()
+    poll_dates_map: dict[int, list[str]] = {}
+    for pd in all_poll_dates:
+        poll_dates_map.setdefault(pd.poll_id, []).append(pd.date)
+
     poll_summaries = []
     for p in polls:
         events = movie_service.get_poll_events(p.id, db)
@@ -111,6 +116,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
             "session_count": len(sessions),
             "participation": participation,
             "group_ids": poll_group_map.get(p.id, [p.group_id] if p.group_id else []),
+            "dates": sorted(poll_dates_map.get(p.id, [])),
         })
 
     return templates.TemplateResponse(

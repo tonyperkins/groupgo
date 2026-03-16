@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, FS } from "../tokens";
 import { VoterSession, VoterEvent } from "../api/voter";
 import { ShowtimeCard, SessionVote } from "./ShowtimeCard";
@@ -12,6 +12,7 @@ interface VoteTabProps {
   hasCompletedVoting: boolean;
   isFlexible: boolean;
   isEditing: boolean;
+  pollId: number;
   onSessionVote: (sessionId: number, vote: SessionVote) => void;
   onSetFlexible: (flexible: boolean) => void;
   onJoin: () => void;
@@ -219,12 +220,39 @@ interface EventGroupProps {
   locked: boolean;
   submitted: boolean;
   isLocked: boolean;
+  pollId: number;
   onSessionVote: (sessionId: number, vote: SessionVote) => void;
 }
 
-function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSessionVote }: EventGroupProps) {
+function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSessionVote, pollId }: EventGroupProps) {
   const hasConfirmedVote = sessions.some((s) => votes[`session:${s.id}`] === "can_do");
-  const [collapsed, setCollapsed] = useState(!hasConfirmedVote);
+  const storageKey = `gg_collapsed_${pollId}_${event.id}`;
+
+  const getInitialCollapsed = () => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored !== null) return stored === "true";
+    // Before votes load we don't know yet — default collapsed
+    return true;
+  };
+
+  const [collapsed, setCollapsedState] = useState(getInitialCollapsed);
+  const votesLoaded = useRef(false);
+
+  // Once votes load for the first time, set collapsed based on whether
+  // there's a selection — but only if the user hasn't manually toggled yet
+  useEffect(() => {
+    if (votesLoaded.current) return;
+    if (Object.keys(votes).length === 0) return;
+    votesLoaded.current = true;
+    if (localStorage.getItem(storageKey) === null) {
+      setCollapsedState(!hasConfirmedVote);
+    }
+  }, [votes, hasConfirmedVote, storageKey]);
+
+  const setCollapsed = (val: boolean) => {
+    localStorage.setItem(storageKey, String(val));
+    setCollapsedState(val);
+  };
 
   const thumbnailUrl = event.poster_url ?? event.image_url ?? null;
 
@@ -277,8 +305,41 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
         }}>▾</span>
       </div>
 
-      {/* Sessions grouped by date */}
+      {/* Sessions grouped by date — inline if only 1 session, accordion otherwise */}
       {!collapsed && (() => {
+        if (sessions.length === 1) {
+          const session = sessions[0];
+          const rawVote = votes[`session:${session.id}`] as SessionVote | undefined;
+          return (
+            <div>
+              <div style={{
+                padding: "7px 12px 6px",
+                background: C.surface,
+                borderTop: `1px solid ${C.border}`,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: rawVote === "can_do" ? C.accent : C.textDim,
+                  display: "inline-block",
+                }} />
+                <span style={{ flex: 1, fontSize: FS.sm, fontWeight: 700, color: C.text }}>{formatDate(session.session_date)}</span>
+              </div>
+              <div style={{ borderTop: `1px solid ${C.border}` }}>
+                <ShowtimeCard
+                  session={session}
+                  event={event}
+                  eventTitle=""
+                  vote={rawVote ?? null}
+                  locked={locked}
+                  submitted={submitted}
+                  isLocked={isLocked}
+                  onVote={onSessionVote}
+                />
+              </div>
+            </div>
+          );
+        }
         const byDate = new Map<string, VoterSession[]>();
         for (const s of sessions) {
           const arr = byDate.get(s.session_date) ?? [];
@@ -321,6 +382,7 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
                     <div key={session.id} style={{ borderTop: `1px solid ${C.border}` }}>
                       <ShowtimeCard
                         session={session}
+                        event={event}
                         eventTitle=""
                         vote={rawVote ?? null}
                         locked={locked}
@@ -351,6 +413,7 @@ export function VoteTab({
   hasCompletedVoting,
   isFlexible,
   isEditing,
+  pollId,
   onSessionVote,
   onSetFlexible,
   onJoin,
@@ -363,9 +426,15 @@ export function VoteTab({
   const isSubmitted = hasCompletedVoting && !isEditing;
   const cardLocked = !isParticipating;
 
+  // Event lookup map — must be defined before filters
+  const eventMap = new Map(events.map((e) => [e.id, e]));
+
   // Unique filter options
   const eventOptions = Array.from(new Set(events.map((e) => e.title))).sort();
-  const locationOptions = Array.from(new Set(sessions.map((s) => s.theater_name))).sort();
+  const locationOptions = Array.from(new Set(sessions.map((s) => {
+    const ev = eventMap.get(s.event_id);
+    return ev && !ev.is_movie ? (ev.venue_name ?? "") : s.theater_name;
+  }).filter((v) => v !== ""))).sort();
   const dateOptions = Array.from(new Set(sessions.map((s) => s.session_date))).sort()
     .map((d) => formatDate(d));
   const dateOptionMap = Object.fromEntries(
@@ -375,7 +444,11 @@ export function VoteTab({
 
   // Apply filters
   const filteredSessions = sessions.filter((s) => {
-    if (locationFilter && s.theater_name !== locationFilter) return false;
+    if (locationFilter) {
+      const ev = eventMap.get(s.event_id);
+      const locLabel = ev && !ev.is_movie ? (ev.venue_name ?? "") : s.theater_name;
+      if (locLabel !== locationFilter) return false;
+    }
     if (eventFilter) {
       const ev = events.find((e) => e.id === s.event_id);
       if (!ev || ev.title !== eventFilter) return false;
@@ -383,9 +456,6 @@ export function VoteTab({
     if (dateFilter && s.session_date !== dateOptionMap[dateFilter]) return false;
     return true;
   });
-
-  // Group by event
-  const eventMap = new Map(events.map((e) => [e.id, e]));
   const sessionsByEvent = new Map<number, VoterSession[]>();
   for (const s of filteredSessions) {
     const arr = sessionsByEvent.get(s.event_id) ?? [];
@@ -428,18 +498,18 @@ export function VoteTab({
       {/* ── Submitted info card ──────────────────────────────────── */}
       {isSubmitted && (
         <div style={{
-          background: "#16161F",
-          border: "1px solid #2A2A3E",
+          background: C.card,
+          border: `1px solid ${C.border}`,
           borderRadius: 14,
           padding: "12px 14px",
           display: "flex", alignItems: "flex-start", gap: 10,
         }}>
           <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔒</span>
           <div>
-            <div style={{ fontSize: FS.base, fontWeight: 700, color: "#9A9AAE", lineHeight: 1.4 }}>
+            <div style={{ fontSize: FS.base, fontWeight: 700, color: C.text, lineHeight: 1.4 }}>
               Your vote is locked in
             </div>
-            <div style={{ fontSize: FS.sm, color: "#5A5A6E", marginTop: 3, lineHeight: 1.4 }}>
+            <div style={{ fontSize: FS.sm, color: C.textMuted, marginTop: 3, lineHeight: 1.4 }}>
               Tap ✓ DONE above to change your selections or opt out.
             </div>
           </div>
@@ -550,6 +620,7 @@ export function VoteTab({
             locked={cardLocked}
             submitted={isSubmitted}
             isLocked={isSubmitted}
+            pollId={pollId}
             onSessionVote={onSessionVote}
           />
         );

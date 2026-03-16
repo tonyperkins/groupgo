@@ -7,18 +7,18 @@
   <span class="sep">›</span>
   <span class="active">{{ poll.title }}</span>
   <span class="sep">›</span>
-  <span class="current">Showtimes</span>
+  <span class="current">Times</span>
 </nav>
 
 <section class="page-hero mb-6">
   <span class="page-eyebrow">Poll setup</span>
   <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
     <div>
-      <h1 class="page-title text-white">Fetch and refine showtimes</h1>
+      <h1 class="page-title text-white">Fetch and refine times</h1>
       <p class="page-subtitle mt-3">Bring in the real schedule, review the fetched sessions, and decide which combinations are allowed into the poll before voters see them.</p>
     </div>
     <div class="cta-row">
-      <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-sm">← Movies</a>
+      <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-sm">← Events</a>
       <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-sm">Results →</a>
     </div>
   </div>
@@ -26,14 +26,14 @@
     <a href="/admin/polls/{{ poll.id }}/movies" class="step-chip">
       <span class="step-index">1</span>
       <span class="step-copy">
-        <span class="step-label">Movies</span>
+        <span class="step-label">Events</span>
         <span class="step-meta">Curated shortlist</span>
       </span>
     </a>
     <a href="/admin/polls/{{ poll.id }}/showtimes" class="step-chip is-active">
       <span class="step-index">2</span>
       <span class="step-copy">
-        <span class="step-label">Showtimes</span>
+        <span class="step-label">Times</span>
         <span class="step-meta">Fetch, edit, include</span>
       </span>
     </a>
@@ -59,211 +59,257 @@
   {% endif %}
 </section>
 
-<!-- Fetch Showtimes Card -->
-<div class="card p-5 sm:p-6 mb-6">
-  <div class="section-heading mb-4">
-    <div>
-      <h2 class="section-title">Fetch showtimes from Google</h2>
-      <p class="section-description">Choose which theaters and dates to fetch, then review the cached results below.</p>
-    </div>
-  </div>
+{% set movie_events = events | selectattr('event_type', 'equalto', 'movie') | list %}
+{% set non_movie_events = events | rejectattr('event_type', 'equalto', 'movie') | list %}
+{% set sorted_events = movie_events + non_movie_events %}
 
-  {% if not events %}
-  <div class="bg-amber-900/30 border border-amber-700 text-amber-300 text-sm px-4 py-3 rounded-2xl mb-4">
-    ⚠ Add movies to this poll first before fetching showtimes.
-  </div>
-  {% else %}
-
-  <div class="mb-4">
-    <p class="text-sm text-slate-300 mb-3 font-medium">Select movies:</p>
-    <div class="flex flex-wrap gap-2" id="movie-checkboxes">
-      <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500 transition-colors" id="movie-all-label">
-        <input type="checkbox" id="movie-all" checked
-          class="w-4 h-4 rounded accent-indigo-500" onchange="onMovieAllToggle(this)"/>
-        <span class="text-sm text-white font-medium">All movies</span>
-      </label>
-      {% for e in events %}
-      <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500 transition-colors">
-        <input type="checkbox" name="movie" value="{{ e.id }}" checked
-          class="w-4 h-4 rounded accent-indigo-500" onchange="onMovieCheckboxChange()"/>
-        <span class="text-sm text-white font-medium">{{ e.title }}</span>
-      </label>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="mb-4">
-    <p class="text-sm text-slate-300 mb-3 font-medium">Select theaters:</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="theater-checkboxes">
-      {% for t in theaters %}
-      <label class="flex items-center gap-3 bg-slate-700/40 border border-slate-600 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500 transition-colors">
-        <input type="checkbox" name="theater" value="{{ t.id }}" checked
-          class="w-4 h-4 rounded accent-indigo-500"/>
-        <div>
-          <div class="text-sm text-white font-medium">{{ t.name }}</div>
-          <div class="text-xs text-slate-500">Included in this fetch batch</div>
-        </div>
-      </label>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="mb-4">
-    <p class="text-sm text-slate-300 mb-3 font-medium">Select dates:</p>
-    <div class="flex flex-wrap gap-2" id="date-checkboxes">
-      {% for d in target_dates %}
-      <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-2 cursor-pointer hover:border-indigo-500 transition-colors">
-        <input type="checkbox" name="date" value="{{ d }}" checked
-          class="w-4 h-4 rounded accent-indigo-500"/>
-        <span class="text-sm text-white font-mono">{{ d | display_date }}</span>
-      </label>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="flex items-center gap-3 flex-wrap">
-    <button onclick="triggerFetch()" class="btn-primary text-sm gap-2">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
-      </svg>
-      Fetch Showtimes
-    </button>
-    <button onclick="checkSerpApi()" class="btn-ghost text-xs gap-1">
-      Check API Status
-    </button>
-    <span id="serpapi-status-badge"></span>
-    <p class="text-xs text-slate-500">Uses SerpApi and counts toward the monthly quota.</p>
-  </div>
-
-  <!-- Job progress area -->
-  <div id="fetch-job-area" class="mt-4"></div>
-  {% endif %}
-</div>
-
-<!-- Manual add showtime -->
-<div class="card p-5 sm:p-6 mb-6">
+<!-- Per-event sections -->
+{% for ev in sorted_events %}
+{% set ev_sessions = sessions | selectattr('event_id', 'equalto', ev.id) | list %}
+{% set ev_is_movie = ev.event_type == 'movie' %}
+<div class="card mb-4 overflow-hidden" id="event-section-{{ ev.id }}">
+  <!-- Section header (always visible) -->
   <button type="button"
-    id="manual-showtime-toggle"
-    class="w-full flex items-center justify-between gap-4 mb-3 text-left"
-    aria-expanded="false"
-    aria-controls="manual-showtime-form"
-    onclick="toggleManualShowtimeForm()">
-    <div>
-      <h2 class="section-title">Add showtime manually</h2>
-      <p class="section-description mt-1">Use this when a scrape misses a valid session you still want available to voters.</p>
-    </div>
-    <span class="inline-flex items-center justify-center rounded-xl border border-slate-600/80 bg-slate-900/30 p-3 text-slate-400 transition-colors pointer-events-none">
-      <svg id="manual-showtime-chevron" class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-      </svg>
-    </span>
-  </button>
-  <form id="manual-showtime-form" hx-post="/api/admin/showtimes"
-        hx-target="#admin-session-list"
-        hx-swap="outerHTML"
-        class="hidden grid grid-cols-2 md:grid-cols-3 gap-3">
-    <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
-
-    <div>
-      <label class="text-xs text-slate-400 mb-1 block">Movie</label>
-      <select name="event_id" class="input-base">
-        {% for e in events %}
-        <option value="{{ e.id }}">{{ e.title }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="text-xs text-slate-400 mb-1 block">Theater</label>
-      <select name="theater_id" class="input-base">
-        {% for t in theaters %}
-        <option value="{{ t.id }}">{{ t.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label class="text-xs text-slate-400 mb-1 block">Date (YYYY-MM-DD)</label>
-      <div class="date-input-shell">
-        <input id="manual-session-date" type="date" name="session_date"
-          class="input-base"/>
-        <button type="button" class="date-input-trigger" aria-label="Open calendar" onclick="openManualDatePicker()">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-13 9h16a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z"/>
-          </svg>
-        </button>
+    class="w-full flex items-center justify-between gap-4 p-5 text-left"
+    onclick="toggleEventSection({{ ev.id }})">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-white text-base">{{ ev.title }}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+            {% if ev_is_movie %}bg-indigo-900/60 text-indigo-300
+            {% elif ev.event_type == 'restaurant' %}bg-amber-900/60 text-amber-300
+            {% elif ev.event_type == 'concert' %}bg-purple-900/60 text-purple-300
+            {% else %}bg-slate-700 text-slate-300{% endif %}">
+            {% if ev_is_movie %}🎬 Movie
+            {% elif ev.event_type == 'restaurant' %}🍽️ Restaurant
+            {% elif ev.event_type == 'concert' %}🎵 Concert
+            {% elif ev.event_type == 'bar' %}🍺 Bar
+            {% else %}📍 {{ ev.event_type | capitalize }}{% endif %}
+          </span>
+        </div>
+        {% if ev.venue_name %}
+        <div class="text-xs text-slate-500 mt-0.5">📍 {{ ev.venue_name }}</div>
+        {% endif %}
       </div>
     </div>
-
-    <div>
-      <label class="text-xs text-slate-400 mb-1 block">Time</label>
-      <select name="session_time" class="input-base">
-        {% for h in range(8, 24) %}{% for m in [0, 30] %}
-        {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
-        <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
-        {% endfor %}{% endfor %}
-      </select>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <span class="text-xs text-slate-500">{{ ev_sessions | length }} time{{ 's' if ev_sessions | length != 1 else '' }}</span>
+      <svg id="chevron-{{ ev.id }}" class="w-5 h-5 text-slate-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
     </div>
+  </button>
 
-    <div>
-      <label class="text-xs text-slate-400 mb-1 block">Format</label>
-      <select name="format" class="input-base">
-        <option value="Standard">Standard</option>
-        <option value="IMAX">IMAX</option>
-        <option value="3D">3D</option>
-        <option value="Dolby">Dolby</option>
-        <option value="Laser">Laser</option>
-        <option value="4DX">4DX</option>
-        <option value="D-BOX">D-BOX</option>
-      </select>
-    </div>
+  <!-- Section body (collapsible) -->
+  <div id="event-body-{{ ev.id }}" class="hidden border-t border-slate-700">
 
-    <div class="flex items-end">
-      <button type="submit" class="btn-primary text-sm w-full justify-center">Add</button>
+    <!-- Movie: SerpApi fetch controls -->
+    {% if ev_is_movie %}
+    <div class="p-5 border-b border-slate-700/60 bg-slate-800/30">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Fetch from Google</p>
+      <div class="mb-3">
+        <p class="text-xs text-slate-400 mb-2">Theaters:</p>
+        <div class="flex flex-wrap gap-2" id="theater-checkboxes-{{ ev.id }}">
+          {% for t in theaters %}
+          <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-xl px-3 py-2 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ t.id }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500"/>
+            <span class="text-white font-medium">{{ t.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="mb-3">
+        <p class="text-xs text-slate-400 mb-2">Dates:</p>
+        <div class="flex flex-wrap gap-2" id="date-checkboxes-{{ ev.id }}">
+          {% for d in target_dates %}
+          <label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-1.5 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+            <input type="checkbox" value="{{ d }}" checked class="w-3.5 h-3.5 rounded accent-indigo-500"/>
+            <span class="text-white font-mono">{{ d | display_date }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <button onclick="triggerEventFetch({{ ev.id }})" class="btn-primary text-xs gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+          </svg>
+          Fetch Times
+        </button>
+        <span id="serpapi-status-badge"></span>
+        <button onclick="checkSerpApi()" class="btn-ghost text-xs">Check API</button>
+        <span class="text-xs text-slate-600">Counts toward monthly quota.</span>
+      </div>
+      <div id="fetch-job-area-{{ ev.id }}" class="mt-3"></div>
     </div>
-  </form>
+    {% endif %}
+
+    <!-- Cached times for this event -->
+    <div class="p-5">
+      {% if ev_sessions %}
+      <div class="mb-3">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <tbody class="divide-y divide-slate-800">
+              {% for s in ev_sessions | sort(attribute='session_date') %}
+              {% set th = theater_map.get(s.theater_id) %}
+              <tr class="hover:bg-slate-700/20 {% if not s.is_included %}opacity-40{% endif %}">
+                <td class="py-2 pr-3 font-mono text-slate-400 whitespace-nowrap">{{ s.session_date | short_date }}</td>
+                <td class="py-2 pr-3 font-semibold text-white whitespace-nowrap">{{ s.session_time | display_time }}</td>
+                <td class="py-2 pr-3 text-slate-400 truncate max-w-[160px]">
+                  {% if ev_is_movie %}{{ th.name if th else '' }}{% else %}{{ ev.venue_name or '' }}{% endif %}
+                </td>
+                {% if ev_is_movie %}
+                <td class="py-2 pr-3">
+                  {% if s.format != 'Standard' %}<span class="text-xs bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded-full">{{ s.format }}</span>{% endif %}
+                </td>
+                {% endif %}
+                <td class="py-2 pr-1">
+                  <button data-session-id="{{ s.id }}" data-current-included="{{ 'true' if s.is_included else 'false' }}"
+                    onclick="toggleSessionVisibility(Number(this.dataset.sessionId), this.dataset.currentIncluded === 'true')"
+                    title="{{ 'Remove from poll' if s.is_included else 'Add to poll' }}"
+                    class="text-xs px-2 py-0.5 rounded-full font-medium border transition-all
+                      {{ 'bg-green-900/40 text-green-400 border-green-800 hover:opacity-60' if s.is_included else 'bg-slate-700 text-slate-500 border-slate-600 hover:bg-green-900/40 hover:text-green-400 hover:border-green-800' }}">
+                    {{ '✓' if s.is_included else '○' }}
+                  </button>
+                </td>
+                <td class="py-2">
+                  <button
+                    data-confirm-message="Delete this time?"
+                    hx-delete="/api/admin/showtimes/{{ s.id }}"
+                    hx-target="#event-section-{{ ev.id }}"
+                    hx-swap="outerHTML"
+                    hx-trigger="confirmed"
+                    onclick="confirmHtmxButton(this); return false;"
+                    class="text-slate-600 hover:text-red-400 transition-colors p-1">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-xs text-slate-500 mb-3">No times yet.</p>
+      {% endif %}
+
+      <!-- Inline Add Time form -->
+      <button type="button"
+        class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 mb-2"
+        onclick="toggleAddTimeForm({{ ev.id }})">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        Add time
+      </button>
+      <form id="add-time-form-{{ ev.id }}"
+            hx-post="/api/admin/showtimes"
+            hx-target="#event-section-{{ ev.id }}"
+            hx-swap="outerHTML"
+            class="hidden grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 p-3 bg-slate-800/40 rounded-xl border border-slate-700">
+        <input type="hidden" name="poll_id" value="{{ poll.id }}"/>
+        <input type="hidden" name="event_id" value="{{ ev.id }}"/>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Date</label>
+          <input type="date" name="session_date" class="input-base w-full"/>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Time</label>
+          <select name="session_time" class="input-base">
+            {% for h in range(8, 24) %}{% for m in [0, 30] %}
+            {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+            <option value="{{ hh }}:{{ mm }}">{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+            {% endfor %}{% endfor %}
+          </select>
+        </div>
+        {% if ev_is_movie %}
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Theater</label>
+          <select name="theater_id" class="input-base">
+            {% for t in theaters %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Format</label>
+          <select name="format" class="input-base">
+            <option value="Standard">Standard</option>
+            <option value="IMAX">IMAX</option>
+            <option value="3D">3D</option>
+            <option value="Dolby">Dolby</option>
+            <option value="Laser">Laser</option>
+            <option value="4DX">4DX</option>
+            <option value="D-BOX">D-BOX</option>
+          </select>
+        </div>
+        {% else %}
+        <input type="hidden" name="format" value="Standard"/>
+        {% endif %}
+        <div class="flex items-end col-span-2 md:col-span-{% if ev_is_movie %}4{% else %}2{% endif %} justify-end gap-2">
+          <button type="button" onclick="toggleAddTimeForm({{ ev.id }})" class="btn-ghost text-xs">Cancel</button>
+          <button type="submit" class="btn-primary text-xs">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
+{% endfor %}
 
-<!-- Time window filter -->
-{% if sessions %}
-<div class="card p-4 mb-4">
-  <div class="flex flex-wrap items-center gap-3">
-    <span class="text-sm font-semibold text-white">Time Window</span>
-    <div class="flex items-center gap-2">
-      <label class="text-xs text-slate-400">From</label>
-      <select id="filter-time-start" class="input-base pr-8 appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23cbd5e1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
-        {% for h in range(8, 24) %}{% for m in [0, 30] %}
-        {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
-        <option value="{{ hh }}:{{ mm }}" {% if h == 9 and m == 0 %}selected{% endif %}>{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
-        {% endfor %}{% endfor %}
-      </select>
-      <label class="text-xs text-slate-400">To</label>
-      <select id="filter-time-end" class="input-base pr-8 appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23cbd5e1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
-        {% for h in range(8, 24) %}{% for m in [0, 30] %}
-        {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
-        <option value="{{ hh }}:{{ mm }}" {% if h == 18 and m == 0 %}selected{% endif %}>{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
-        {% endfor %}{% endfor %}
-      </select>
+<!-- All times table (power-user view, collapsed by default — only shown for polls with movie events) -->
+{% if movie_events %}
+<div class="card overflow-hidden mb-4">
+  <button type="button"
+    class="w-full flex items-center justify-between gap-4 p-5 text-left"
+    onclick="toggleAllTimesPanel()">
+    <div>
+      <h2 class="section-title">All cached times ({{ sessions | length }})</h2>
+      <p class="section-description mt-0.5">Full flat table — filter, include/exclude, delete.</p>
     </div>
-    <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply Filter</button>
-    <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button>
-    <span class="text-xs text-slate-500">Excluded rows are dimmed and hidden from voters</span>
+    <svg id="all-times-chevron" class="w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+    </svg>
+  </button>
+  <div id="all-times-panel" class="hidden border-t border-slate-700">
+    <div class="p-5">
+      {% if sessions %}
+      <div class="card p-4 mb-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="text-sm font-semibold text-white">Time Window</span>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400">From</label>
+            <select id="filter-time-start" class="input-base pr-8 appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23cbd5e1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
+              {% for h in range(8, 24) %}{% for m in [0, 30] %}
+              {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+              <option value="{{ hh }}:{{ mm }}" {% if h == 9 and m == 0 %}selected{% endif %}>{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+              {% endfor %}{% endfor %}
+            </select>
+            <label class="text-xs text-slate-400">To</label>
+            <select id="filter-time-end" class="input-base pr-8 appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23cbd5e1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
+              {% for h in range(8, 24) %}{% for m in [0, 30] %}
+              {% set hh = '%02d'|format(h) %}{% set mm = '%02d'|format(m) %}
+              <option value="{{ hh }}:{{ mm }}" {% if h == 18 and m == 0 %}selected{% endif %}>{% if h < 12 %}{{ h }}:{{ mm }} AM{% elif h == 12 %}12:{{ mm }} PM{% else %}{{ h-12 }}:{{ mm }} PM{% endif %}</option>
+              {% endfor %}{% endfor %}
+            </select>
+          </div>
+          <button onclick="applyTimeFilter()" class="btn-primary text-xs px-3 py-1.5">Apply Filter</button>
+          <button onclick="includeAll()" class="btn-ghost text-xs px-3 py-1.5">Include All</button>
+          <span class="text-xs text-slate-500">Excluded rows are dimmed and hidden from voters</span>
+        </div>
+      </div>
+      {% endif %}
+      {% set theaters = theater_map %}
+      {% set events = event_map %}
+      {% include "components/admin_session_list.html" %}
+    </div>
   </div>
 </div>
 {% endif %}
-
-<!-- Cached sessions table -->
-<div class="card p-5 sm:p-6">
-  <div class="section-heading mb-4">
-    <div>
-      <h2 class="section-title">Cached showtimes ({{ sessions | length }})</h2>
-      <p class="section-description">Review fetched sessions, hide anything you do not want voters to consider, and remove bad data when necessary.</p>
-    </div>
-  </div>
-  {% set theaters = theater_map %}
-  {% set events = event_map %}
-  {% include "components/admin_session_list.html" %}
-</div>
 
 {% endblock %}
 
@@ -271,41 +317,46 @@
 <script>
 const adminShowtimesPollId = Number('{{ poll.id }}');
 
-function onMovieAllToggle(cb) {
-  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[name=movie]');
-  movieBoxes.forEach(b => b.checked = cb.checked);
+function toggleEventSection(eventId) {
+  const body = document.getElementById('event-body-' + eventId);
+  const chevron = document.getElementById('chevron-' + eventId);
+  if (!body) return;
+  const opening = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !opening);
+  if (chevron) chevron.classList.toggle('rotate-180', opening);
 }
 
-function onMovieCheckboxChange() {
-  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[name=movie]');
-  const allChecked = Array.from(movieBoxes).every(b => b.checked);
-  const allCb = document.getElementById('movie-all');
-  if (allCb) allCb.checked = allChecked;
+function toggleAddTimeForm(eventId) {
+  const form = document.getElementById('add-time-form-' + eventId);
+  if (form) form.classList.toggle('hidden');
 }
 
-async function triggerFetch() {
-  const theaterBoxes = document.querySelectorAll('#theater-checkboxes input[type=checkbox]:checked');
-  const dateBoxes = document.querySelectorAll('#date-checkboxes input[type=checkbox]:checked');
-  const movieBoxes = document.querySelectorAll('#movie-checkboxes input[name=movie]:checked');
-  const allMovies = document.getElementById('movie-all')?.checked;
+function toggleAllTimesPanel() {
+  const panel = document.getElementById('all-times-panel');
+  const chevron = document.getElementById('all-times-chevron');
+  if (!panel) return;
+  const opening = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !opening);
+  if (chevron) chevron.classList.toggle('rotate-180', opening);
+  if (opening) filterSessions();
+}
+
+async function triggerEventFetch(eventId) {
+  const theaterBoxes = document.querySelectorAll('#theater-checkboxes-' + eventId + ' input[type=checkbox]:checked');
+  const dateBoxes = document.querySelectorAll('#date-checkboxes-' + eventId + ' input[type=checkbox]:checked');
 
   const theater_ids = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
   const dates = Array.from(dateBoxes).map(cb => cb.value);
-  const event_ids = allMovies ? null : Array.from(movieBoxes).map(cb => parseInt(cb.value));
 
   if (!theater_ids.length || !dates.length) {
     showToast('Select at least one theater and one date.', 'warn');
-    return;
-  }
-  if (!allMovies && !event_ids.length) {
-    showToast('Select at least one movie.', 'warn');
     return;
   }
 
   const resp = await fetch('/api/admin/showtimes/fetch', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({poll_id: adminShowtimesPollId, theater_ids, dates, event_ids})
+    body: JSON.stringify({poll_id: adminShowtimesPollId, theater_ids, dates, event_ids: [eventId]})
   });
 
   if (!resp.ok) {
@@ -315,14 +366,15 @@ async function triggerFetch() {
   }
 
   const data = await resp.json();
-  const jobArea = document.getElementById('fetch-job-area');
+  const jobArea = document.getElementById('fetch-job-area-' + eventId);
+  if (!jobArea) return;
   jobArea.innerHTML = `<div id="job-progress-${data.job_id}"
     hx-get="/api/admin/jobs/${data.job_id}"
     hx-trigger="every 2s"
     hx-target="#job-progress-${data.job_id}"
     hx-swap="outerHTML">
-    <div class="card p-4 mt-2">
-      <p class="text-sm text-white">Starting fetch job...</p>
+    <div class="surface-muted p-3 mt-2 rounded-xl">
+      <p class="text-xs text-white">Starting fetch job...</p>
     </div>
   </div>`;
   htmx.process(jobArea);
@@ -429,6 +481,16 @@ function openManualDatePicker() {
 
 document.addEventListener('DOMContentLoaded', () => filterSessions());
 document.addEventListener('DOMContentLoaded', () => syncManualShowtimeToggle());
+document.addEventListener('DOMContentLoaded', () => onManualEventChange());
+
+function onManualEventChange() {
+  const sel = document.getElementById('manual-event-select');
+  if (!sel) return;
+  const isMovie = sel.options[sel.selectedIndex]?.dataset.eventType === 'movie';
+  document.getElementById('manual-theater-field')?.classList.toggle('hidden', !isMovie);
+  document.getElementById('manual-venue-field')?.classList.toggle('hidden', isMovie);
+  document.getElementById('manual-format-field')?.classList.toggle('hidden', !isMovie);
+}
 
 async function checkSerpApi() {
   const badge = document.getElementById('serpapi-status-badge');

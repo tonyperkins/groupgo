@@ -7,8 +7,8 @@
   <span class="page-eyebrow">Admin dashboard</span>
   <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
     <div>
-      <h1 class="page-title text-white">Plan the next movie night with less friction.</h1>
-      <p class="page-subtitle mt-3">Create a poll, curate the movie shortlist, fetch showtimes, and guide the group from idea to final plan without bouncing between tools.</p>
+      <h1 class="page-title text-white">Plan your next group event with less friction.</h1>
+      <p class="page-subtitle mt-3">Create a poll, curate the event shortlist, add times, and guide the group from idea to final plan without bouncing between tools.</p>
     </div>
     <div class="cta-row">
       <button onclick="openNewPollModal()"
@@ -40,7 +40,7 @@
 <div class="card empty-state">
   <div class="empty-state-icon">🎬</div>
   <p class="text-white font-semibold text-lg mb-2">No polls yet</p>
-  <p class="text-slate-400 text-sm mb-4">Create your first poll to start curating movies and showtimes.</p>
+  <p class="text-slate-400 text-sm mb-4">Create your first poll to start curating events and times.</p>
   <button onclick="openNewPollModal()"
     class="btn-primary text-sm">Create First Poll</button>
 </div>
@@ -71,7 +71,7 @@
         <div class="inline-pills mb-4">
           <span class="soft-pill flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c0 .621.504 1.125 1.125 1.125h15A1.125 1.125 0 0018.375 8.25m-15.75 0h15"/></svg>
-            {{ item.event_count }} movie{{ 's' if item.event_count != 1 else '' }}
+            {{ item.event_count }} event{{ 's' if item.event_count != 1 else '' }}
           </span>
           <span class="soft-pill flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
@@ -92,12 +92,12 @@
             <div class="text-sm text-slate-400 mt-1">Current lifecycle stage</div>
           </div>
           <div class="surface-muted p-4">
-            <div class="text-xs uppercase tracking-wider text-slate-500">Movies</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500">Events</div>
             <div class="text-white font-semibold mt-2">{{ item.event_count }}</div>
             <div class="text-sm text-slate-400 mt-1">Curated options in the poll</div>
           </div>
           <div class="surface-muted p-4">
-            <div class="text-xs uppercase tracking-wider text-slate-500">Showtimes</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500">Times</div>
             <div class="text-white font-semibold mt-2">{{ item.session_count }}</div>
             <div class="text-sm text-slate-400 mt-1">Available session combinations</div>
           </div>
@@ -108,25 +108,62 @@
       <div class="flex items-center gap-2 flex-shrink-0 flex-wrap xl:max-w-xs xl:justify-end">
         {% if poll.status == 'DRAFT' %}
           <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Edit</a>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button"
+            data-poll-id="{{ poll.id }}"
+            data-poll-title="{{ poll.title }}"
+            data-poll-dates="{{ item.dates | join(',') }}"
+            data-poll-group-ids="{{ item.group_ids | join(',') }}"
+            onclick="openEditPollModalFromButton(this)" class="btn-ghost text-xs">Edit Details</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="publishPollFromButton(this)" class="btn-primary text-xs">Publish</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
         {% elif poll.status == 'OPEN' %}
-          <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Movies</a>
+          <!-- Tier 1: Navigation -->
+          <a href="/admin/polls/{{ poll.id }}/movies" class="btn-ghost text-xs">Events</a>
           <a href="/admin/polls/{{ poll.id }}/showtimes" class="btn-ghost text-xs">Times</a>
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Results</a>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showInviteLinkFromButton(this)" class="btn-ghost text-xs">Invite Link</button>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="clearVotesFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800">Clear Votes</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="closePollFromButton(this)" class="btn-ghost text-xs text-amber-400 border-amber-800" title="Close poll">Close</button>
-          <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
+          <!-- Tier 2: Utility overflow -->
+          <div class="relative" id="overflow-menu-{{ poll.id }}">
+            <button type="button" onclick="toggleOverflowMenu('{{ poll.id }}')" class="btn-ghost text-xs" title="More actions">⋯</button>
+            <div id="overflow-dropdown-{{ poll.id }}" class="hidden absolute right-0 top-full mt-1 z-30 bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[160px] py-1">
+              <button type="button"
+                data-poll-id="{{ poll.id }}"
+                data-poll-title="{{ poll.title }}"
+                data-poll-dates="{{ item.dates | join(',') }}"
+                data-poll-group-ids="{{ item.group_ids | join(',') }}"
+                onclick="openEditPollModalFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Edit</button>
+              <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+                onclick="showInviteLinkFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Invite Link</button>
+              <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
+                onclick="showVoterBreakdownFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Voters</button>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="duplicatePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white">Duplicate</button>
+              <!-- Tier 3: Destructive -->
+              <div class="border-t border-slate-700 my-1"></div>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="clearVotesFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-amber-400 hover:bg-slate-700">Clear Votes</button>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="closePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-amber-400 hover:bg-slate-700">Close</button>
+              <button type="button" data-poll-id="{{ poll.id }}"
+                onclick="deletePollFromButton(this); toggleOverflowMenu('{{ poll.id }}')"
+                class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-slate-700">Delete</button>
+            </div>
+          </div>
         {% elif poll.status == 'CLOSED' %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-primary text-xs">Declare Winner</a>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button"
+            data-poll-id="{{ poll.id }}"
+            data-poll-title="{{ poll.title }}"
+            data-poll-dates="{{ item.dates | join(',') }}"
+            data-poll-group-ids="{{ item.group_ids | join(',') }}"
+            onclick="openEditPollModalFromButton(this)" class="btn-ghost text-xs">Edit</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="archivePollFromButton(this)" class="btn-ghost text-xs">Archive</button>
@@ -134,7 +171,12 @@
         {% else %}
           <a href="/admin/polls/{{ poll.id }}/results" class="btn-ghost text-xs">View</a>
           <button type="button" data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}" onclick="showVoterBreakdownFromButton(this)" class="btn-ghost text-xs">Voters</button>
-          <button type="button" data-poll-id="{{ poll.id }}" data-poll-group-ids="{{ item.group_ids | join(',') }}" onclick="showEditGroupFromButton(this)" class="btn-ghost text-xs" title="Set group">Group</button>
+          <button type="button"
+            data-poll-id="{{ poll.id }}"
+            data-poll-title="{{ poll.title }}"
+            data-poll-dates="{{ item.dates | join(',') }}"
+            data-poll-group-ids="{{ item.group_ids | join(',') }}"
+            onclick="openEditPollModalFromButton(this)" class="btn-ghost text-xs">Edit</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="duplicatePollFromButton(this)" class="btn-ghost text-xs">Duplicate</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="reopenPollFromButton(this)" class="btn-ghost text-xs text-green-400 border-green-800" title="Reopen poll">Reopen</button>
           <button type="button" data-poll-id="{{ poll.id }}" onclick="deletePollFromButton(this)" class="btn-ghost text-xs text-red-400 border-red-800 hover:border-red-600" title="Delete poll">Delete</button>
@@ -152,7 +194,7 @@
     <h2 class="text-lg font-bold text-white mb-2">Clear all votes?</h2>
     <p class="text-sm text-slate-400 mb-5">This removes every vote and resets voter completion status. The poll stays open.</p>
     <label class="flex items-start gap-3 cursor-pointer mb-6 group">
-      <input id="clear-votes-email-cb" type="checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 flex-shrink-0" />
+      <input id="clear-votes-email-cb" type="checkbox" class="mt-0.5 accent-amber-400 w-4 h-4 flex-shrink-0" checked />
       <span class="text-sm text-slate-300 leading-snug">Email voters who have joined to let them know they need to re-vote</span>
     </label>
     <div class="flex justify-end gap-3">
@@ -244,16 +286,16 @@
   </div>
 </div>
 
-<!-- New Poll Modal -->
+<!-- New / Edit Poll Modal -->
 <div id="new-poll-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
   <div class="card p-6 w-full max-w-md">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold" style="color:var(--text-primary)">New Poll</h2>
-      <button onclick="document.getElementById('new-poll-modal').classList.add('hidden')" class="text-slate-500 hover:text-slate-300">
+      <h2 id="poll-modal-title" class="text-lg font-bold" style="color:var(--text-primary)">New Poll</h2>
+      <button onclick="closeNewPollModal()" class="text-slate-500 hover:text-slate-300">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
-    <form onsubmit="createPoll(event)">
+    <form onsubmit="submitPollForm(event)">
       <div class="mb-4">
         <label class="block text-sm font-medium mb-1" style="color:var(--text-secondary)">Poll Title</label>
         <input id="poll-title" type="text" placeholder="e.g. Weekend of March 14"
@@ -298,8 +340,8 @@
       </div>
       <div id="poll-create-error" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-xs px-3 py-2 rounded-lg mb-3"></div>
       <div class="flex gap-2 justify-end">
-        <button type="button" onclick="document.getElementById('new-poll-modal').classList.add('hidden')" class="btn-ghost text-sm">Cancel</button>
-        <button type="submit" class="btn-primary text-sm">Create Poll</button>
+        <button type="button" onclick="closeNewPollModal()" class="btn-ghost text-sm">Cancel</button>
+        <button type="submit" id="poll-modal-submit" class="btn-primary text-sm">Create Poll</button>
       </div>
     </form>
   </div>
@@ -360,15 +402,54 @@ function calRenderPills() {
   ).join('');
 }
 
+let _editPollId = null;
+
+function closeNewPollModal() {
+  document.getElementById('new-poll-modal').classList.add('hidden');
+  _editPollId = null;
+}
+
 function openNewPollModal() {
+  _editPollId = null;
+  document.getElementById('poll-modal-title').textContent = 'New Poll';
+  document.getElementById('poll-modal-submit').textContent = 'Create Poll';
+  document.getElementById('poll-title').value = '';
   calInit();
   document.querySelectorAll('.new-poll-group-checkbox').forEach(cb => cb.checked = false);
+  document.getElementById('poll-create-error').classList.add('hidden');
   document.getElementById('new-poll-modal').classList.remove('hidden');
 }
+
+function openEditPollModal(pollId, pollTitle, pollDates, pollGroupIds) {
+  _editPollId = pollId;
+  document.getElementById('poll-modal-title').textContent = 'Edit Poll';
+  document.getElementById('poll-modal-submit').textContent = 'Save Changes';
+  document.getElementById('poll-title').value = pollTitle || '';
+  document.getElementById('poll-create-error').classList.add('hidden');
+  calInit();
+  const dates = (pollDates || '').split(',').filter(Boolean);
+  dates.forEach(d => { _calSelected.add(d); });
+  calRender();
+  const activeIds = (pollGroupIds || '').split(',').filter(Boolean).map(Number);
+  document.querySelectorAll('.new-poll-group-checkbox').forEach(cb => {
+    cb.checked = activeIds.includes(parseInt(cb.value));
+  });
+  document.getElementById('new-poll-modal').classList.remove('hidden');
+}
+
+function openEditPollModalFromButton(button) {
+  openEditPollModal(
+    Number(button.dataset.pollId),
+    button.dataset.pollTitle || '',
+    button.dataset.pollDates || '',
+    button.dataset.pollGroupIds || ''
+  );
+}
+
 calInit();
 
 // ── Poll CRUD ───────────────────────────────────────────────────────────────
-async function createPoll(e) {
+async function submitPollForm(e) {
   e.preventDefault();
   const title = document.getElementById('poll-title').value.trim();
   const dates = [..._calSelected].sort();
@@ -380,13 +461,24 @@ async function createPoll(e) {
     errEl.classList.remove('hidden');
     return;
   }
-  const resp = await fetch('/api/admin/polls', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title, target_dates: dates, group_ids})
-  });
-  if (resp.ok) { window.location.reload(); }
-  else { const d = await resp.json(); errEl.textContent = d.detail || 'Error creating poll.'; errEl.classList.remove('hidden'); }
+  if (_editPollId) {
+    const resp = await fetch(`/api/admin/polls/${_editPollId}`, {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, dates, group_ids})
+    });
+    if (resp.ok) { closeNewPollModal(); window.location.reload(); }
+    else { const d = await resp.json(); errEl.textContent = d.detail || 'Error updating poll.'; errEl.classList.remove('hidden'); }
+  } else {
+    const resp = await fetch('/api/admin/polls', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, target_dates: dates, group_ids})
+    });
+    if (resp.ok) { window.location.reload(); }
+    else { const d = await resp.json(); errEl.textContent = d.detail || 'Error creating poll.'; errEl.classList.remove('hidden'); }
+  }
 }
+
+async function createPoll(e) { return submitPollForm(e); }
 
 function publishPoll(id) {
   showConfirm('Publish this poll? Voters will be able to see and vote on it.', async () => {
@@ -579,7 +671,7 @@ let _clearVotesPollId = null;
 
 function clearVotesFromButton(button) {
   _clearVotesPollId = Number(button.dataset.pollId);
-  document.getElementById('clear-votes-email-cb').checked = false;
+  document.getElementById('clear-votes-email-cb').checked = true;
   document.getElementById('clear-votes-modal').classList.remove('hidden');
 }
 
@@ -679,5 +771,21 @@ async function showVoterBreakdown(pollId, pollTitle) {
 function showVoterBreakdownFromButton(button) {
   showVoterBreakdown(Number(button.dataset.pollId), button.dataset.pollTitle || 'this poll');
 }
+
+// ── Overflow menu ─────────────────────────────────────────────────────────────
+function toggleOverflowMenu(pollId) {
+  const dropdown = document.getElementById('overflow-dropdown-' + pollId);
+  if (!dropdown) return;
+  const isHidden = dropdown.classList.contains('hidden');
+  // Close all other open dropdowns first
+  document.querySelectorAll('[id^="overflow-dropdown-"]').forEach(d => d.classList.add('hidden'));
+  if (isHidden) dropdown.classList.remove('hidden');
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('[id^="overflow-menu-"]')) {
+    document.querySelectorAll('[id^="overflow-dropdown-"]').forEach(d => d.classList.add('hidden'));
+  }
+});
 </script>
 {% endblock %}

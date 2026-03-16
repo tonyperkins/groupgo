@@ -91,9 +91,13 @@ def mark_voting_complete(user_id: int, poll_id: int, is_complete: bool, db: Sess
         )
     ).first()
     if pref:
-        pref.has_completed_voting = is_complete
         if is_complete:
+            pref.has_completed_voting = True
+            pref.is_editing = False
             pref.is_participating = True
+        else:
+            pref.is_editing = True
+            # keep has_completed_voting=True so voter stays in standings during edit
         pref.updated_at = _now()
         db.add(pref)
     else:
@@ -101,6 +105,7 @@ def mark_voting_complete(user_id: int, poll_id: int, is_complete: bool, db: Sess
             user_id=user_id,
             poll_id=poll_id,
             has_completed_voting=is_complete,
+            is_editing=not is_complete,
             is_participating=is_complete,
             updated_at=_now(),
         )
@@ -182,6 +187,7 @@ def get_user_poll_preferences(user_id: int, poll_id: int, db: Session) -> dict:
         "is_flexible": pref.is_flexible if pref else False,
         "has_completed_voting": pref.has_completed_voting if pref else False,
         "is_participating": pref.is_participating if pref else False,
+        "is_editing": pref.is_editing if pref else False,
         "opt_out_reason": pref.opt_out_reason if pref else None,
     }
 
@@ -319,23 +325,30 @@ def _load_result_inputs(poll_id: int, db: Session) -> dict:
         )
     ).all()
 
+    prefs = db.exec(
+        select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
+    ).all()
+    flexible_user_ids = {p.user_id for p in prefs if p.is_flexible}
+    unavailable_user_ids = {p.user_id for p in prefs if not p.is_participating}
+    # Only count votes from users who have actually submitted (not in-progress editing)
+    submitted_user_ids = {
+        p.user_id for p in prefs
+        if p.is_participating and p.has_completed_voting
+    } | flexible_user_ids
+
     votes = db.exec(
         select(Vote).where(Vote.poll_id == poll_id)
     ).all()
     vote_lookup: dict[tuple, str] = {
-        (v.target_type, v.target_id, v.user_id): v.vote_value for v in votes
+        (v.target_type, v.target_id, v.user_id): v.vote_value
+        for v in votes
+        if v.user_id in submitted_user_ids
     }
 
     # Synthesize movie-level votes from showtime votes (replaces explicit event votes)
     synthesized_movie_votes = _synthesize_movie_votes(sessions, vote_lookup, user_ids, event_ids)
     # Merge: synthesized takes precedence for event-type keys
     merged_vote_lookup = {**vote_lookup, **synthesized_movie_votes}
-
-    prefs = db.exec(
-        select(UserPollPreference).where(UserPollPreference.poll_id == poll_id)
-    ).all()
-    flexible_user_ids = {p.user_id for p in prefs if p.is_flexible}
-    unavailable_user_ids = {p.user_id for p in prefs if not p.is_participating}
 
     candidates = []
     for event in events:
