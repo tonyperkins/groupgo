@@ -1,4 +1,5 @@
 import json
+import logging
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
@@ -16,6 +17,8 @@ from app.services.auth_service import (
     revoke_admin_session,
 )
 from app.templates_config import templates
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin")
 
@@ -35,7 +38,16 @@ async def admin_login_submit(
     email: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    send_admin_magic_link(email.strip().lower(), db)
+    try:
+        send_admin_magic_link(email.strip().lower(), db)
+    except Exception as exc:
+        logger.error("[LOGIN] Failed to send magic link to %s: %s", email, exc)
+        return templates.TemplateResponse(
+            request, "admin/login.html",
+            {"request": request, "sent": False,
+             "error": "Could not send login email. Check server SMTP configuration."},
+            status_code=500,
+        )
     return templates.TemplateResponse(
         request, "admin/login.html", {"request": request, "sent": True, "error": None}
     )
