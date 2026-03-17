@@ -5,9 +5,12 @@ from app.models import User, Venue, DbVersion, Group
 
 os.makedirs("data", exist_ok=True)
 
+# Detect database type from connection string
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False} if is_sqlite else {},
 )
 
 
@@ -18,22 +21,44 @@ def get_db():
 
 def _ensure_many_to_many_tables(db: Session):
     """Idempotent migration: create user_groups/poll_groups if absent and backfill from legacy FK columns."""
-    db.exec(text("""CREATE TABLE IF NOT EXISTS user_groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-        UNIQUE(user_id, group_id)
-    )"""))  # type: ignore[call-overload]
-    db.exec(text("""INSERT OR IGNORE INTO user_groups (user_id, group_id)
-        SELECT id, group_id FROM users WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
-    db.exec(text("""CREATE TABLE IF NOT EXISTS poll_groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
-        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-        UNIQUE(poll_id, group_id)
-    )"""))  # type: ignore[call-overload]
-    db.exec(text("""INSERT OR IGNORE INTO poll_groups (poll_id, group_id)
-        SELECT id, group_id FROM polls WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+    if is_sqlite:
+        # SQLite syntax
+        db.exec(text("""CREATE TABLE IF NOT EXISTS user_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            UNIQUE(user_id, group_id)
+        )"""))  # type: ignore[call-overload]
+        db.exec(text("""INSERT OR IGNORE INTO user_groups (user_id, group_id)
+            SELECT id, group_id FROM users WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+        db.exec(text("""CREATE TABLE IF NOT EXISTS poll_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            UNIQUE(poll_id, group_id)
+        )"""))  # type: ignore[call-overload]
+        db.exec(text("""INSERT OR IGNORE INTO poll_groups (poll_id, group_id)
+            SELECT id, group_id FROM polls WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
+    else:
+        # PostgreSQL syntax
+        db.exec(text("""CREATE TABLE IF NOT EXISTS user_groups (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            UNIQUE(user_id, group_id)
+        )"""))  # type: ignore[call-overload]
+        db.exec(text("""INSERT INTO user_groups (user_id, group_id)
+            SELECT id, group_id FROM users WHERE group_id IS NOT NULL
+            ON CONFLICT (user_id, group_id) DO NOTHING"""))  # type: ignore[call-overload]
+        db.exec(text("""CREATE TABLE IF NOT EXISTS poll_groups (
+            id SERIAL PRIMARY KEY,
+            poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            UNIQUE(poll_id, group_id)
+        )"""))  # type: ignore[call-overload]
+        db.exec(text("""INSERT INTO poll_groups (poll_id, group_id)
+            SELECT id, group_id FROM polls WHERE group_id IS NOT NULL
+            ON CONFLICT (poll_id, group_id) DO NOTHING"""))  # type: ignore[call-overload]
     db.commit()
 
 
@@ -54,9 +79,10 @@ def init_db():
     with Session(engine) as db:
         from app.services.security_service import generate_member_pin
 
-        # Enable WAL mode for better concurrency
-        db.exec(text("PRAGMA journal_mode=WAL"))  # type: ignore[call-overload]
-        db.exec(text("PRAGMA foreign_keys=ON"))   # type: ignore[call-overload]
+        # Enable WAL mode for better concurrency (SQLite only)
+        if is_sqlite:
+            db.exec(text("PRAGMA journal_mode=WAL"))  # type: ignore[call-overload]
+            db.exec(text("PRAGMA foreign_keys=ON"))   # type: ignore[call-overload]
 
         # Seed default group
         existing_groups = db.exec(select(Group)).all()

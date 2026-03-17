@@ -8,7 +8,7 @@ services:
     ports:
       - "8001:8000"
     environment:
-      DATABASE_URL: sqlite:////data/groupgo.db
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/groupgo.db}
       APP_ENV: ${APP_ENV:-production}
       SECRET_KEY: ${SECRET_KEY}
       APP_BASE_URL: ${APP_BASE_URL:-https://groupgo.org}
