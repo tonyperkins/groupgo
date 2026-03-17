@@ -5,13 +5,9 @@ from app.models import User, Venue, DbVersion, Group
 
 os.makedirs("data", exist_ok=True)
 
-# Detect database type from connection string
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
-
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if is_sqlite else {},
-)
+connect_args = {"check_same_thread": False} if is_sqlite else {}
+engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
 
 
 def get_db():
@@ -27,6 +23,7 @@ def _ensure_many_to_many_tables(db: Session):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            added_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id, group_id)
         )"""))  # type: ignore[call-overload]
         db.exec(text("""INSERT OR IGNORE INTO user_groups (user_id, group_id, added_at)
@@ -35,6 +32,7 @@ def _ensure_many_to_many_tables(db: Session):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
             group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            added_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(poll_id, group_id)
         )"""))  # type: ignore[call-overload]
         db.exec(text("""INSERT OR IGNORE INTO poll_groups (poll_id, group_id, added_at)
@@ -45,6 +43,7 @@ def _ensure_many_to_many_tables(db: Session):
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            added_at TIMESTAMP NOT NULL DEFAULT NOW(),
             UNIQUE(user_id, group_id)
         )"""))  # type: ignore[call-overload]
         db.exec(text("""INSERT INTO user_groups (user_id, group_id, added_at)
@@ -54,6 +53,7 @@ def _ensure_many_to_many_tables(db: Session):
             id SERIAL PRIMARY KEY,
             poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
             group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            added_at TIMESTAMP NOT NULL DEFAULT NOW(),
             UNIQUE(poll_id, group_id)
         )"""))  # type: ignore[call-overload]
         db.exec(text("""INSERT INTO poll_groups (poll_id, group_id, added_at)
