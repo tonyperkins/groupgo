@@ -77,13 +77,25 @@ def send_admin_magic_link(email: str, db: Session) -> bool:
     token = create_magic_link(user, "admin_login", db)
     login_url = f"{settings.app_base_url}/admin/auth/{token}"
 
-    if settings.is_production and settings.SMTP_USER:
-        _send_magic_link_email(
-            to_email=user.email,
-            to_name=user.name,
-            login_url=login_url,
-            settings=settings,
-        )
+    if settings.is_production:
+        if settings.SMTP_USER:
+            _send_magic_link_email(
+                to_email=user.email,
+                to_name=user.name,
+                login_url=login_url,
+                settings=settings,
+            )
+        else:
+            logger.warning(
+                "\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "  MAGIC LINK (production — SMTP not configured)\n"
+                "  User : %s <%s>\n"
+                "  URL  : %s\n"
+                "  TTL  : %d minutes\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                user.name, user.email, login_url, MAGIC_LINK_TTL_MINUTES,
+            )
     else:
         logger.warning(
             "\n"

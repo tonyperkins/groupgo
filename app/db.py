@@ -106,6 +106,13 @@ def init_db():
                 group_id=1,
             ))
             db.commit()
+            
+            # Reset sequences after seeding with explicit IDs (PostgreSQL only)
+            if not is_sqlite:
+                db.exec(text("SELECT setval('groups_id_seq', (SELECT MAX(id) FROM groups))"))  # type: ignore[call-overload]
+                db.exec(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))"))  # type: ignore[call-overload]
+                db.commit()
+            
             logging.getLogger(__name__).warning(
                 "\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
