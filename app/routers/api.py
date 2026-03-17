@@ -748,6 +748,9 @@ async def admin_add_movie(
         raise HTTPException(status_code=409, detail=str(e))
 
     events = movie_service.get_poll_events(poll_id, db)
+    sessions = showtime_service.get_sessions_for_poll(poll_id, db)
+    event_ids_with_sessions = {s.event_id for s in sessions}
+    
     return templates.TemplateResponse(
         request,
         "components/admin_movie_list.html",
@@ -756,6 +759,7 @@ async def admin_add_movie(
             "events": events,
             "poll": poll,
             "poster_url": movie_service.poster_url,
+            "event_ids_with_sessions": event_ids_with_sessions,
         },
     )
 
