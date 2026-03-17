@@ -1,5 +1,7 @@
 # GitHub Actions + Azure Container Registry Setup
 
+> **Note**: This guide is for future reference. The current Azure deployment is being done manually for demo purposes and will not use this automated workflow.
+
 This guide covers setting up automated builds and deployments to Azure using GitHub Actions and Azure Container Registry (ACR).
 
 ## Prerequisites
