@@ -272,10 +272,12 @@
 {% endif %}
 
 <!-- ── Per-event cards ────────────────────────────────────────────────────── -->
+<div id="admin-movie-list">
 {% set sorted_events = movie_events + non_movie_events %}
 {% for ev in sorted_events %}
 {% include "components/admin_event_section.html" %}
 {% endfor %}
+</div>
 
 <!-- ── Add event panel ────────────────────────────────────────────────────── -->
 <div class="card mb-6" id="add-event-panel">
@@ -928,6 +930,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function _startJobPoller(jobId, areaId) {
   const jobArea = document.getElementById(areaId);
   if (!jobArea) return;
+  
+  // Determine if this is a per-event fetch or global fetch
+  const isPerEvent = areaId.startsWith('fetch-job-area-') && areaId !== 'fetch-job-area-movies';
+  const eventId = isPerEvent ? areaId.replace('fetch-job-area-', '') : null;
+  
   jobArea.innerHTML = `<div id="job-progress-${jobId}"
     hx-get="/api/admin/jobs/${jobId}"
     hx-trigger="every 2s"
@@ -945,7 +952,21 @@ function _startJobPoller(jobId, areaId) {
       const status = tmp.querySelector('[data-job-status]')?.dataset.jobStatus;
       if (status === 'complete' || status === 'failed') {
         document.body.removeEventListener('htmx:beforeSwap', onJobSwap);
-        setTimeout(() => window.location.reload(), 1200);
+        if (isPerEvent && eventId) {
+          // Refresh just the event card via HTMX
+          setTimeout(() => {
+            const eventSection = document.getElementById(`event-section-${eventId}`);
+            if (eventSection) {
+              htmx.ajax('GET', `/api/admin/polls/${adminShowtimesPollId}/events/${eventId}`, {
+                target: `#event-section-${eventId}`,
+                swap: 'outerHTML'
+              });
+            }
+          }, 1200);
+        } else {
+          // Global fetch - reload the page
+          setTimeout(() => window.location.reload(), 1200);
+        }
       }
     }
   });

@@ -750,16 +750,66 @@ async def admin_add_movie(
     events = movie_service.get_poll_events(poll_id, db)
     sessions = showtime_service.get_sessions_for_poll(poll_id, db)
     event_ids_with_sessions = {s.event_id for s in sessions}
+    theaters = theater_service.get_active_theaters(db)
+    theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
+    event_map = {e.id: e for e in events}
+    target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
+    
+    movie_events = [e for e in events if e.event_type == 'movie']
+    non_movie_events = [e for e in events if e.event_type != 'movie']
+    sorted_events = movie_events + non_movie_events
     
     return templates.TemplateResponse(
         request,
-        "components/admin_movie_list.html",
+        "components/admin_event_list.html",
         {
             "request": request,
-            "events": events,
+            "events": sorted_events,
+            "sessions": sessions,
             "poll": poll,
             "poster_url": movie_service.poster_url,
             "event_ids_with_sessions": event_ids_with_sessions,
+            "theaters": theaters,
+            "theater_map": theater_map,
+            "event_map": event_map,
+            "target_dates": target_dates,
+        },
+    )
+
+
+@router.get("/api/admin/polls/{poll_id}/events/{event_id}", response_class=HTMLResponse)
+async def admin_get_event_section(
+    request: Request,
+    poll_id: int,
+    event_id: int,
+    db: Session = Depends(get_db),
+):
+    verify_admin(request, db)
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    
+    ev = db.get(EventModel, event_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    sessions = showtime_service.get_sessions_for_poll(poll_id, db)
+    theaters = theater_service.get_active_theaters(db)
+    theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
+    target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
+    
+    return templates.TemplateResponse(
+        request,
+        "components/admin_event_section.html",
+        {
+            "request": request,
+            "ev": ev,
+            "sessions": sessions,
+            "poll": poll,
+            "poster_url": movie_service.poster_url,
+            "theaters": theaters,
+            "theater_map": theater_map,
+            "target_dates": target_dates,
         },
     )
 
@@ -780,15 +830,32 @@ async def admin_remove_movie(
         raise HTTPException(status_code=404, detail=str(e))
 
     events = movie_service.get_poll_events(poll_id, db)
+    sessions = showtime_service.get_sessions_for_poll(poll_id, db)
+    event_ids_with_sessions = {s.event_id for s in sessions}
+    theaters = theater_service.get_active_theaters(db)
+    theater_map = {t.id: t for t in theater_service.get_all_theaters(db)}
+    event_map = {e.id: e for e in events}
     poll = db.get(Poll, poll_id)
+    target_dates = [pd.date for pd in db.exec(select(PollDate).where(PollDate.poll_id == poll_id)).all()]
+    
+    movie_events = [e for e in events if e.event_type == 'movie']
+    non_movie_events = [e for e in events if e.event_type != 'movie']
+    sorted_events = movie_events + non_movie_events
+    
     return templates.TemplateResponse(
         request,
-        "components/admin_movie_list.html",
+        "components/admin_event_list.html",
         {
             "request": request,
-            "events": events,
+            "events": sorted_events,
+            "sessions": sessions,
             "poll": poll,
             "poster_url": movie_service.poster_url,
+            "event_ids_with_sessions": event_ids_with_sessions,
+            "theaters": theaters,
+            "theater_map": theater_map,
+            "event_map": event_map,
+            "target_dates": target_dates,
         },
     )
 
