@@ -1,6 +1,6 @@
 <div id="admin-movie-list">
 {% for ev in events %}
-{% with sessions=sessions, poster_url=poster_url, poll=poll, theater_map=theater_map, event_map=event_map %}
+{% with sessions=sessions, poster_url=poster_url, poll=poll, theater_map=theater_map, event_map=event_map, theaters=theaters, target_dates=target_dates %}
 {% include "components/admin_event_section.html" %}
 {% endwith %}
 {% endfor %}
