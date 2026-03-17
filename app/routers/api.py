@@ -1056,11 +1056,11 @@ async def admin_add_theater(
 ):
     verify_admin(request, db)
     body = await request.json()
-    name = body.get("name", "").strip()
-    address = body.get("address", "")
-    website_url = body.get("website_url", "").strip() or None
-    serpapi_query = body.get("serpapi_query", "").strip()
-    showtime_url_pattern = body.get("showtime_url_pattern", "").strip() or None
+    name = (body.get("name") or "").strip()
+    address = (body.get("address") or "").strip()
+    website_url = (body.get("website_url") or "").strip() or None
+    serpapi_query = (body.get("serpapi_query") or "").strip()
+    showtime_url_pattern = (body.get("showtime_url_pattern") or "").strip() or None
     if not name or not serpapi_query:
         raise HTTPException(status_code=400, detail="name and serpapi_query required")
     t = theater_service.add_theater(name, address, website_url, serpapi_query, db, showtime_url_pattern=showtime_url_pattern)
