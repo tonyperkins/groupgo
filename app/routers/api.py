@@ -1531,9 +1531,9 @@ async def admin_publish_poll(
         poll_group_ids = {pg.group_id for pg in db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()}
         if poll_group_ids:
             member_ids = {ug.user_id for ug in db.exec(select(UserGroup).where(UserGroup.group_id.in_(poll_group_ids))).all()}
-            members = db.exec(select(User).where(User.id.in_(member_ids), User.role != "admin")).all()
+            members = db.exec(select(User).where(User.id.in_(member_ids))).all()
         else:
-            members = db.exec(select(User).where(User.role != "admin")).all()
+            members = db.exec(select(User)).all()
         for member in members:
             if member.email:
                 sent = email_service.send_poll_invite(
@@ -1574,14 +1574,14 @@ async def admin_send_poll_email(
     invite_url = build_poll_invite_url(poll, db)
 
     if user_ids:
-        members = db.exec(select(User).where(User.id.in_(user_ids), User.role != "admin")).all()
+        members = db.exec(select(User).where(User.id.in_(user_ids))).all()
     else:
         poll_group_ids = {pg.group_id for pg in db.exec(select(PollGroup).where(PollGroup.poll_id == poll_id)).all()}
         if poll_group_ids:
             member_ids = {ug.user_id for ug in db.exec(select(UserGroup).where(UserGroup.group_id.in_(poll_group_ids))).all()}
-            members = db.exec(select(User).where(User.id.in_(member_ids), User.role != "admin")).all()
+            members = db.exec(select(User).where(User.id.in_(member_ids))).all()
         else:
-            members = db.exec(select(User).where(User.role != "admin")).all()
+            members = db.exec(select(User)).all()
 
     from app.config import settings as _s
     smtp_ok = bool(_s.SMTP_USER and _s.SMTP_PASSWORD and _s.SMTP_HOST)
