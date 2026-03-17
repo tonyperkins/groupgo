@@ -927,6 +927,17 @@ document.addEventListener('DOMContentLoaded', function() {
   filterSessions();
 });
 
+// Reinitialize dates and filters after HTMX swaps in a new event card
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+  if (evt.detail.target?.id?.startsWith('event-section-')) {
+    const eventId = parseInt(evt.detail.target.id.replace('event-section-', ''));
+    if (eventId) {
+      _initMovieDates(eventId);
+      filterEventSessions(eventId);
+    }
+  }
+});
+
 function _startJobPoller(jobId, areaId) {
   const jobArea = document.getElementById(areaId);
   if (!jobArea) return;
