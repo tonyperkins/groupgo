@@ -756,23 +756,30 @@ function _renderMovieDates(eventId) {
   const container = document.getElementById('refetch-dates-' + eventId);
   if (!container) return;
   const dates = [..._movieDateState[eventId]].sort();
-  const theaterBoxes = document.querySelectorAll('.refetch-theater-cb-' + eventId);
+  const theaterBoxes = document.querySelectorAll('.refetch-theater-cb-' + eventId + ':checked');
   const activeTheaterIds = Array.from(theaterBoxes).map(cb => parseInt(cb.value));
-  container.innerHTML = dates.map(d => {
-    const verifyLinks = activeTheaterIds.map(tid => {
-      const t = _theaterUrlData[tid];
-      if (!t) return '';
+  
+  container.innerHTML = activeTheaterIds.map(tid => {
+    const t = _theaterUrlData[tid];
+    if (!t) return '';
+    const theaterName = t.name.split(' ')[0];
+    const datePills = dates.map(d => {
+      let verifyLink = '';
       let href = '';
       if (t.showtime_url_pattern) href = t.showtime_url_pattern.replace('{date}', d);
       else if (t.website_url) href = t.website_url;
-      if (!href) return '';
-      return `<a href="${href}" target="_blank" rel="noopener" title="Verify ${t.name} for ${_formatDate(d)}" class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗</a>`;
+      if (href) {
+        verifyLink = `<a href="${href}" target="_blank" rel="noopener" title="Verify showtimes on ${t.name} for ${_formatDate(d)}" class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 whitespace-nowrap">↗ verify</a>`;
+      }
+      return `<label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-1.5 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
+        <input type="checkbox" checked class="w-3.5 h-3.5 rounded accent-indigo-500"/>
+        <span class="text-white font-mono">${_formatDate(d)}</span>
+      </label>${verifyLink}`;
     }).join('');
-    return `<label class="flex items-center gap-2 bg-slate-700/40 border border-slate-600 rounded-full px-3 py-1.5 cursor-pointer hover:border-indigo-500 transition-colors text-xs">
-      <input type="checkbox" checked class="w-3.5 h-3.5 rounded accent-indigo-500" disabled style="display:none"/>
-      <span class="text-white font-mono">${_formatDate(d)}</span>
-      <button type="button" onclick="removeRefetchDate(${eventId}, '${d}')" class="text-slate-400 hover:text-red-400 ml-0.5 leading-none">×</button>
-    </label>${verifyLinks}`;
+    return `<div class="flex flex-wrap gap-2 mb-1.5 items-center">
+      <span class="text-xs text-slate-500 w-28 shrink-0 truncate">${theaterName}…</span>
+      ${datePills}
+    </div>`;
   }).join('');
 }
 
