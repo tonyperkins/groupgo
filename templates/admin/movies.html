@@ -746,10 +746,10 @@ function _initMovieDates(eventId) {
 
 function _formatDate(iso) {
   const [y, m, d] = iso.split('-').map(Number);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const dt = new Date(y, m - 1, d);
-  return `${days[dt.getDay()]} ${months[m-1]} ${d}`;
+  return `${days[dt.getDay()]}, ${months[m-1]} ${d}`;
 }
 
 function _renderMovieDates(eventId) {
