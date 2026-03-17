@@ -112,8 +112,14 @@ az webapp config appsettings set \
    ```
 2. Configure App Service to pull from ACR
 
-**Option C: GitHub Actions**
-Set up CI/CD to auto-deploy on push to `postgres-migration` branch.
+**Option C: GitHub Actions (Recommended)**
+Automated CI/CD pipeline that builds and deploys on every push.
+
+See **[GitHub Actions + ACR Setup Guide](github-acr-setup.md)** for complete instructions on:
+- Creating Azure Container Registry
+- Configuring GitHub secrets
+- Setting up automated builds and deployments
+- Deploying to separate test and production environments
 
 ## 6. Initialize the Database
 
