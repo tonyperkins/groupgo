@@ -1,10 +1,11 @@
 name: Build and Push to Azure Container Registry
 
 on:
-  push:
-    branches:
-      - postgres-migration
-      - master
+  # Disabled - uncomment to re-enable automatic deployments
+  # push:
+  #   branches:
+  #     - postgres-migration
+  #     - master
   workflow_dispatch:
 
 env:
