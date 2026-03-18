@@ -1,4 +1,5 @@
-.env.development
+.env
+.env.development 
 .env.production
 # Python virtual environments
 .venv/
