@@ -46,3 +46,6 @@ build/
 # IDE
 .vscode/
 .idea/
+
+# Portable Node environment
+.node/

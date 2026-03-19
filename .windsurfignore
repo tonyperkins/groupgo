@@ -25,6 +25,7 @@ __pycache__/
 
 # IDE
 .vscode/
+.node/
 .idea/
 
 # Large files

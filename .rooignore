@@ -9,3 +9,6 @@ __pycache__/
 
 # Docker
 .docker/
+
+# Portable Node environment
+.node/
