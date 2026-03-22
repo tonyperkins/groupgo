@@ -33,7 +33,7 @@ class User(SQLModel, table=True):
     member_pin: Optional[str] = Field(default=None, max_length=4, index=True)
 
     # Role & plan
-    role: str = Field(default="voter")  # "admin" | "voter"
+    role: str = Field(default="member")  # "platform_admin" | "member"
     plan: str = Field(default="free")   # "free" | "paid"
 
     # Group membership
@@ -47,8 +47,12 @@ class User(SQLModel, table=True):
 
     @property
     def is_admin(self) -> bool:
-        """Backward-compatible property — keeps existing code working."""
-        return self.role == "admin"
+        """Backward-compatible property — keeps existing code working temporarily."""
+        return self.role == "platform_admin"
+        
+    @property
+    def is_platform_admin(self) -> bool:
+        return self.role == "platform_admin"
 
 
 class Poll(SQLModel, table=True):
@@ -62,6 +66,7 @@ class Poll(SQLModel, table=True):
     voting_closes_at: Optional[str] = Field(default=None)  # ISO datetime UTC
     created_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     description: Optional[str] = Field(default=None)
+    is_single_vote: bool = Field(default=False)  # Enforces 1 vote max per user
     winner_event_id: Optional[int] = Field(default=None, foreign_key="events.id")
     winner_session_id: Optional[int] = Field(default=None, foreign_key="showtimes.id")
     created_at: str = Field(default_factory=_now)
@@ -216,7 +221,7 @@ class AuthSession(SQLModel, table=True):
 
     id: str = Field(primary_key=True)  # UUID
     user_id: int = Field(foreign_key="users.id", index=True)
-    session_type: str = Field(default="voter")  # "voter" | "admin"
+    session_type: str = Field(default="member")  # "member" | "platform_admin"
     device_hint: Optional[str] = Field(default=None)  # "iPhone / Safari" — display only
     is_trusted_device: bool = Field(default=False)
     created_at: str = Field(default_factory=_now)
@@ -256,3 +261,24 @@ class DbVersion(SQLModel, table=True):
 
     version: int = Field(primary_key=True)
     applied_at: str = Field(default_factory=_now)
+
+
+class Invitation(SQLModel, table=True):
+    __tablename__ = "invitations"
+
+    id: str = Field(primary_key=True)          # UUID token (used in email link)
+    created_by_user_id: int = Field(foreign_key="users.id")
+    invited_email: str = Field(index=True)      # normalised lowercase
+    invited_user_id: Optional[int] = Field(
+        default=None, foreign_key="users.id"
+    )
+    target_type: str                            # "group" | "poll"
+    target_id: int
+    status: str = Field(default="pending")     # "pending" | "accepted" | "declined" | "expired"
+    created_at: str = Field(default_factory=_now)
+    expires_at: str = Field(index=True)         # ISO datetime
+    accepted_at: Optional[str] = Field(default=None)
+
+    # Note: the unique constraint prevents spamming the exact same email for the exact same poll/group
+    # __table_args__ cannot be easily altered once inherited in SQLite, but for Postgres it's fine.
+    # We will enforce this via application logic or a UniqueConstraint if needed later.

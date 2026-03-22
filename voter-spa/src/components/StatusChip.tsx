@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPortal, flushSync } from "react-dom";
-import { C, FS, applyTheme } from "../tokens";
+import { createPortal } from "react-dom";
+import { C } from "../tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,11 +21,11 @@ export function deriveChipState(prefs: Prefs, isEditing: boolean): ChipState {
 
 // ─── Per-state style tokens ───────────────────────────────────────────────────
 
-const CHIP_STYLES: Record<ChipState, { bg: string; border: string; color: string; label: string; caret: boolean }> = {
-  preview:   { bg: "#1E3A5F", border: "#3B82F6", color: "#3B82F6", label: "JOIN →",    caret: false },
-  voting:    { bg: "#7A5510", border: "#E8A020", color: "#E8A020", label: "VOTING ▾",  caret: false },
-  submitted: { bg: "#14532D", border: "#22C55E", color: "#22C55E", label: "✓ DONE ▾",  caret: false },
-  editing:   { bg: "#7A5510", border: "#E8A020", color: "#E8A020", label: "EDITING ▾", caret: false },
+const CHIP_STYLES: Record<ChipState, { bg: string; border: string; color: string; label: string }> = {
+  preview:   { bg: "transparent", border: "transparent", color: "transparent", label: "" },
+  voting:    { bg: "rgba(232, 160, 32, 0.15)", border: C.accent, color: C.accent, label: "VOTING" },
+  submitted: { bg: "rgba(34, 197, 94, 0.15)", border: C.green, color: C.green, label: "✓ VOTED" },
+  editing:   { bg: "rgba(232, 160, 32, 0.15)", border: C.accent, color: C.accent, label: "EDITING" },
 };
 
 // ─── Popover contents ─────────────────────────────────────────────────────────
@@ -48,29 +48,25 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
     if (anchorRef.current) {
       const rect = anchorRef.current.getBoundingClientRect();
       setPos({
-        top: rect.bottom + 6,
+        top: rect.bottom + 8,
         right: window.innerWidth - rect.right,
       });
     }
   }, [anchorRef]);
 
-  const [currentTheme, setCurrentTheme] = useState<"dark" | "light">(
-    () => (localStorage.getItem("gg_theme") as "dark" | "light") ?? "dark"
-  );
-
   if (!pos) return null;
 
-  const menuItems: { label: string; action: () => void }[] =
+  const menuItems: { label: string; action: () => void; danger?: boolean }[] =
     chipState === "voting"
       ? [
           { label: "🗳️ Go to Vote tab", action: () => { navigate("/vote/vote"); onClose(); } },
           { label: "🗑️ Clear selections", action: () => { onClearSelections(); onClose(); } },
-          { label: "🚪 Opt out", action: () => { onOptOut(); onClose(); } },
+          { label: "🚪 Opt out", action: () => { onOptOut(); onClose(); }, danger: true },
         ]
       : chipState === "submitted"
       ? [
           { label: "✏️ Change vote", action: () => { onChangeVote(); onClose(); } },
-          { label: "🚪 Opt out", action: () => { onOptOut(); onClose(); } },
+          { label: "🚪 Opt out", action: () => { onOptOut(); onClose(); }, danger: true },
         ]
       : chipState === "editing"
       ? [
@@ -80,13 +76,6 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
         ]
       : [];
 
-  function toggleTheme() {
-    const next = currentTheme === "dark" ? "light" : "dark";
-    localStorage.setItem("gg_theme", next);
-    flushSync(() => { setCurrentTheme(next); onClose(); });
-    applyTheme(next);
-  }
-
   return createPortal(
     <>
       {/* Dim overlay */}
@@ -94,7 +83,7 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
         onClick={onClose}
         style={{
           position: "fixed", inset: 0,
-          background: "rgba(0,0,0,0.45)",
+          background: "transparent",
           zIndex: 9998,
         }}
       />
@@ -106,42 +95,31 @@ function Popover({ chipState, anchorRef, onClose, onChangeVote, onOptOut, onCanc
           right: pos.right,
           zIndex: 9999,
           background: C.card,
-          border: `1px solid ${C.border}`,
+          border: `1px solid ${C.borderLight}`,
           borderRadius: 12,
           padding: "6px 0",
-          minWidth: 170,
+          minWidth: 180,
           boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         }}
       >
+        <div style={{ padding: "8px 16px", fontSize: 11, fontWeight: 900, color: C.textDim, letterSpacing: "0.08em", borderBottom: `1px solid ${C.borderLight}`, marginBottom: 4 }}>
+          POLL ACTIONS
+        </div>
         {menuItems.map((item, i) => (
           <div
             key={i}
             onClick={item.action}
             style={{
-              padding: "18px 22px",
-              fontSize: FS.md,
+              padding: "12px 16px",
+              fontSize: 14,
               fontWeight: 700,
-              color: C.text,
+              color: item.danger ? C.red : C.text,
               cursor: "pointer",
-              borderTop: i > 0 ? `1px solid ${C.border}` : "none",
             }}
           >
             {item.label}
           </div>
         ))}
-        <div
-          onClick={toggleTheme}
-          style={{
-            padding: "18px 22px",
-            fontSize: FS.md,
-            fontWeight: 700,
-            color: C.textMuted,
-            cursor: "pointer",
-            borderTop: `1px solid ${C.border}`,
-          }}
-        >
-          {currentTheme === "dark" ? "☀️ Light mode" : "🌙 Dark mode"}
-        </div>
       </div>
     </>,
     document.body
@@ -174,34 +152,54 @@ export function StatusChip({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const chipRef = useRef<HTMLDivElement>(null);
 
-  function handleClick() {
-    if (chipState === "preview") {
-      onJoin();
-    } else {
-      setPopoverOpen((v) => !v);
-    }
+  if (chipState === "preview") {
+    return (
+      <div
+        onClick={onJoin}
+        style={{
+          background: C.blue, color: "#FFF",
+          padding: "6px 14px", borderRadius: 99,
+          fontSize: 13, fontWeight: 800, cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(59, 130, 246, 0.4)",
+          whiteSpace: "nowrap", flexShrink: 0,
+        }}
+      >
+        + Join Poll
+      </div>
+    );
   }
 
   return (
-    <>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* Read-only status badge */}
+      <div style={{
+        background: style.bg, border: `1px solid ${style.border}`, color: style.color,
+        padding: "3px 8px", borderRadius: 6,
+        fontSize: 11, fontWeight: 900, letterSpacing: "0.05em",
+        userSelect: "none", whiteSpace: "nowrap"
+      }}>
+        {style.label}
+      </div>
+
+      {/* Modern ellipsis action menu trigger */}
       <div
         ref={chipRef}
-        onClick={handleClick}
+        onClick={() => setPopoverOpen(!popoverOpen)}
         style={{
-          background: style.bg,
-          border: `1px solid ${style.border}`,
-          borderRadius: 8,
-          padding: "7px 13px",
-          fontSize: FS.sm,
-          fontWeight: 800,
-          color: style.color,
-          cursor: "pointer",
-          letterSpacing: "0.04em",
-          userSelect: "none",
-          flexShrink: 0,
+          width: 30, height: 30, borderRadius: "50%",
+          background: popoverOpen ? C.borderLight : C.surface, 
+          border: `1px solid ${C.borderLight}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", color: C.text,
+          transition: "background 0.15s",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
         }}
       >
-        {style.label}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="12" cy="19" r="2" />
+        </svg>
       </div>
 
       {popoverOpen && (
@@ -215,6 +213,6 @@ export function StatusChip({
           onClearSelections={onClearSelections}
         />
       )}
-    </>
+    </div>
   );
 }

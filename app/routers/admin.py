@@ -145,6 +145,42 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/polls/new")
+async def admin_new_poll(request: Request, db: Session = Depends(get_db)):
+    """Create a new DRAFT poll and redirect to curation."""
+    from app.middleware.identity import get_current_user
+    from datetime import datetime, timezone, timedelta
+
+    user = get_current_user(request, db)
+    
+    # Create the poll
+    new_poll = Poll(
+        title="My New Movie Night",
+        status="DRAFT",
+        created_by_user_id=user.id,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        updated_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db.add(new_poll)
+    db.commit()
+    db.refresh(new_poll)
+
+    # Add a default date (Tomorrow)
+    default_date = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
+    db.add(PollDate(poll_id=new_poll.id, date=default_date))
+    
+    # Associate with user's groups if any
+    from app.models import UserGroup, PollGroup
+    user_groups = db.exec(select(UserGroup).where(UserGroup.user_id == user.id)).all()
+    for ug in user_groups:
+        db.add(PollGroup(poll_id=new_poll.id, group_id=ug.group_id))
+    
+    db.commit()
+
+    # Redirect to SPA curation
+    return RedirectResponse(url=f"/vote/admin", status_code=302)
+
+
 @router.get("/polls/{poll_id}/movies", response_class=HTMLResponse)
 async def admin_movies(request: Request, poll_id: int, db: Session = Depends(get_db)):
     verify_admin(request, db)

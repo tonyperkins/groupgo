@@ -8,7 +8,7 @@ services:
     ports:
       - "8001:8000"
     environment:
-      DATABASE_URL: sqlite:////data/groupgo.db
+      DATABASE_URL: postgresql://groupgo:groupgo_password@postgres:5432/groupgo
       APP_ENV: ${APP_ENV:-production}
       SECRET_KEY: ${SECRET_KEY}
       APP_BASE_URL: ${APP_BASE_URL:-https://groupgo.org}
@@ -35,6 +35,26 @@ services:
       retries: 3
       start_period: 10s
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: groupgo_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: groupgo
+      POSTGRES_PASSWORD: groupgo_password
+      POSTGRES_DB: groupgo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groupgo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   db_data:
     name: groupgo_db_data
+  pg_data:
+    name: groupgo_pg_data

@@ -29,6 +29,7 @@ export function applyTheme(theme: "dark" | "light") {
   const root = document.documentElement;
   root.style.setProperty("--gg-bg",          t.bg);
   root.style.setProperty("--gg-surface",     t.surface);
+  root.style.setProperty("--gg-surface-glass", t.surface + "D9");
   root.style.setProperty("--gg-card",        t.card);
   root.style.setProperty("--gg-border",      t.border);
   root.style.setProperty("--gg-borderLight", t.borderLight);

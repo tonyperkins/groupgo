@@ -120,9 +120,10 @@ interface RankedCardProps {
   isMyPick: boolean;
   isTop: boolean;
   showAllFilter: boolean;
+  runtimeMins?: number | null;
 }
 
-function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: RankedCardProps) {
+function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter, runtimeMins }: RankedCardProps) {
   const highlight = isTop && showAllFilter;
   const borderColor = isMyPick ? C.green : highlight ? C.accent : C.border;
   const barColor = highlight ? C.accent : isMyPick ? C.green : C.borderLight;
@@ -164,6 +165,7 @@ function RankedCard({ entry, totalVoters, isMyPick, isTop, showAllFilter }: Rank
           </div>
           <div style={{ fontSize: 15, color: C.textMuted }}>
             {fmt12h(entry.session.session_time)} · {entry.event.is_movie ? entry.session.theater_name : (entry.event.venue_name ?? entry.session.theater_name)}
+            {entry.event.is_movie && runtimeMins && ` · ${runtimeMins} min`}
             {entry.event.is_movie && entry.session.format !== "Standard" && (
               <span style={{
                 marginLeft: 6, fontSize: 12, fontWeight: 700,
@@ -353,6 +355,9 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
   const filtered = filter === "mine" ? results.filter(isMyPick) : results;
   const isEmpty = results.length === 0;
 
+  const winnerEventFull = winner ? events.find((e) => e.id === winner.event.id) : null;
+  const winnerPosterUrl = winnerEventFull?.poster_url ?? winnerEventFull?.image_url;
+
   return (
     <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
 
@@ -378,47 +383,96 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
       {/* ── Poll-closed banner ───────────────────────────────────── */}
       {isClosed && (
         <div style={{
-          background: C.accentDim, border: `1px solid ${C.accent}`,
-          borderRadius: 12, padding: "10px 14px",
-          display: "flex", alignItems: "center", gap: 10,
+          background: "rgba(232, 160, 32, 0.15)", border: `1px solid ${C.accent}`,
+          borderRadius: 12, padding: "12px 16px",
+          display: "flex", alignItems: "center", gap: 12,
         }}>
-          <span style={{ fontSize: 20 }}>&#x1F3C6;</span>
+          <span style={{ fontSize: 24, textShadow: "0 2px 4px rgba(232, 160, 32, 0.3)" }}>🏆</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.accent }}>Poll closed</div>
-            <div style={{ fontSize: 15, color: C.textMuted }}>Voting has ended. These are the final results.</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.accent }}>Poll closed</div>
+            <div style={{ fontSize: 15, color: C.text, fontWeight: 600 }}>Voting has ended. These are the final results.</div>
           </div>
         </div>
       )}
 
-      {/* ── Winner card ──────────────────────────────────────────── */}
+      {/* ── Winner Hero Lockup ────────────────────────────────────── */}
       {winner && (
         <div style={{
-          background: `linear-gradient(135deg, rgba(232,160,32,0.15), ${C.card})`,
-          border: `2px solid ${C.accent}`,
-          borderRadius: 18, padding: "20px 18px",
-          display: "flex", flexDirection: "column", gap: 10,
+          position: "relative",
+          borderRadius: 20, overflow: "hidden",
+          border: `1px solid ${C.accent}`,
+          boxShadow: `0 8px 32px rgba(245, 158, 11, 0.25)`,
+          marginBottom: 8,
+          background: C.card,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.12em", color: C.accent }}>WINNER</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{winner.event.title}</div>
-          <div style={{ fontSize: 14, color: C.textMuted }}>{fmt12h(winner.session.session_time)} &middot; {fmtDate(winner.session.session_date)}</div>
-          <div style={{ fontSize: 14, color: C.textMuted }}>
-            {winner.session.theater_name}
-            {winner.session.format !== "Standard" && (
-              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: C.accent, background: C.accentDim, borderRadius: 4, padding: "1px 5px" }}>{winner.session.format}</span>
+          {/* Background Poster */}
+          {winnerPosterUrl && (
+             <div style={{
+               position: "absolute", inset: 0, zIndex: 0,
+               backgroundImage: `url(${winnerPosterUrl})`,
+               backgroundSize: "cover", backgroundPosition: "center top",
+             }} />
+          )}
+
+          {/* Gradient Overlay */}
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 1,
+            background: `linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, ${C.bg} 85%, ${C.bg} 100%)`,
+          }} />
+
+          {/* Content */}
+          <div style={{ position: "relative", zIndex: 2, padding: "140px 20px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+            <div style={{
+              background: C.accent, color: "#000",
+              fontSize: 11, fontWeight: 900, letterSpacing: "0.15em",
+              padding: "4px 12px", borderRadius: 99, marginBottom: 12,
+              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)"
+            }}>
+              WINNER CROWNED
+            </div>
+            
+            <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", lineHeight: 1.1, textShadow: "0 2px 8px rgba(0,0,0,0.8)", marginBottom: 16 }}>
+              {winner.event.title}
+            </div>
+
+            {/* Glowing Info Card */}
+            <div style={{
+              background: "rgba(255,255,255,0.06)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 16, padding: "16px", width: "100%",
+              display: "flex", flexDirection: "column", gap: 6,
+            }}>
+               <div style={{ fontSize: 24, fontWeight: 900, color: C.accent, textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}>
+                 {fmt12h(winner.session.session_time)}
+               </div>
+               <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>
+                 {fmtDate(winner.session.session_date)}
+               </div>
+               <div style={{ fontSize: 14, color: C.textDim, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <span>{winner.session.theater_name}</span>
+                  {winner.session.format !== "Standard" && (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, background: "rgba(245, 158, 11, 0.15)", padding: "2px 6px", borderRadius: 6 }}>{winner.session.format}</span>
+                  )}
+               </div>
+            </div>
+
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.textMuted, marginTop: 16 }}>
+              <span style={{ color: "#fff" }}>{winner.voter_count}</span> of {totalVoters} members are going
+            </div>
+
+            {winner.event.booking_url && (
+              <a href={winner.event.booking_url} target="_blank" rel="noopener noreferrer" style={{
+                display: "block", marginTop: 20, width: "100%",
+                background: "linear-gradient(135deg, #F59E0B, #D97706)",
+                color: "#000", border: "none",
+                borderRadius: 14, padding: "16px 0",
+                textAlign: "center", fontSize: 16, fontWeight: 900,
+                textDecoration: "none", boxShadow: "0 4px 16px rgba(245, 158, 11, 0.4)",
+              }}>
+                {winner.event.event_type === "restaurant" ? "Make Reservation \u2192" : "Get Tickets \u2192"}
+              </a>
             )}
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: C.accent }}>
-            {winner.voter_count}/{totalVoters} <span style={{ fontSize: 13, fontWeight: 400, color: C.textMuted }}>members available</span>
-          </div>
-          {winner.event.booking_url && (
-            <a href={winner.event.booking_url} target="_blank" rel="noopener noreferrer" style={{
-              display: "block", marginTop: 4,
-              background: C.accent, color: "#000",
-              borderRadius: 12, padding: "12px 18px",
-              textAlign: "center", fontSize: 16, fontWeight: 700,
-              textDecoration: "none",
-            }}>{winner.event.event_type === "restaurant" ? "Make a Reservation \u2192" : winner.event.event_type === "bar" ? "Get Directions \u2192" : "Get Tickets \u2192"}</a>
-          )}
         </div>
       )}
 
@@ -591,16 +645,20 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
               )}
 
               {/* Ranked cards */}
-              {filtered.map((entry) => (
-                <RankedCard
-                  key={`${entry.event.id}:${entry.session.id}`}
-                  entry={entry}
-                  totalVoters={totalVoters}
-                  isMyPick={isMyPick(entry)}
-                  isTop={entry.rank === 1}
-                  showAllFilter={filter === "all"}
-                />
-              ))}
+              {filtered.map((entry) => {
+                const fullEvent = events.find((e) => e.id === entry.event.id);
+                return (
+                  <RankedCard
+                    key={`${entry.event.id}:${entry.session.id}`}
+                    entry={entry}
+                    totalVoters={totalVoters}
+                    isMyPick={isMyPick(entry)}
+                    isTop={entry.rank === 1}
+                    showAllFilter={filter === "all"}
+                    runtimeMins={fullEvent?.runtime_mins}
+                  />
+                );
+              })}
 
               {/* Bottom CTA */}
               {isClosed && winner && winner.event.booking_url && (

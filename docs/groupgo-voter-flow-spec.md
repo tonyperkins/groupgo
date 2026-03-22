@@ -1,6 +1,7 @@
 # GroupGo — Voter Flow Specification
-> Handoff documentation for implementation. All states are mocked in `groupgo-voter-flow.jsx`.
-> Last updated to reflect all 25 screens.
+> **Note:** This document contains legacy specifications for the V1 PIN-based voting flow and segregated admin/voter boundaries. The platform has since migrated to universal Magic Link auth and unified the curation/voting UI into the React SPA. For current architectural truths, see `groupgo-windsurf-handoff.md`. For future user flow strategy, see `modern-democratized-flows.md`.
+>
+> Last updated to reflect all 25 screens (Legacy).
 
 ---
 

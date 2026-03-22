@@ -16,6 +16,7 @@ export interface VoterPoll {
   voting_closes_at: string | null;
   description: string | null;
   group_id: number | null;
+  is_single_vote: boolean;
 }
 
 export interface VoterPreferences {
@@ -70,6 +71,7 @@ export interface VoterMeResponse {
   is_secure_entry: boolean;
   is_browse: boolean;
   join_url: string | null;
+  owned_polls?: VoterPoll[];
 }
 
 export interface ResultsEntry {
@@ -117,7 +119,7 @@ export interface EventReview {
 }
 
 export const voterApi = {
-  getMe: () => api.get<VoterMeResponse>("/api/voter/me"),
+  getMe: (pollId?: number) => api.get<VoterMeResponse>(pollId ? `/api/voter/me?poll_id=${pollId}` : "/api/voter/me"),
 
   getResultsJson: () => api.get<ResultsResponse>("/api/results/json"),
 
@@ -125,4 +127,13 @@ export const voterApi = {
     api.get<{ reviews: EventReview[] }>(`/api/voter/events/${eventId}/reviews`),
 
   logout: () => api.post<{ ok: boolean }>("/api/voter/logout", {}),
+  
+  updateMe: (data: Partial<VoterUser> & { member_pin?: string }) => 
+    api.patch<VoterUser>("/api/voter/me", data),
+
+  authLogin: (email: string) => 
+    api.post<{ ok: boolean, message: string }>("/api/auth/login", { email }),
+
+  authSignup: (name: string, email: string) => 
+    api.post<{ ok: boolean, message: string }>("/api/auth/signup", { name, email }),
 };

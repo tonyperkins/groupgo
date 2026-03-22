@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_db
@@ -22,6 +23,12 @@ from app.tasks.fetch_tasks import run_fetch_job, create_fetch_job
 from app.templates_config import templates
 
 router = APIRouter()
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    member_pin: Optional[str] = None
 
 
 def _get_browse_poll_id(request: Request) -> int | None:
@@ -43,7 +50,7 @@ def _get_voter_poll_for_request(request: Request, statuses: list[str], db: Sessi
         return db.exec(
             select(Poll).where(Poll.id == browse_poll_id, Poll.status.in_(statuses))
         ).first()
-    return db.exec(select(Poll).where(Poll.status.in_(statuses))).first()
+    return db.exec(select(Poll).where(Poll.status.in_(statuses)).order_by(Poll.id.desc())).first()
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -549,7 +556,31 @@ async def voter_me(request: Request, db: Session = Depends(get_db)):
     if not user and not is_browse:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    poll = _get_voter_poll_for_request(request, ["OPEN", "CLOSED"], db)
+    # If we have an admin session, ensure we don't fall into browse mode
+    if user and user.role == "platform_admin":
+        is_browse = False
+
+    statuses = ["OPEN", "CLOSED"]
+    if user and user.role == "platform_admin":
+        statuses.append("DRAFT")
+
+    owned_polls = []
+    if user and user.role == "platform_admin":
+        owned_polls = db.exec(
+            select(Poll).where(Poll.created_by_user_id == user.id).order_by(Poll.id.desc())
+        ).all()
+
+    poll = _get_voter_poll_for_request(request, statuses, db)
+    
+    # CRITICAL: If admin is logged in but the default "voter" poll isn't the one 
+    # they just created (DRAFT), prioritize the newest DRAFT for admins if one exists.
+    if user and user.role == "platform_admin" and (not poll or poll.status != "DRAFT"):
+        newest_draft = db.exec(
+            select(Poll).where(Poll.status == "DRAFT", Poll.created_by_user_id == user.id).order_by(Poll.id.desc())
+        ).first()
+        if newest_draft:
+            poll = newest_draft
+
     if not poll:
         if user:
             return {
@@ -564,6 +595,7 @@ async def voter_me(request: Request, db: Session = Depends(get_db)):
                 "is_secure_entry": False,
                 "is_browse": False,
                 "join_url": None,
+                "owned_polls": [_serialize_poll(p) for p in owned_polls]
             }
         raise HTTPException(status_code=404, detail="No active poll")
 
@@ -608,7 +640,33 @@ async def voter_me(request: Request, db: Session = Depends(get_db)):
         "is_secure_entry": is_secure_entry(request),
         "is_browse": False,
         "join_url": join_url,
+        "owned_polls": [_serialize_poll(p) for p in owned_polls]
     }
+
+
+@router.patch("/api/voter/me")
+async def update_voter_me(request: Request, data: UserUpdate, db: Session = Depends(get_db)):
+    """Update profile information for the current user."""
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if data.name is not None:
+        user.name = data.name
+    if data.email is not None:
+        if data.email != user.email:
+            existing = db.exec(select(User).where(User.email == data.email)).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Email already in use")
+        user.email = data.email
+    if data.member_pin is not None:
+        user.member_pin = normalize_member_pin(data.member_pin)
+
+    user.updated_at = datetime.now(timezone.utc).isoformat()
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return _serialize_user(user)
 
 
 @router.post("/api/voter/votes/movie")
@@ -1285,9 +1343,9 @@ async def admin_create_user(request: Request, db: Session = Depends(get_db)):
     name = body.get("name", "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="name required")
-    role = body.get("role", "voter")
-    if role not in ("voter", "admin"):
-        raise HTTPException(status_code=400, detail="role must be 'voter' or 'admin'")
+    role = body.get("role", "member")
+    if role not in ("member", "platform_admin"):
+        raise HTTPException(status_code=400, detail="role must be 'member' or 'platform_admin'")
     raw_pin = body.get("member_pin")
     member_pin = None
     if raw_pin in (None, ""):
@@ -1344,8 +1402,8 @@ async def admin_update_user(request: Request, user_id: int, db: Session = Depend
         u.group_id = body["group_id"] or None
     if "role" in body:
         role = body["role"]
-        if role not in ("voter", "admin"):
-            raise HTTPException(status_code=400, detail="role must be 'voter' or 'admin'")
+        if role not in ("member", "platform_admin"):
+            raise HTTPException(status_code=400, detail="role must be 'member' or 'platform_admin'")
         u.role = role
     if "member_pin" in body:
         raw_pin = body.get("member_pin")
@@ -1392,7 +1450,7 @@ async def admin_delete_user(request: Request, user_id: int, db: Session = Depend
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
-    if u.role == "admin":
+    if u.role == "platform_admin":
         raise HTTPException(status_code=403, detail="Cannot delete admin user")
     db.delete(u)
     db.commit()

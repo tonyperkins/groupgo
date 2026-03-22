@@ -1,5 +1,7 @@
-import { ReactNode, useState } from "react";
-import { C, FS } from "../tokens";
+import { ReactNode, useState, useRef, useEffect } from "react";
+import { createPortal, flushSync } from "react-dom";
+import { useNavigate } from "react-router-dom";
+import { C, applyTheme } from "../tokens";
 import { voterApi } from "../api/voter";
 
 interface AppHeaderProps {
@@ -7,6 +9,8 @@ interface AppHeaderProps {
   pollTitle: string | null;
   votingClosesAt: string | null;
   statusChip?: ReactNode;
+  isAdmin?: boolean;
+  isManagement?: boolean;
 }
 
 function formatCountdown(closesAt: string | null): { label: string; urgent: boolean } | null {
@@ -21,78 +25,146 @@ function formatCountdown(closesAt: string | null): { label: string; urgent: bool
   return { label, urgent };
 }
 
-export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip }: AppHeaderProps) {
-  const countdown = formatCountdown(votingClosesAt);
-  const [confirming, setConfirming] = useState(false);
+export function AppHeader({ userName, pollTitle, votingClosesAt, statusChip, isAdmin, isManagement }: AppHeaderProps) {
+  const navigate = useNavigate();
+  const countdown = isManagement ? null : formatCountdown(votingClosesAt);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  
+  const [currentTheme, setCurrentTheme] = useState<"dark" | "light">(
+    () => (localStorage.getItem("gg_theme") as "dark" | "light") ?? "dark"
+  );
+
+  useEffect(() => {
+    if (userMenuOpen && avatarRef.current) {
+      const rect = avatarRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [userMenuOpen]);
 
   const handleLogout = async () => {
-    if (!confirming) { setConfirming(true); return; }
     try { await voterApi.logout(); } catch { /* best effort */ }
     window.location.href = "/";
   };
 
+  const toggleTheme = () => {
+    const next = currentTheme === "dark" ? "light" : "dark";
+    localStorage.setItem("gg_theme", next);
+    flushSync(() => { setCurrentTheme(next); setUserMenuOpen(false); });
+    applyTheme(next);
+  };
+
+  // Extract a 1-2 letter initial for the avatar
+  const initials = userName.substring(0, 2).toUpperCase();
+
   return (
     <div style={{
-      padding: "10px 16px 8px",
-      borderBottom: `1px solid ${C.border}`,
-      background: C.surface,
+      padding: "16px 20px 14px",
+      borderBottom: `1px solid ${C.borderLight}`,
+      background: "var(--gg-surface-glass)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
       flexShrink: 0,
+      position: "relative", zIndex: 50,
     }}>
-      {/* Row 1: branding + status chip + username + logout */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: FS.lg, fontWeight: 800, color: C.text, fontFamily: "'Georgia', serif", whiteSpace: "nowrap" }}>GroupGo</span>
-          <span style={{ fontSize: FS.xs, background: C.accent, color: "#000", borderRadius: 4, padding: "1px 6px", fontWeight: 700, letterSpacing: "0.05em", whiteSpace: "nowrap", flexShrink: 0 }}>VOTE</span>
+      {/* Row 1: branding + user avatar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            {/* Elegant minimalist diamond logo icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: 2 }}>
+              <path d="M12 2L2 12L12 22L22 12L12 2Z" fill={C.blue} opacity="0.8"/>
+              <path d="M12 2L2 12L12 22L22 12L12 2Z" fill="url(#paint0_linear_10_2)" />
+              <defs>
+                <linearGradient id="paint0_linear_10_2" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop stopColor={C.accent} />
+                  <stop offset="1" stopColor={C.accentDim} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+            </svg>
+            GroupGo
+          </span>
           {countdown && (
             <span style={{
-              fontSize: FS.xs, fontWeight: countdown.urgent ? 800 : 600,
+              fontSize: 12, fontWeight: countdown.urgent ? 800 : 700,
               color: countdown.urgent ? C.red : C.textDim,
               whiteSpace: "nowrap", flexShrink: 0,
             }}>⏱ {countdown.label}</span>
           )}
         </div>
-        {statusChip}
-        {/* User name chip + exit button */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          <div style={{
-            fontSize: FS.sm, fontWeight: 700, color: C.textMuted,
-            background: C.card, border: `1px solid ${C.border}`,
-            borderRadius: 8, padding: "5px 10px",
-            whiteSpace: "nowrap",
-            maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis",
-          }}>{userName}</div>
-          <button
-            onClick={handleLogout}
-            onBlur={() => setConfirming(false)}
-            title={confirming ? "Tap again to confirm sign out" : "Sign out"}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: confirming ? "#7f1d1d" : C.card,
-              border: `1px solid ${confirming ? "#ef4444" : C.border}`,
-              borderRadius: 8, padding: "5px 8px",
-              cursor: "pointer", flexShrink: 0,
-              transition: "background 0.15s, border-color 0.15s",
-              color: confirming ? "#fca5a5" : C.textDim,
-            }}
-          >
-            {confirming ? (
-              <span style={{ fontSize: FS.xs, fontWeight: 700, whiteSpace: "nowrap" }}>Sign out?</span>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-            )}
-          </button>
+
+        {/* User Avatar Circle */}
+        <div 
+          ref={avatarRef}
+          onClick={() => setUserMenuOpen(!userMenuOpen)}
+          style={{
+            width: 36, height: 36, borderRadius: "50%",
+            background: "linear-gradient(135deg, #E8A020, #D97706)",
+            color: "#000", fontSize: 13, fontWeight: 800,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", flexShrink: 0,
+            border: `2px solid ${C.surface}`,
+            boxShadow: "0 2px 8px rgba(232, 160, 32, 0.4)",
+          }}
+        >
+          {initials}
         </div>
       </div>
-      {/* Row 2: poll title */}
-      {pollTitle && (
-        <div style={{
-          fontSize: FS.sm, color: C.textMuted, marginTop: 3,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>{pollTitle}</div>
+
+      {/* Row 2: Poll title & Poll Actions (StatusChip) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12 }}>
+        {!isManagement && pollTitle && (
+          <div style={{
+            fontSize: 15, fontWeight: 700, color: C.text,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0
+          }}>{pollTitle}</div>
+        )}
+        <div style={{ flexShrink: 0 }}>
+          {!isManagement && statusChip}
+        </div>
+      </div>
+
+      {/* User Dropdown Portal */}
+      {userMenuOpen && menuPos && createPortal(
+        <>
+          <div onClick={() => setUserMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />
+          <div style={{
+            position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 9999,
+            background: C.card, border: `1px solid ${C.borderLight}`, borderRadius: 12,
+            minWidth: 160, padding: "6px 0", boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          }}>
+            <div 
+              onClick={() => { navigate("/vote/profile"); setUserMenuOpen(false); }}
+              style={{ padding: "12px 20px", fontSize: 15, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.borderLight}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span style={{ fontSize: 16 }}>👤</span> Profile
+            </div>
+            {isAdmin && (
+              <div 
+                onClick={() => { navigate("/vote"); setUserMenuOpen(false); }}
+                style={{ padding: "12px 20px", fontSize: 15, fontWeight: 700, color: C.accent, borderBottom: `1px solid ${C.borderLight}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+              >
+                <span style={{ fontSize: 16 }}>🏠</span> My Dashboard
+              </div>
+            )}
+            {isAdmin && (
+              <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 20px", fontSize: 15, fontWeight: 700, color: C.accent, textDecoration: "none" }}>
+                <span style={{ fontSize: 16 }}>⚙️</span> Admin
+              </a>
+            )}
+            <div onClick={toggleTheme} style={{ padding: "12px 20px", fontSize: 15, fontWeight: 700, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>{currentTheme === "dark" ? "☀️" : "🌙"}</span> {currentTheme === "dark" ? "Light Mode" : "Dark Mode"}
+            </div>
+            <div onClick={handleLogout} style={{ padding: "12px 20px", fontSize: 15, fontWeight: 700, color: C.red, cursor: "pointer", borderTop: `1px solid ${C.borderLight}`, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>🚪</span> Log Out
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

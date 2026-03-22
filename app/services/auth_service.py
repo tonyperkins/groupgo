@@ -9,8 +9,10 @@ from app.models import User, MagicLinkToken, AuthSession
 logger = logging.getLogger(__name__)
 
 ADMIN_SESSION_COOKIE = "gg_admin_session"
+MEMBER_SESSION_COOKIE = "gg_member_session"
 MAGIC_LINK_TTL_MINUTES = 15
 ADMIN_SESSION_TTL_DAYS = 30
+MEMBER_SESSION_TTL_DAYS = 30
 
 
 def _now() -> str:
@@ -53,11 +55,13 @@ def consume_magic_link(token: str, purpose: str, db: Session) -> User | None:
     if record.expires_at < now:
         return None
 
-    record.used_at = now
-    db.add(record)
+    user = db.get(User, record.user_id)
+    
+    # Destructive token hygiene: immediately invalidate/destroy token upon use to prevent replay
+    db.delete(record)
     db.commit()
 
-    return db.get(User, record.user_id)
+    return user
 
 
 def send_admin_magic_link(email: str, db: Session) -> bool:
@@ -70,7 +74,7 @@ def send_admin_magic_link(email: str, db: Session) -> bool:
     from app.config import settings
 
     user = db.exec(select(User).where(User.email == email)).first()
-    if not user or user.role != "admin":
+    if not user or user.role != "platform_admin":
         logger.info("[MAGIC LINK] No admin user found for email=%s (suppressed for security)", email)
         return True
 
@@ -97,6 +101,35 @@ def send_admin_magic_link(email: str, db: Session) -> bool:
         )
     return True
 
+
+def send_member_magic_link(user: User, purpose: str, db: Session) -> bool:
+    """
+    Generate a magic link and send it. Used for member login and signups.
+    """
+    from app.config import settings
+
+    token = create_magic_link(user, purpose, db)
+    login_url = f"{settings.app_base_url}/auth/member/{token}"
+
+    if settings.is_production and settings.SMTP_USER:
+        _send_magic_link_email(
+            to_email=user.email,
+            to_name=user.name,
+            login_url=login_url,
+            settings=settings,
+        )
+    else:
+        logger.warning(
+            "\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "  MEMBER MAGIC LINK (dev — not emailed)\n"
+            "  User : %s <%s>\n"
+            "  URL  : %s\n"
+            "  Purp : %s\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            user.name, user.email, login_url, purpose
+        )
+    return True
 
 def _send_magic_link_email(*, to_email: str, to_name: str, login_url: str, settings) -> None:
     import smtplib
@@ -140,7 +173,15 @@ def _send_magic_link_email(*, to_email: str, to_name: str, login_url: str, setti
         logger.info("[MAGIC LINK] Email sent to %s", to_email)
     except Exception as exc:
         logger.error("[MAGIC LINK] Failed to send email to %s: %s", to_email, exc)
-        raise
+        logger.warning(
+            "\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "  FALLBACK MAGIC LINK (email failed)\n"
+            "  User : %s\n"
+            "  URL  : %s\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            to_email, login_url
+        )
 
 
 # ─── Admin session ─────────────────────────────────────────────────────────────
@@ -154,7 +195,7 @@ def create_admin_session(user: User, request_headers: dict, db: Session) -> str:
     db.add(AuthSession(
         id=session_id,
         user_id=user.id,
-        session_type="admin",
+        session_type="platform_admin",
         device_hint=device_hint,
         expires_at=_expires_at(days=ADMIN_SESSION_TTL_DAYS),
         last_active_at=_now(),
@@ -171,7 +212,7 @@ def get_admin_user_from_session(session_id: str | None, db: Session) -> User | N
     auth_session = db.get(AuthSession, session_id)
     if not auth_session:
         return None
-    if auth_session.session_type != "admin":
+    if auth_session.session_type != "platform_admin":
         return None
     if auth_session.revoked_at is not None:
         return None
@@ -188,12 +229,74 @@ def get_admin_user_from_session(session_id: str | None, db: Session) -> User | N
         pass
 
     user = db.get(User, auth_session.user_id)
-    if not user or user.role != "admin":
+    if not user or user.role != "platform_admin":
         return None
     return user
 
 
 def revoke_admin_session(session_id: str, db: Session) -> None:
+    auth_session = db.get(AuthSession, session_id)
+    if auth_session:
+        auth_session.revoked_at = _now()
+        db.add(auth_session)
+        db.commit()
+
+
+# ─── Member session ────────────────────────────────────────────────────────────
+
+def create_member_session(user: User, request_headers: dict, db: Session) -> str:
+    """Create a server-side member session. Returns session ID."""
+    session_id = str(uuid.uuid4())
+    user_agent = request_headers.get("user-agent", "")
+    device_hint = user_agent[:120] if user_agent else None
+
+    db.add(AuthSession(
+        id=session_id,
+        user_id=user.id,
+        session_type="member",
+        device_hint=device_hint,
+        expires_at=_expires_at(days=MEMBER_SESSION_TTL_DAYS),
+        last_active_at=_now(),
+    ))
+    db.commit()
+    return session_id
+
+
+def get_member_user_from_session(session_id: str | None, db: Session) -> User | None:
+    """Resolve member identity from session cookie. Returns None if invalid/expired."""
+    if not session_id:
+        return None
+
+    auth_session = db.get(AuthSession, session_id)
+    if not auth_session:
+        return None
+    if auth_session.session_type != "member":
+        return None
+    if auth_session.revoked_at is not None:
+        return None
+    now = _now()
+    if auth_session.expires_at < now:
+        return None
+
+    try:
+        auth_session.last_active_at = now
+        db.add(auth_session)
+        db.commit()
+    except Exception:
+        pass
+
+    user = db.get(User, auth_session.user_id)
+    if not user:
+        return None
+    
+    # Valid members could be "member" or "platform_admin" (admins are members too!)
+    if user.role not in ["member", "platform_admin"]:
+        return None
+        
+    return user
+
+
+def revoke_member_session(session_id: str, db: Session) -> None:
     auth_session = db.get(AuthSession, session_id)
     if auth_session:
         auth_session.revoked_at = _now()

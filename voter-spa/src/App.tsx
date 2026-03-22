@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { voterApi, VoterMeResponse } from "./api/voter";
 import { votesApi } from "./api/votes";
+import { adminSpaApi } from "./api/admin_spa";
 import { C } from "./tokens";
 import {
   AppHeader,
@@ -10,9 +11,13 @@ import {
   SideNav,
   Toast,
   ScrollArea,
-  DiscoverTab,
   VoteTab,
   ResultsTab,
+  AdminCurationTab,
+  ProfileTab,
+  LoginView,
+  SignupView,
+  ConfirmModal,
 } from "./components";
 import type { SessionVote } from "./components";
 import { StatusChip } from "./components/StatusChip";
@@ -44,49 +49,109 @@ function ErrorScreen({ message }: { message: string }) {
   );
 }
 
-function NoActivePollScreen() {
+interface NoActivePollScreenProps {
+  meData: VoterMeResponse;
+}
+
+function NoActivePollScreen({ meData }: NoActivePollScreenProps) {
+  const isAdmin = meData.user?.role === "platform_admin";
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const ownedPolls = meData.owned_polls ?? [];
+
   return (
     <div style={{
       background: C.bg, minHeight: "100dvh",
       display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      gap: 0, padding: 32,
+      alignItems: "center", padding: "40px 24px",
+      gap: 0,
     }}>
-      {/* Brand mark */}
-      <div style={{
-        fontFamily: "Georgia, serif", fontWeight: 800, fontSize: 15,
-        color: C.text, marginBottom: 32, display: "flex", alignItems: "center", gap: 8,
-      }}>
-        GroupGo
-        <span style={{
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
-          background: C.accent, color: "#000",
-          borderRadius: 4, padding: "1px 5px",
-        }}>VOTE</span>
-      </div>
+      {/* Removed redundant branding */}
 
-      <div style={{ fontSize: 52, marginBottom: 20 }}>🍿</div>
+      {isAdmin && (
+        <div style={{ width: "100%", maxWidth: 480 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>Your Polls</h2>
+            <button 
+              onClick={() => window.location.href = "/admin/polls/new"}
+              style={{
+                background: C.accent, color: "#000", border: "none", 
+                borderRadius: 99, padding: "8px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer"
+              }}
+            >
+              New Poll +
+            </button>
+          </div>
 
-      <div style={{
-        background: C.card, border: `1px solid ${C.border}`,
-        borderRadius: 20, padding: "28px 24px",
-        maxWidth: 320, width: "100%", textAlign: "center",
-        display: "flex", flexDirection: "column", gap: 12,
-      }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>No Active Poll</div>
-        <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6 }}>
-          There's no movie night vote running right now.
-          Check back when your group starts a new poll.
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {ownedPolls.length === 0 ? (
+              <div style={{ padding: 40, textAlign: "center", background: C.card, borderRadius: 20, border: `1px dashed ${C.border}` }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>✨</div>
+                <div style={{ fontSize: 14, color: C.textMuted }}>You haven't created any polls yet.</div>
+              </div>
+            ) : (
+              ownedPolls.map(p => (
+                <div key={p.id} style={{ 
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16,
+                  display: "flex", justifyContent: "space-between", alignItems: "center"
+                }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{p.title}</div>
+                    <div style={{ fontSize: 11, color: C.accent, textTransform: "uppercase", fontWeight: 800, marginTop: 4 }}>
+                       {p.status}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button 
+                      onClick={() => window.location.href = `/vote/admin?poll_id=${p.id}`}
+                      style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => setConfirmDeleteId(p.id)}
+                      style={{ background: "#300", color: "#f55", border: "1px solid #522", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
+      )}
+
+      <ConfirmModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Poll?"
+        message="This will permanently remove the poll and all associated votes. This action cannot be undone."
+        confirmLabel="Delete Poll"
+        onConfirm={async () => {
+          if (confirmDeleteId) {
+            await adminSpaApi.deletePoll(confirmDeleteId);
+            setConfirmDeleteId(null);
+            window.location.reload();
+          }
+        }}
+        onCancel={() => setConfirmDeleteId(null)}
+        isDestructive
+      />
+
+      {!isAdmin && (
         <div style={{
-          marginTop: 4,
-          background: C.surface, border: `1px solid ${C.border}`,
-          borderRadius: 10, padding: "10px 14px",
-          fontSize: 11, color: C.textDim, lineHeight: 1.5,
+          background: C.card, border: `1px solid ${C.border}`,
+          borderRadius: 20, padding: "28px 24px",
+          maxWidth: 320, width: "100%", textAlign: "center",
+          display: "flex", flexDirection: "column", gap: 12,
         }}>
-          💡 Ask your admin to create and publish a poll to get started.
+          <div style={{ fontSize: 52, marginBottom: 8 }}>🍿</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>No Active Poll</div>
+          <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6 }}>
+            There's no movie night vote running right now.
+            Check back when your group starts a new poll.
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -101,6 +166,7 @@ export interface VoterState {
   isEditing: boolean;
   showOptOutModal: boolean;
   toast: string | null;
+  toastType: "success" | "info" | "warning" | "error";
 }
 
 // ─── Progress step derived from state ─────────────────────────────────────────
@@ -130,11 +196,16 @@ export default function App() {
     isEditing: false,
     showOptOutModal: false,
     toast: null,
+    toastType: "info",
   });
 
-  // Bootstrap — fetch /api/voter/me once on mount
+  // Bootstrap — fetch /api/voter/me once on mount or when poll_id changes
   useEffect(() => {
-    voterApi.getMe()
+    const params = new URLSearchParams(window.location.search);
+    const pollId = params.get("poll_id") ? parseInt(params.get("poll_id")!, 10) : undefined;
+
+    setLoading(true); // Show loading when switching polls
+    voterApi.getMe(pollId)
       .then((data) => {
         setState((prev) => ({
           ...prev,
@@ -147,13 +218,17 @@ export default function App() {
       })
       .catch((err) => {
         if (err.status === 401) {
-          window.location.href = "/no-poll";
+          if (window.location.pathname === "/signup" || window.location.pathname === "/login") {
+            setLoading(false);
+          } else {
+            window.location.href = "/login";
+          }
         } else {
           setError(err.message ?? "Failed to load voter data");
           setLoading(false);
         }
       });
-  }, []);
+  }, [window.location.search]);
 
   // ── Vote actions (stubs — fleshed out in Sessions 3–4) ──────────────────────
 
@@ -272,6 +347,17 @@ export default function App() {
     }));
   };
 
+  const handleUpdateUser = (updated: any) => {
+    setState((prev) => ({
+      ...prev,
+      meData: prev.meData ? { ...prev.meData, user: updated } : prev.meData,
+    }));
+  };
+
+  const showToast = (msg: string, type: "success" | "info" | "warning" | "error" = "success") => {
+    setState((prev) => ({ ...prev, toast: msg, toastType: type }));
+  };
+
   const dismissToast = useCallback(() => {
     setState((prev) => ({ ...prev, toast: null }));
   }, []);
@@ -281,8 +367,18 @@ export default function App() {
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorScreen message={error} />;
 
+  // Allow unauthenticated users to see Login / Signup
   const { meData } = state;
-  if (!meData || meData.state === "no_active_poll") return <NoActivePollScreen />;
+
+  if (!meData) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginView />} />
+        <Route path="/signup" element={<SignupView />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
 
   // ── Browse mode (no PIN — viewer only) ─────────────────────────────────────
   if (meData.state === "browse") {
@@ -308,16 +404,6 @@ export default function App() {
       </div>
     ) : null;
 
-    const browseContent = (
-      <DiscoverTab
-        events={meData.events}
-        sessions={meData.sessions}
-        isParticipating={false}
-        hasCompletedVoting={false}
-        joinUrl={meData.join_url}
-      />
-    );
-
     if (isDesktop) {
       return (
         <div style={{
@@ -330,6 +416,8 @@ export default function App() {
             pollTitle={meData.poll?.title ?? null}
             votingClosesAt={meData.poll?.voting_closes_at ?? null}
             statusChip={null}
+            isAdmin={false}
+            isManagement={false}
           />
           {joinBanner}
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -340,7 +428,22 @@ export default function App() {
               background: C.bg,
             }}>
               <ScrollArea style={{ width: "100%", maxWidth: 720 }}>
-                {browseContent}
+                {/* We pass the VoteTab as the primary viewer in browse mode, 
+                    but with interactions disabled */}
+                 <VoteTab
+                   sessions={meData.sessions ?? []}
+                   events={meData.events}
+                   votes={{}}
+                   votedSessionCount={0}
+                   isParticipating={false}
+                   hasCompletedVoting={false}
+                   isFlexible={false}
+                   isEditing={false}
+                   pollId={state.meData?.poll?.id ?? 0}
+                   onSessionVote={() => {}}
+                   onSetFlexible={() => {}}
+                   onJoin={() => {}}
+                 />
               </ScrollArea>
             </div>
           </div>
@@ -359,10 +462,25 @@ export default function App() {
           pollTitle={meData.poll?.title ?? null}
           votingClosesAt={meData.poll?.voting_closes_at ?? null}
           statusChip={null}
+          isAdmin={false}
+          isManagement={false}
         />
         {joinBanner}
         <ScrollArea>
-          {browseContent}
+            <VoteTab
+              sessions={meData.sessions ?? []}
+              events={meData.events}
+              votes={{}}
+              votedSessionCount={0}
+              isParticipating={false}
+              hasCompletedVoting={false}
+              isFlexible={false}
+              isEditing={false}
+              pollId={state.meData?.poll?.id ?? 0}
+              onSessionVote={() => {}}
+              onSetFlexible={() => {}}
+              onJoin={() => {}}
+            />
         </ScrollArea>
       </div>
     );
@@ -371,17 +489,55 @@ export default function App() {
   const prefs = meData.preferences;
   const step = progressStep(state);
 
+  const refetchMe = () => {
+    const params = new URLSearchParams(window.location.search);
+    const pollId = params.get("poll_id") ? parseInt(params.get("poll_id")!, 10) : undefined;
+    setLoading(true);
+    voterApi.getMe(pollId).then(data => {
+      setState(prev => ({ 
+        ...prev, 
+        meData: data, 
+        votes: data.votes ?? {}, 
+        yesMovieCount: data.yes_movie_count ?? 0, 
+        votedSessionCount: data.voted_session_count ?? 0 
+      }));
+      setLoading(false);
+    });
+  };
+
   // ── Shared route content ────────────────────────────────────────────────────
 
   const routeContent = (
     <Routes>
-      <Route path="/vote/discover" element={
-        <DiscoverTab
-          events={meData.events}
-          sessions={meData.sessions}
-          isParticipating={prefs.is_participating}
-          hasCompletedVoting={prefs.has_completed_voting}
-        />
+      <Route path="/vote/dashboard" element={<NoActivePollScreen meData={meData} />} />
+      <Route path="/vote/admin" element={
+        (meData.poll?.id && (meData.poll?.status?.toUpperCase() === "DRAFT" || meData.poll?.status?.toUpperCase() === "OPEN")) ? (
+          <AdminCurationTab 
+            pollId={meData.poll.id} 
+            onPublish={() => {
+              // Reload the app to resync state to OPEN mode
+              window.location.href = "/vote";
+            }} 
+          />
+        ) : (
+          meData.user?.role === "platform_admin" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 20 }}>
+               <div className="gg-spinner" style={{ width: 40, height: 40, border: `4px solid ${C.accentDim}`, borderTop: `4px solid ${C.accent}`, borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+               <p style={{ color: C.textDim, fontSize: 14, fontWeight: 600 }}>Preparing Curation Canvas...</p>
+               <button 
+                 onClick={refetchMe} 
+                 style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}`, padding: "8px 16px", borderRadius: 8, fontSize: 12, cursor: "pointer" }}
+               >
+                 Retry
+               </button>
+               <style>{`
+                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+               `}</style>
+            </div>
+          ) : (
+            <Navigate to="/vote/vote" replace />
+          )
+        )
       } />
       <Route path="/vote/vote" element={
         <VoteTab
@@ -411,10 +567,23 @@ export default function App() {
           events={state.meData?.events ?? []}
         />
       } />
-      <Route path="/vote/movies"    element={<Navigate to="/vote/discover" replace />} />
+          <Route
+            path="/vote/profile"
+            element={
+              <ProfileTab
+                user={state.meData?.user ?? null}
+                onUpdateUser={handleUpdateUser}
+                showToast={showToast}
+                onBack={() => navigate(-1)}
+              />
+            }
+          />
+      <Route path="/vote"           element={<Navigate to={meData.user?.role === "platform_admin" ? "/vote/dashboard" : "/vote/vote"} replace />} />
+      <Route path="/vote/movies"    element={<Navigate to="/vote/vote" replace />} />
+      <Route path="/vote/discover"  element={<Navigate to="/vote/vote" replace />} />
       <Route path="/vote/showtimes" element={<Navigate to="/vote/vote" replace />} />
-      <Route path="/vote/*"         element={<Navigate to="/vote/discover" replace />} />
-      <Route path="*"               element={<Navigate to="/vote/discover" replace />} />
+      <Route path="/vote/*"         element={<Navigate to={meData.poll?.status?.toUpperCase() === "DRAFT" ? "/vote/admin" : (meData.user?.role === "platform_admin" ? "/vote/dashboard" : "/vote/vote")} replace />} />
+      <Route path="*"               element={<Navigate to={meData.poll?.status?.toUpperCase() === "DRAFT" ? "/vote/admin" : (meData.user?.role === "platform_admin" ? "/vote/dashboard" : "/vote/vote")} replace />} />
     </Routes>
   );
 
@@ -431,6 +600,7 @@ export default function App() {
   );
 
   // ── Shell layout ────────────────────────────────────────────────────────────
+  const isManagementPage = pathname.includes("/dashboard") || pathname.includes("/admin");
 
   const shell = isDesktop ? (
     // ── Desktop layout ────────────────────────────────────────────────────────
@@ -442,11 +612,15 @@ export default function App() {
       {/* Top header bar — full width */}
       <AppHeader
         userName={meData.user?.name ?? ""}
-        pollTitle={meData.poll?.title ?? null}
-        votingClosesAt={meData.poll?.voting_closes_at ?? null}
-        statusChip={statusChip}
+        pollTitle={isManagementPage ? null : (meData.poll?.title ?? null)}
+        votingClosesAt={isManagementPage ? null : (meData.poll?.voting_closes_at ?? null)}
+        statusChip={isManagementPage ? null : statusChip}
+        isAdmin={meData.user?.role === "platform_admin"}
+        isManagement={isManagementPage}
       />
-      <ProgressBar step={step} />
+      {!isManagementPage && (
+        <ProgressBar step={step} />
+      )}
 
       {/* Body: sidebar + content */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -455,6 +629,7 @@ export default function App() {
           votedSessionCount={state.votedSessionCount}
           isParticipating={prefs.is_participating}
           isFlexible={prefs.is_flexible}
+          isAdmin={meData.user?.role === "platform_admin"}
         />
 
         {/* Center content column */}
@@ -500,11 +675,15 @@ export default function App() {
     }}>
       <AppHeader
         userName={meData.user?.name ?? ""}
-        pollTitle={meData.poll?.title ?? null}
-        votingClosesAt={meData.poll?.voting_closes_at ?? null}
-        statusChip={statusChip}
+        pollTitle={isManagementPage ? null : (meData.poll?.title ?? null)}
+        votingClosesAt={isManagementPage ? null : (meData.poll?.voting_closes_at ?? null)}
+        statusChip={isManagementPage ? null : statusChip}
+        isAdmin={meData.user?.role === "platform_admin"}
+        isManagement={isManagementPage}
       />
-      <ProgressBar step={step} />
+      {!isManagementPage && (
+        <ProgressBar step={step} />
+      )}
 
       <ScrollArea>
         {routeContent}
@@ -523,16 +702,19 @@ export default function App() {
         />
       )}
 
-      <TabBar
-        votedSessionCount={state.votedSessionCount}
-        isParticipating={prefs.is_participating}
-        isFlexible={prefs.is_flexible}
-      />
+      {!pathname.includes("vote/admin") && !pathname.includes("vote/profile") && (
+        <TabBar
+          votedSessionCount={state.votedSessionCount}
+          isParticipating={prefs.is_participating}
+          isFlexible={prefs.is_flexible}
+          isAdmin={meData.user?.role === "platform_admin"}
+        />
+      )}
 
       {state.showOptOutModal && (
         <OptOutModal onConfirm={handleConfirmOptOut} onCancel={handleDismissOptOutModal} />
       )}
-      <Toast message={state.toast} onDismiss={dismissToast} />
+      <Toast message={state.toast} type={state.toastType} onDismiss={dismissToast} />
     </div>
   );
 

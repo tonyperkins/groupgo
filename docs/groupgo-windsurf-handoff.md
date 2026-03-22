@@ -10,18 +10,18 @@
 
 ## What This Project Is
 
-GroupGo is a family movie-night coordinator — and in V2, a generic group activity planner. An admin curates a shortlist of events + time slots, publishes a poll, and group members vote from their phones. The app surfaces the optimal event+time combination based on approval voting with veto power.
+GroupGo is a platform for organizing group events and curating options. Originally a family movie-night coordinator, V2 has evolved into a generic activity planner where anyone can create a poll, curate a shortlist of events and times, and invite friends to vote using approval voting with veto power.
 
 **Live URL:** https://groupgo.org (Cloudflare Tunnel → self-hosted Docker on Portainer)
 
 **Stack:**
-- Python 3.12 + FastAPI + SQLModel + SQLite
-- Jinja2 + HTMX for the admin portal (stable — don't refactor)
-- React 18 + Vite + TypeScript for the voter SPA (`voter-spa/`)
+- Python 3.12 + FastAPI + SQLModel + PostgreSQL
+- Built completely as a React 18 + Vite + TypeScript Single Page Application (`voter-spa/`)
+- No legacy Jinja2 rendering routing outside of simple auth redirects
 - Docker + Portainer, deployed via `docker compose up -d --build`
 
 **Repo:** `master` branch, git remote is GitHub (`tonyperkins/groupgo`)
-**Deployment:** Docker on Portainer (self-hosted). Stack managed via `docker compose up -d --build` from `/opt/groupgo` on the server, or as a Portainer Git-backed stack (Repository → `https://github.com/tonyperkins/groupgo`, branch `master`, compose path `docker-compose.yml`).
+**Deployment:** Docker on Portainer (self-hosted). Stack managed via `docker compose up -d --build` from `/opt/groupgo` on the server.
 
 ---
 
@@ -139,73 +139,74 @@ AuthSession     id, user_id, session_type, device_hint, expires_at,
                 last_active_at, revoked_at
 ```
 
-**No Alembic.** Adding columns = `ALTER TABLE x ADD COLUMN y TYPE DEFAULT z`.
-Migration scripts live in `scripts/` and are idempotent. Run them via `docker exec` against `/data/groupgo.db` inside the container.
-- `scripts/migrate_theater_id_nullable.py` — makes `Showtime.theater_id` nullable (already run on prod)
-- `scripts/migrate_events_v2_columns.py` — adds v2 generic-event columns to `events` table (already run on prod); accepts DB path as first argument
+The database is now **PostgreSQL**. We rely on SQLModel to recreate schemas during development, and will drop/recreate tables or execute manual `ALTER` statements as necessary until proper Alembic migrations are introduced for production schema evolution.
+
 
 ---
 
 ## Auth System
 
-### Admin auth (magic link)
-- Admin requests login link via email → `auth_service.send_admin_magic_link()`
-- In production: sends via Gmail SMTP (`SMTP_*` env vars)
-- In development: logs link to stdout with `━━ MAGIC LINK ━━` banner
-- Token: single-use UUID, 15-minute TTL, purpose-scoped
-- Session: 30-day cookie (`gg_admin_session`), server-side `AuthSession` record
+We have completely transitioned to a unified **Magic Link Auth System** for all users, moving away from the legacy admin/voter dual flow pattern.
 
-### Voter auth (PIN)
-- Voter opens `/join/{access_uuid}` → `gg_browse_poll_id` cookie **always overwritten** → browse mode
-- Voter enters 4-digit PIN → `gg_poll_session` JWT cookie (poll_id + user_id)
-
-| Cookie | Contents | State |
-|--------|----------|-------|
-| `gg_poll_session` | JWT {poll_id, user_id} | active voter |
-| `gg_browse_poll_id` | poll_id string | browse mode |
+### Unified Auth (Magic Link)
+- Users request a login link via email from the splash/login page.
+- In production: sends via Gmail SMTP. In development: logs link to stdout.
+- Link lands on `/auth/member/{token}`, consumes the single-use UUID token.
+- Issues a 30-day cookie (`gg_member_session`), backed by an `AuthSession(session_type="member")`.
+- Existing `platform_admin` users and self-registered `member` users all authenticate through this flow.
+- Temporary Guest voting via tokenized links (without account creation) is part of a planned Phase 3 invitation rollout.
 
 ---
 
 ## SPA States
 
-| State | Meaning |
+The SPA handles all user interactions (`voter-spa/src/App.tsx`). Note that we have removed the concept of PIN-based `browse` state, and everything is now gated behind true Member authentication via `gg_member_session`.
+
+| State | Handling |
 |-------|---------|
-| `browse` | `gg_browse_poll_id` cookie, no session |
-| `active` | `gg_poll_session` valid |
-| `no_active_poll` | No OPEN/CLOSED poll |
+| `/dashboard` | User's list of polls (owned, invited) |
+| `/admin/polls/new` | Wizard wrapper for creating a new DRAFT poll |
+| `/vote/admin` | Curation interface for DRAFT / OPEN polls owned by the user |
+| `/vote/vote` | Voting interface for OPEN polls |
+| `/vote/results` | Results dashboard for CLOSED polls |
 
 ---
 
 ## Key API Endpoints
 
-### Voter-facing JSON
+### Auth APIs
 ```
-GET  /api/voter/me
+POST /api/auth/login                  # Request login link
+POST /api/auth/signup                 # Request signup link
+GET  /api/voter/auth/token            # Validate and issue `gg_member_session`
+POST /api/voter/logout                # Revoke session
+```
+
+### SPA Voter/Participant APIs
+```
+GET  /api/voter/me                    # Mega-query resolving user's current contextual state
 POST /api/voter/votes/movie
 POST /api/voter/votes/session
 POST /api/voter/votes/flexible
 POST /api/voter/votes/complete
 POST /api/voter/votes/participation
 GET  /api/results/json
-GET  /api/voter/events/{id}/reviews
 ```
 
-### Admin JSON
+### SPA Admin/Curation APIs (Requires `platform_admin` or Poll Owner)
 ```
-POST   /api/admin/polls
-PATCH  /api/admin/polls/{id}          # accepts title, dates, group_id
-POST   /api/admin/polls/{id}/publish      # body: {send_email: bool} defaults true
-POST   /api/admin/polls/{id}/send-email   # body: {user_ids?: int[]} — sends invite to selected/all members
-POST   /api/admin/polls/{id}/invite-link
-POST   /api/admin/polls/{id}/close
-POST   /api/admin/polls/{id}/declare-winner
-DELETE /api/admin/polls/{id}
-POST   /api/admin/showtimes/fetch
-GET    /api/admin/jobs/{id}/json
-POST   /api/admin/events/lookup       # event enrichment — currently SerpApi (see Pending #1)
-PATCH  /api/admin/events/{id}         # edit manual event fields (blocks TMDB events with 403)
-GET/POST/DELETE /api/admin/groups
-GET/POST/PATCH/DELETE /api/admin/users
+POST   /api/spa/polls                     # Create draft
+GET    /api/spa/polls/{id}                # Fetch poll admin state
+PATCH  /api/spa/polls/{id}/title          # Update title
+POST   /api/spa/polls/{id}/publish        # Transition to OPEN
+DELETE /api/spa/polls/{id}                # Delete draft
+GET    /api/spa/movies/search?q=          # TMDB proxy
+POST   /api/spa/polls/{id}/events/tmdb    # Add Tmdb event
+POST   /api/spa/polls/{id}/events/custom  # Add manual event
+GET    /api/spa/theaters/search?q=        # Theater search
+POST   /api/spa/theaters                  # Define custom theater
+POST   /api/spa/polls/{id}/sessions       # Create session (showtime)
+DELETE /api/spa/sessions/{id}             # Remove session
 ```
 
 ---
@@ -557,6 +558,10 @@ ssh asperkins65@portainer.homelab.lan "docker cp /tmp/migrate.py groupgo:/tmp/mi
 - Agent loop: fetch raw HTML → send to Claude with current scraper + failure context → Claude proposes fix → validate against live site → auto-promote if valid, escalate to admin if not.
 - Safeguards: never auto-deploy without validation; human escalation after N failed attempts; diff size limit; full audit log.
 - Tony's note: excited to revisit this — did similar work when webscraping was first becoming a thing.
+
+### Future Enhancements
+- It would be cool if you could get it to talk to Resy or something so people could evaluate food reservation options too and coordinate that alongside a movie
+- Add runtime for events that have them
 
 ---
 

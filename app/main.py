@@ -45,9 +45,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 if os.path.exists("static/voter"):
     app.mount("/static/voter", StaticFiles(directory="static/voter"), name="voter-static")
 
+from app.routers import api, voter, admin, admin_spa, auth_api, auth_web
+
 app.include_router(voter.router)
 app.include_router(admin.router)
+app.include_router(admin_spa.router)
 app.include_router(api.router)
+app.include_router(auth_api.router)
+app.include_router(auth_web.router)
 
 
 @app.get("/manifest.json")
@@ -55,8 +60,9 @@ async def manifest():
     return FileResponse("static/voter/manifest.json")
 
 
+@app.get("/profile", response_class=HTMLResponse)
 @app.get("/vote/{path:path}", response_class=HTMLResponse)
-async def voter_spa(path: str):
+async def voter_spa(path: str = ""):
     """Catch-all for React SPA — must be registered after all API routers."""
     spa_index = os.path.join("static", "voter", "index.html")
     if os.path.exists(spa_index):

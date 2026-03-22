@@ -20,6 +20,25 @@ def cast_vote(
     db: Session,
     veto_reason: str | None = None,
 ) -> Vote:
+    poll = db.get(Poll, poll_id)
+    now = _now()
+
+    # If single vote is enforced and the user is casting a positive vote
+    if poll and poll.is_single_vote and vote_value in ("yes", "can_do"):
+        other_votes = db.exec(
+            select(Vote).where(
+                Vote.user_id == user_id,
+                Vote.poll_id == poll_id,
+                Vote.target_type == target_type,
+                Vote.target_id != target_id,
+                Vote.vote_value.in_(["yes", "can_do"])
+            )
+        ).all()
+        for ov in other_votes:
+            ov.vote_value = "abstain"
+            ov.updated_at = now
+            db.add(ov)
+
     existing = db.exec(
         select(Vote).where(
             Vote.user_id == user_id,
@@ -29,7 +48,6 @@ def cast_vote(
         )
     ).first()
 
-    now = _now()
     if existing:
         existing.vote_value = vote_value
         existing.updated_at = now
@@ -56,6 +74,7 @@ def cast_vote(
     db.commit()
     db.refresh(new_vote)
     return new_vote
+
 
 
 def set_flexible(user_id: int, poll_id: int, is_flexible: bool, db: Session):

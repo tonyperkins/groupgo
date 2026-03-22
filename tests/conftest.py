@@ -6,16 +6,16 @@ from fastapi.testclient import TestClient
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.models import User, Theater, Poll, PollDate, Event, PollEvent, Session as ShowSession
-from app.db import SEED_USERS, SEED_THEATERS, get_db
+from app.models import User, Venue, Poll, PollDate, Event, PollEvent, Showtime
+from app.db import SEED_THEATERS, get_db
 from app.routers import voter, admin, api
 
 
 TEST_VOTERS = [
-    {"id": 2, "name": "Alex", "is_admin": False, "member_pin": "1111"},
-    {"id": 3, "name": "Blake", "is_admin": False, "member_pin": "2222"},
-    {"id": 4, "name": "Casey", "is_admin": False, "member_pin": "3333"},
-    {"id": 5, "name": "Drew", "is_admin": False, "member_pin": "4444"},
+    {"id": 2, "name": "Alex", "email": "alex@test.com", "role": "member", "member_pin": "1111"},
+    {"id": 3, "name": "Blake", "email": "blake@test.com", "role": "member", "member_pin": "2222"},
+    {"id": 4, "name": "Casey", "email": "casey@test.com", "role": "member", "member_pin": "3333"},
+    {"id": 5, "name": "Drew", "email": "drew@test.com", "role": "member", "member_pin": "4444"},
 ]
 
 
@@ -39,12 +39,10 @@ def db(db_engine):
 
 @pytest.fixture(scope="function")
 def seeded_db(db):
-    for u in SEED_USERS:
-        db.add(User(**u))
     for u in TEST_VOTERS:
         db.add(User(**u))
     for t in SEED_THEATERS:
-        db.add(Theater(**t))
+        db.add(Venue(**t))
     db.commit()
     return db
 
@@ -57,9 +55,12 @@ def test_app(seeded_db):
 
     app = FastAPI(lifespan=noop_lifespan)
     app.mount("/static", StaticFiles(directory="static"), name="static")
+    from app.routers import auth_api, auth_web
     app.include_router(voter.router)
     app.include_router(admin.router)
     app.include_router(api.router)
+    app.include_router(auth_api.router)
+    app.include_router(auth_web.router)
 
     def override_get_db():
         yield seeded_db
@@ -107,7 +108,7 @@ def poll_with_sessions(seeded_db, poll_with_event):
     poll, event = poll_with_event
     theater_id = 1  # Seeded theater
     sessions = [
-        ShowSession(
+        Showtime(
             event_id=event.id,
             theater_id=theater_id,
             poll_id=poll.id,
@@ -116,7 +117,7 @@ def poll_with_sessions(seeded_db, poll_with_event):
             format="Standard",
             fetch_status="success",
         ),
-        ShowSession(
+        Showtime(
             event_id=event.id,
             theater_id=theater_id,
             poll_id=poll.id,

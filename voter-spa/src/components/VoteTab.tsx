@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { C, FS } from "../tokens";
-import { VoterSession, VoterEvent } from "../api/voter";
+import { VoterSession, VoterEvent, EventReview } from "../api/voter";
 import { ShowtimeCard, SessionVote } from "./ShowtimeCard";
 import { HelpIcon } from "./HelpIcon";
 
@@ -256,7 +256,29 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
     setCollapsedState(val);
   };
 
+  const [synopsisExpanded, setSynopsisExpanded] = useState(false);
+  const [showTrailer, setShowTrailer] = useState(false);
+  const [reviews, setReviews] = useState<EventReview[] | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
+
+  function loadReviews(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (reviews !== null) { setReviewsOpen(!reviewsOpen); return; }
+    setReviewsLoading(true);
+    // Since we took getEventReviews from voterApi... we'll need to make sure we can import it
+    import("../api/voter").then(({ voterApi }) => {
+      voterApi.getEventReviews(event.id)
+        .then((d) => { setReviews(d.reviews); setReviewsOpen(true); })
+        .catch(() => setReviews([]))
+        .finally(() => setReviewsLoading(false));
+    });
+  }
+
   const thumbnailUrl = event.poster_url ?? event.image_url ?? null;
+  const isMovie = event.event_type === "movie";
+  const synopsis = event.synopsis ?? "";
+  const synopsisShort = synopsis.length > 180;
 
   return (
     <div style={{
@@ -278,21 +300,70 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
             src={thumbnailUrl}
             alt={event.title}
             style={{
-              width: 44, height: 64, objectFit: "cover",
-              borderRadius: 8, flexShrink: 0,
+              width: !collapsed ? 80 : 44, 
+              height: !collapsed ? 120 : 64, 
+              objectFit: "cover",
+              borderRadius: !collapsed ? 12 : 8, flexShrink: 0,
+              boxShadow: !collapsed ? "0 6px 16px rgba(0,0,0,0.4)" : "none",
+              transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
             }}
           />
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: FS.md, fontWeight: 800, color: C.text, lineHeight: 1.3 }}>
-            {event.title}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignSelf: !collapsed ? "flex-start" : "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ fontSize: !collapsed ? 18 : FS.md, fontWeight: 800, color: C.text, lineHeight: 1.3, marginBottom: !collapsed ? 4 : 0 }}>
+              {event.title}
+            </div>
           </div>
-          {event.year && (
-            <div style={{ fontSize: FS.sm, color: C.textMuted }}>{event.year}</div>
+          {(event.year || event.runtime_mins || (!event.year && event.venue_name) || event.tmdb_rating) && (
+            <div style={{ fontSize: FS.sm, color: C.textMuted, display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 6px" }}>
+               {isMovie && event.year && <span>{event.year}</span>}
+               {isMovie && event.year && event.runtime_mins && <span>•</span>}
+               {isMovie && event.runtime_mins && <span>{Math.floor(event.runtime_mins / 60)}h {event.runtime_mins % 60}m</span>}
+               {isMovie && (event.year || event.runtime_mins) && event.tmdb_rating ? <span>•</span> : null}
+               {isMovie && event.tmdb_rating ? <span style={{ color: C.accent, fontWeight: 700 }}>★ {event.tmdb_rating}</span> : null}
+               {!isMovie && event.venue_name && <span>📍 {event.venue_name}</span>}
+            </div>
           )}
-          {!event.year && event.venue_name && (
-            <div style={{ fontSize: FS.sm, color: C.textMuted }}>📍 {event.venue_name}</div>
+          
+          {/* Expanded view extra details */}
+          {!collapsed && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", flex: 1 }}>
+              {/* Genres */}
+              {isMovie && event.genres && event.genres.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  {event.genres.slice(0, 3).map((g) => (
+                    <span key={g} style={{
+                      fontSize: 10, fontWeight: 700, color: C.textDim,
+                      border: `1px solid ${C.border}`, borderRadius: 99, padding: "2px 8px",
+                      textTransform: "uppercase", letterSpacing: "0.05em"
+                    }}>{g}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Synopsis */}
+              {synopsis && (
+                <div style={{ marginTop: "auto" }}>
+                  <div style={{
+                    fontSize: 13, color: C.textDim, lineHeight: 1.5,
+                    overflow: "hidden", display: "-webkit-box",
+                    WebkitLineClamp: synopsisExpanded ? undefined : 3,
+                    WebkitBoxOrient: "vertical",
+                  }}>
+                    {synopsis}
+                  </div>
+                  {synopsisShort && !synopsisExpanded && (
+                    <div
+                      onClick={(e) => { e.stopPropagation(); setSynopsisExpanded(true); }}
+                      style={{ fontSize: 12, color: C.accent, marginTop: 4, cursor: "pointer", fontWeight: 700 }}
+                    >Read more</div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
+
           {collapsed && (
             <div style={{ fontSize: FS.sm, color: C.textMuted, marginTop: 2 }}>
               {sessions.length} option{sessions.length !== 1 ? "s" : ""} · tap to vote
@@ -306,6 +377,80 @@ function EventGroup({ event, sessions, votes, locked, submitted, isLocked, onSes
           display: "inline-block",
         }}>▾</span>
       </div>
+
+      {!collapsed && (
+        <div style={{ padding: "0 12px 12px 12px", borderBottom: `1px solid ${C.border}` }}>
+          {/* Button Row */}
+          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+            {isMovie && event.trailer_key && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowTrailer(!showTrailer); }}
+                style={{
+                  flex: 1, background: showTrailer ? C.accentGlow : C.surface,
+                  border: `1px solid ${showTrailer ? C.accentDim : C.border}`, color: showTrailer ? C.accent : C.text,
+                  padding: "10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                {showTrailer ? "Close Trailer" : "▶ Watch Trailer"}
+              </button>
+            )}
+            {isMovie && (
+              <button
+                onClick={loadReviews}
+                style={{
+                  flex: 1, background: reviewsOpen ? C.accentGlow : C.surface,
+                  border: `1px solid ${reviewsOpen ? C.accentDim : C.border}`, color: reviewsOpen ? C.accent : C.text,
+                  padding: "10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                {reviewsLoading ? "..." : reviewsOpen ? "Hide Reviews" : "Read Reviews"}
+              </button>
+            )}
+            {!isMovie && event.external_url && (
+               <a
+                 href={event.external_url} target="_blank" rel="noopener noreferrer"
+                 onClick={(e) => e.stopPropagation()}
+                 style={{
+                   flex: 1, background: C.surface, border: `1px solid ${C.border}`, color: C.accent,
+                   padding: "10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                   textAlign: "center", textDecoration: "none"
+                 }}
+               >More Info ↗</a>
+            )}
+          </div>
+
+          {/* Trailer Expand */}
+          {showTrailer && event.trailer_key && (
+            <div style={{ position: "relative", paddingBottom: "56.25%", borderRadius: 12, overflow: "hidden", background: "#000", marginTop: 12 }}>
+              <iframe
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+                src={`https://www.youtube.com/embed/${event.trailer_key}?autoplay=1&rel=0`}
+                allow="autoplay; encrypted-media" allowFullScreen
+              />
+            </div>
+          )}
+
+          {/* Reviews Expand */}
+          {reviewsOpen && reviews && reviews.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: C.surface, padding: 12, borderRadius: 12, border: `1px solid ${C.border}`, marginTop: 12 }}>
+              {reviews.map((r, i) => (
+                <div key={i} style={{ paddingBottom: i < reviews.length - 1 ? 12 : 0, borderBottom: i < reviews.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{r.author}</span>
+                    {r.rating != null && <span style={{ fontSize: 13, color: C.accent, fontWeight: 700 }}>★ {r.rating}</span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: C.textDim, lineHeight: 1.5 }}>"{r.excerpt}"</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {reviewsOpen && reviews && reviews.length === 0 && (
+            <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: 12, background: C.surface, borderRadius: 12, marginTop: 12 }}>No reviews found for this movie.</div>
+          )}
+        </div>
+      )}
 
       {/* Sessions grouped by date — inline if only 1 session, accordion otherwise */}
       {!collapsed && (() => {

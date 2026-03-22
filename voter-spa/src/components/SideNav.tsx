@@ -1,28 +1,40 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { C, FS } from "../tokens";
-import type { TabId } from "./TabBar";
 
 interface SideNavProps {
   votedSessionCount: number;
   isParticipating: boolean;
   isFlexible: boolean;
+  isAdmin?: boolean;
 }
 
-const TABS: { id: TabId; icon: string; label: string; route: string }[] = [
-  { id: "discover", icon: "🔍", label: "Discover",  route: "/vote/discover" },
-  { id: "vote",     icon: "✅", label: "Vote",      route: "/vote/vote" },
-  { id: "results",  icon: "🏆", label: "Results",   route: "/vote/results" },
-];
-
-export function SideNav({ votedSessionCount, isParticipating, isFlexible }: SideNavProps) {
+export function SideNav({ votedSessionCount, isParticipating, isFlexible, isAdmin }: SideNavProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const activeTab: TabId = pathname.includes("results")
+  const isGlobalContext = ["/vote/dashboard", "/vote/admin", "/vote/profile"].includes(pathname);
+
+  let tabs = [];
+  if (isGlobalContext) {
+    tabs = [
+      { id: "dashboard", icon: "🏠", label: "Dashboard", route: "/vote/dashboard" },
+      { id: "profile", icon: "👤", label: "Profile", route: "/vote/profile" },
+    ];
+  } else {
+    tabs = [
+      ...(isAdmin ? [{ id: "dashboard", icon: "🏠", label: "Home", route: "/vote/dashboard" }] : []),
+      { id: "vote",     icon: "✅", label: "Vote",      route: "/vote/vote" },
+      { id: "results",  icon: "🏆", label: "Results",   route: "/vote/results" },
+    ];
+  }
+
+  const activeTab = pathname === "/vote/dashboard" || pathname === "/vote/admin"
+    ? "dashboard"
+    : pathname === "/vote/profile"
+    ? "profile"
+    : pathname.includes("results")
     ? "results"
-    : pathname.includes("vote/vote")
-    ? "vote"
-    : "discover";
+    : "vote";
 
   return (
     <div style={{
@@ -35,7 +47,7 @@ export function SideNav({ votedSessionCount, isParticipating, isFlexible }: Side
       padding: "16px 10px",
       gap: 4,
     }}>
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
         const rawBadge = tab.id === "vote" ? (isFlexible ? -1 : votedSessionCount) : null;
 

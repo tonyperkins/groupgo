@@ -49,7 +49,7 @@ def _get_poll_for_request(request: Request, statuses: list[str], db: Session) ->
         return db.exec(
             select(Poll).where(Poll.id == browse_poll_id, Poll.status.in_(statuses))
         ).first()
-    return db.exec(select(Poll).where(Poll.status.in_(statuses))).first()
+    return db.exec(select(Poll).where(Poll.status.in_(statuses)).order_by(Poll.id.desc())).first()
 
 
 def _identity_redirect(request: Request, db: Session) -> RedirectResponse:
@@ -69,6 +69,9 @@ def _redirect_if_secure_session_exists(request: Request, db: Session) -> Redirec
         return None
 
     user = get_current_user_optional(request, db)
+    if user and user.role == "platform_admin":
+        return None  # Admins stay on root dashboard
+
     poll = _get_poll_for_request(request, ["OPEN", "CLOSED"], db)
     if user and poll:
         target = "/vote/movies" if poll.status == "OPEN" else "/results"
@@ -77,26 +80,12 @@ def _redirect_if_secure_session_exists(request: Request, db: Session) -> Redirec
 
 
 @router.get("/", response_class=HTMLResponse)
+@router.get("/login", response_class=HTMLResponse)
+@router.get("/signup", response_class=HTMLResponse)
+@router.get("/no-poll", response_class=HTMLResponse)
 async def voter_home(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_optional(request, db)
-    if not user:
-        return _identity_redirect(request, db)
-
-    poll = _get_poll_for_request(request, ["OPEN"], db)
-    if not poll:
-        closed_poll = _get_poll_for_request(request, ["CLOSED"], db)
-        return templates.TemplateResponse(
-            request,
-            "voter/no_poll.html",
-            {
-                "request": request,
-                "user": user,
-                "closed_poll": closed_poll,
-                "secure_entry": is_secure_entry(request),
-            },
-        )
-
-    return RedirectResponse("/vote/movies", status_code=302)
+    """Serve the root React SPA for landing, login, and signup pages."""
+    return _serve_spa()
 
 
 @router.get("/no-poll", response_class=HTMLResponse)
@@ -274,7 +263,7 @@ async def identify_page(request: Request, db: Session = Depends(get_db)):
     if secure_redirect:
         return secure_redirect
 
-    users = db.exec(select(User).where(User.role == "voter")).all()
+    users = db.exec(select(User).where(User.role == "member")).all()
     return templates.TemplateResponse(
         request,
         "voter/identify.html", {"request": request, "users": users, "secure_entry": False}
@@ -293,7 +282,7 @@ async def identify_submit(
 
     user = db.get(User, user_id)
     if not user:
-        users = db.exec(select(User).where(User.role == "voter")).all()
+        users = db.exec(select(User).where(User.role == "member")).all()
         return templates.TemplateResponse(
             request,
             "voter/identify.html",
@@ -327,6 +316,29 @@ async def voter_movies(request: Request, db: Session = Depends(get_db)):
     if not poll:
         return RedirectResponse("/", status_code=302)
     return _serve_spa()
+
+
+@router.get("/vote/admin", response_class=HTMLResponse)
+async def voter_admin(request: Request, poll_id: int | None = None, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user or user.role != "platform_admin":
+        return RedirectResponse("/", status_code=302)
+    
+    if poll_id:
+        poll = db.get(Poll, poll_id)
+    else:
+        # Find the newest DRAFT poll
+        poll = db.exec(select(Poll).where(Poll.status == "DRAFT").order_by(Poll.id.desc())).first()
+        
+    if not poll:
+        return RedirectResponse("/", status_code=302)
+        
+    response = _serve_spa()
+    # Forcefully align the user's poll session cookie to this DRAFT poll
+    from app.services.security_service import set_voter_identity_cookies, ensure_user_token
+    user_token = ensure_user_token(user, db)
+    set_voter_identity_cookies(response, user_token=user_token, poll_id=poll.id, user_id=user.id)
+    return response
 
 
 @router.get("/vote/discover", response_class=HTMLResponse)

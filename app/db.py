@@ -7,7 +7,6 @@ os.makedirs("data", exist_ok=True)
 
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False},
 )
 
 
@@ -16,25 +15,7 @@ def get_db():
         yield session
 
 
-def _ensure_many_to_many_tables(db: Session):
-    """Idempotent migration: create user_groups/poll_groups if absent and backfill from legacy FK columns."""
-    db.exec(text("""CREATE TABLE IF NOT EXISTS user_groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-        UNIQUE(user_id, group_id)
-    )"""))  # type: ignore[call-overload]
-    db.exec(text("""INSERT OR IGNORE INTO user_groups (user_id, group_id)
-        SELECT id, group_id FROM users WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
-    db.exec(text("""CREATE TABLE IF NOT EXISTS poll_groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
-        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-        UNIQUE(poll_id, group_id)
-    )"""))  # type: ignore[call-overload]
-    db.exec(text("""INSERT OR IGNORE INTO poll_groups (poll_id, group_id)
-        SELECT id, group_id FROM polls WHERE group_id IS NOT NULL"""))  # type: ignore[call-overload]
-    db.commit()
+
 
 
 SEED_THEATERS = [
@@ -54,10 +35,6 @@ def init_db():
     with Session(engine) as db:
         from app.services.security_service import generate_member_pin
 
-        # Enable WAL mode for better concurrency
-        db.exec(text("PRAGMA journal_mode=WAL"))  # type: ignore[call-overload]
-        db.exec(text("PRAGMA foreign_keys=ON"))   # type: ignore[call-overload]
-
         # Seed default group
         existing_groups = db.exec(select(Group)).all()
         if not existing_groups:
@@ -75,7 +52,7 @@ def init_db():
                 id=1,
                 name=admin_name,
                 email=admin_email,
-                role="admin",
+                role="platform_admin",
                 member_pin=admin_pin,
                 group_id=1,
             ))
@@ -97,8 +74,7 @@ def init_db():
                     db.add(user)
             db.commit()
 
-        # Auto-migrate: ensure many-to-many join tables exist and are backfilled
-        _ensure_many_to_many_tables(db)
+        # Auto-migrate steps (legacy backfill) removed. Postgres schema created clean via SQLModel.
 
         # Seed theaters if table is empty
         existing_theaters = db.exec(select(Venue)).all()
