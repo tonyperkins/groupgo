@@ -152,7 +152,9 @@ export function AdminCurationTab({ pollId, onPublish }: { pollId: number; onPubl
 
   const handlePublish = async () => {
     if (state?.poll.status === "OPEN") {
-      window.location.href = "/vote";
+      // Already open? Just sync and stay here. 
+      // The onPublish handler in App.tsx now handles the UI refresh.
+      onPublish();
       return;
     }
     await adminSpaApi.publishPoll(pollId);
@@ -207,27 +209,76 @@ export function AdminCurationTab({ pollId, onPublish }: { pollId: number; onPubl
             Search for movies, add them to your block, and tap on them to assign times.
           </p>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, background: C.card, padding: "8px 12px", borderRadius: 8, border: `1px dashed ${C.borderLight}`, width: "max-content", cursor: "pointer" }} onClick={() => handleToggleSingleVote(!state.poll.is_single_vote)}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: state.poll.is_single_vote ? C.accent : C.text }}>Strict Single-Vote</span>
-              <span style={{ fontSize: 11, color: C.textDim }}>Voters can only select 1 option.</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: C.card, padding: "8px 12px", borderRadius: 8, border: `1px dashed ${C.borderLight}`, width: "max-content", cursor: "pointer" }} onClick={() => handleToggleSingleVote(!state.poll.is_single_vote)}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: state.poll.is_single_vote ? C.accent : C.text }}>Strict Single-Vote</span>
+                <span style={{ fontSize: 11, color: C.textDim }}>Voters can only select 1 option.</span>
+              </div>
+              <div 
+                style={{
+                  width: 44, height: 24, borderRadius: 12, background: state.poll.is_single_vote ? C.accent : C.surface,
+                  display: "flex", alignItems: "center", padding: 2, boxSizing: "border-box",
+                  transition: "background 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                }}
+              >
+                <div style={{
+                  width: 20, height: 20, borderRadius: 10, background: state.poll.is_single_vote ? "#000" : C.textMuted,
+                  transform: `translateX(${state.poll.is_single_vote ? 20 : 0}px)`,
+                  transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                }} />
+              </div>
             </div>
-            <div 
-              style={{
-                width: 44, height: 24, borderRadius: 12, background: state.poll.is_single_vote ? C.accent : C.surface,
-                display: "flex", alignItems: "center", padding: 2, boxSizing: "border-box",
-                transition: "background 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
-              }}
-            >
-              <div style={{
-                width: 20, height: 20, borderRadius: 10, background: state.poll.is_single_vote ? "#000" : C.textMuted,
-                transform: `translateX(${state.poll.is_single_vote ? 20 : 0}px)`,
-                transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
-              }} />
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: C.card, padding: "8px 12px", borderRadius: 8, border: `1px dashed ${C.borderLight}`, width: "max-content" }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: state.poll.voting_closes_at ? C.accent : C.text }}>Voting Deadline</span>
+                <span style={{ fontSize: 11, color: C.textDim }}>
+                  {state.poll.voting_closes_at ? new Date(state.poll.voting_closes_at + "Z").toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : "No deadline set."}
+                </span>
+              </div>
+              <select
+                value={state.poll.voting_closes_at ? "custom" : ""}
+                onChange={(e) => {
+                  if (e.target.value === "") {
+                    adminSpaApi.updatePollDeadline(pollId, null).then(fetchState);
+                  } else {
+                    const hoursOffset = parseInt(e.target.value, 10);
+                    if (!isNaN(hoursOffset)) {
+                      const deadline = new Date(Date.now() + hoursOffset * 3600 * 1000).toISOString().replace("Z", "");
+                      adminSpaApi.updatePollDeadline(pollId, deadline).then(fetchState);
+                    }
+                  }
+                }}
+                style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none", cursor: "pointer", fontWeight: 700 }}
+              >
+                <option value="">No Deadline</option>
+                <option value="12">In 12 hours</option>
+                <option value="24">In 24 hours</option>
+                <option value="48">In 48 hours</option>
+                <option value="168">In 1 week</option>
+                {state.poll.voting_closes_at && <option value="custom">Custom (Set)</option>}
+              </select>
             </div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          {state.poll.access_uuid && (
+            <button 
+              onClick={async () => {
+                const url = `${window.location.origin}/p/${state.poll.access_uuid}`;
+                const title = state.poll.title ? `Vote on: ${state.poll.title}` : "Vote on GroupGo";
+                if (navigator.share) {
+                  navigator.share({ title, url }).catch(()=>{});
+                } else {
+                  navigator.clipboard.writeText(url).then(() => alert("Link copied to clipboard!"));
+                }
+              }}
+              style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 99, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <span>🚀</span> Share
+            </button>
+          )}
           <button 
             onClick={handleCancel}
             style={{ background: "#322", color: C.red, border: "1px solid #533", borderRadius: 99, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
@@ -242,6 +293,37 @@ export function AdminCurationTab({ pollId, onPublish }: { pollId: number; onPubl
           </button>
         </div>
       </div>
+      
+      {/* PUBLISH SUCCESS BANNER */}
+      {state.poll.status === "OPEN" && !localStorage.getItem(`dismissed_publish_hint_${pollId}`) && (
+        <div style={{ 
+          margin: "12px 24px 0",
+          background: "rgba(34, 197, 94, 0.1)", border: `1px solid ${C.green}44`, 
+          borderRadius: 16, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center",
+          animation: "slideDown 0.4s ease-out"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ fontSize: 24 }}>✨</span>
+            <div>
+              <div style={{ color: C.green, fontWeight: 900, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em" }}>Live & Ready</div>
+              <div style={{ color: C.text, fontSize: 13, marginTop: 2, opacity: 0.9 }}>This poll is now accepting votes. Use the <b>Share</b> button to invite your group!</div>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              localStorage.setItem(`dismissed_publish_hint_${pollId}`, "true");
+              fetchState(); // Re-render to hide
+            }}
+            style={{ background: "transparent", color: C.textMuted, border: "none", cursor: "pointer", fontSize: 20, padding: 8 }}
+          >&times;</button>
+          <style>{`
+            @keyframes slideDown {
+              from { opacity: 0; transform: translateY(-10px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {state.poll.status === "OPEN" && (
         <div style={{ margin: "12px 24px", padding: 12, background: "#332200", border: `1px solid ${C.accent}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 10 }}>

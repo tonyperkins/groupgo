@@ -19,3 +19,5 @@ export { ProfileTab } from "./ProfileTab";
 export * from "./LoginView";
 export * from "./SignupView";
 export { ConfirmModal } from "./ConfirmModal";
+export { AdminCreationWizard } from "./AdminCreationWizard";
+export { GuestJoinView } from "./GuestJoinView";

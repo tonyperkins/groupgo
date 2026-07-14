@@ -63,6 +63,7 @@ async def get_poll_state(
             "access_uuid": poll.access_uuid,
             "target_dates": target_dates,
             "is_single_vote": poll.is_single_vote,
+            "voting_closes_at": poll.voting_closes_at,
         },
         "events": [_serialize_event(e) for e in events],
         "sessions": [_serialize_session(s) for s in sessions],
@@ -171,6 +172,28 @@ async def update_poll_single_vote(
     db.add(poll)
     db.commit()
     return {"status": "ok", "is_single_vote": poll.is_single_vote}
+
+
+class UpdatePollDeadlineRequest(BaseModel):
+    voting_closes_at: Optional[str]
+
+
+@router.patch("/polls/{poll_id}/deadline")
+async def update_poll_deadline(
+    request: Request,
+    poll_id: int,
+    body: UpdatePollDeadlineRequest,
+    db: Session = Depends(get_db),
+):
+    verify_admin(request, db)
+    poll = db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    poll.voting_closes_at = body.voting_closes_at
+    db.add(poll)
+    db.commit()
+    return {"status": "ok", "voting_closes_at": poll.voting_closes_at}
 
 
 class AddCustomEventRequest(BaseModel):

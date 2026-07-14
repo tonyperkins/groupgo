@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { C } from "../tokens";
 import { voterApi, ResultsResponse, ResultsEntry, VoterSession, VoterEvent } from "../api/voter";
 import { HelpIcon } from "./HelpIcon";
+import confetti from "canvas-confetti";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -270,11 +271,13 @@ interface ResultsTabProps {
   onCancelEdit?: () => void;
   sessions?: VoterSession[];
   events?: VoterEvent[];
+  accessUuid?: string | null;
+  pollTitle?: string | null;
 }
 
 const POLL_INTERVAL_MS = 15_000;
 
-export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote, onCancelEdit, sessions = [], events = [] }: ResultsTabProps) {
+export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = false, onJoin, onSubmitVote, onCancelEdit, sessions = [], events = [], accessUuid, pollTitle }: ResultsTabProps) {
   const navigate = useNavigate();
   const [data, setData] = useState<ResultsResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -283,6 +286,30 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
   const [dotFlashing, setDotFlashing] = useState(false);
   const prevResultsRef = useRef<string>("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleShare = async () => {
+    if (!accessUuid) return;
+    const shareUrl = `${window.location.origin}/p/${accessUuid}`;
+    const shareTitle = pollTitle ? `Vote on: ${pollTitle}` : "Vote on our next GroupGo outing!";
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: "Help us decide what to do! Cast your vote on GroupGo.",
+          url: shareUrl,
+        });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("Error sharing:", err);
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => alert("Link copied to clipboard!"))
+        .catch(() => alert("Failed to copy link."));
+    }
+  };
 
   function fetchResults() {
     voterApi.getResultsJson()
@@ -312,6 +339,19 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
   useEffect(() => {
     if (hasCompletedVoting && !isEditing) setStandingsCollapsed(false);
   }, [hasCompletedVoting, isEditing]);
+
+  const hasFiredWinnerRef = useRef(false);
+  useEffect(() => {
+    if (data?.poll_status === "CLOSED" && data.results.length > 0 && !hasFiredWinnerRef.current) {
+      hasFiredWinnerRef.current = true;
+      confetti({
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.3 },
+        colors: ['#F59E0B', '#E8A020', '#FFFFFF', '#22C55E']
+      });
+    }
+  }, [data]);
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (!data && !loadError) {
@@ -361,6 +401,26 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
   return (
     <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
 
+      {/* ── Action Bar (Share) ───────────────────────────────────── */}
+      {accessUuid && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
+          <button
+            onClick={handleShare}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: C.surface, color: C.text, border: `1px solid ${C.border}`,
+              borderRadius: 99, padding: "6px 14px", fontSize: 13, fontWeight: 700,
+              cursor: "pointer", transition: "all 0.2s"
+            }}
+            onMouseDown={(e) => (e.currentTarget.style.background = C.border)}
+            onMouseUp={(e) => (e.currentTarget.style.background = C.surface)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = C.surface)}
+          >
+            <span style={{ fontSize: 15 }}>🚀</span> Share Results
+          </button>
+        </div>
+      )}
+
       {/* ── Preview-mode join CTA ────────────────────────────────── */}
       {!isParticipating && (
         <div style={{
@@ -373,7 +433,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
             <div style={{ fontSize: 16, fontWeight: 800, color: C.accent, marginBottom: 2 }}>You're not in the vote yet</div>
             <div style={{ fontSize: 15, color: C.textMuted }}>Join to influence these standings.</div>
           </div>
-          <div onClick={onJoin} style={{
+          <div onClick={onJoin} className="active:scale-95 transition-transform" style={{
             background: C.accent, color: "#000", fontSize: 14, fontWeight: 700,
             padding: "6px 14px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
           }}>Join</div>
@@ -518,7 +578,17 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
               )}
               <div style={{ display: "flex", gap: 8 }}>
                 <div
-                  onClick={onSubmitVote ? async () => { await onSubmitVote(); fetchResults(); } : () => navigate("/vote/vote")}
+                  className="active:scale-95 transition-transform"
+                  onClick={onSubmitVote ? async () => { 
+                    await onSubmitVote(); 
+                    fetchResults();
+                    confetti({
+                      particleCount: 100,
+                      spread: 70,
+                      origin: { y: 0.6 },
+                      colors: ['#22C55E', '#F59E0B', '#3B82F6']
+                    });
+                  } : () => navigate("/vote/vote")}
                   style={{
                     flex: 1, background: C.accent, color: "#000", fontWeight: 700, fontSize: 14,
                     borderRadius: 10, padding: "10px 16px", textAlign: "center", cursor: "pointer",
@@ -526,6 +596,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
                 >{isEditing ? "Resubmit →" : "Submit your vote →"}</div>
                 {isEditing && onCancelEdit && (
                   <div
+                    className="active:scale-95 transition-transform"
                     onClick={onCancelEdit}
                     style={{
                       background: "transparent", color: C.textMuted, fontWeight: 600, fontSize: 14,
@@ -540,6 +611,7 @@ export function ResultsTab({ isParticipating, hasCompletedVoting, isEditing = fa
             <>
               <div style={{ fontSize: 14, color: C.textMuted }}>You haven't picked anything yet.</div>
               <div
+                className="active:scale-95 transition-transform"
                 onClick={() => navigate("/vote/vote")}
                 style={{
                   background: C.surface, color: C.accent, fontWeight: 700, fontSize: 14,

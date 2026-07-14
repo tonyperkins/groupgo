@@ -1,0 +1,253 @@
+{% extends "admin/base_admin.html" %}
+{% set active_page = 'dashboard' %}
+{% block title %}New Event — GroupGo Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8">
+  <div class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-black text-white tracking-tight">Plan an Outing</h1>
+      <p class="text-slate-400 mt-2 text-sm">Create a beautiful, frictionless event for your group in 3 quick steps.</p>
+    </div>
+    <a href="/admin" class="btn-ghost text-sm">Cancel</a>
+  </div>
+
+  <!-- Wizard Container -->
+  <div class="card p-6 relative overflow-hidden bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_32px_rgba(0,0,0,0.5)]">
+    
+    <!-- Progress Indicator -->
+    <div class="flex items-center mb-8 gap-2">
+      <div id="step-1-dot" class="flex-1 h-1.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-all duration-300"></div>
+      <div id="step-2-dot" class="flex-1 h-1.5 rounded-full bg-slate-700 transition-all duration-300"></div>
+      <div id="step-3-dot" class="flex-1 h-1.5 rounded-full bg-slate-700 transition-all duration-300"></div>
+    </div>
+
+    <form id="wizard-form" onsubmit="return false;">
+      
+      <!-- STEP 1: WHAT -->
+      <div id="step-1" class="wizard-step transition-all duration-300">
+        <h2 class="text-xl font-bold text-white mb-6">What are we doing?</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 font-bold mb-2">Event Title</label>
+            <input type="text" id="poll-title" placeholder="e.g. Dune: Part Two Premiere" required
+              class="w-full bg-black/40 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all placeholder:text-slate-600"/>
+          </div>
+        </div>
+        <div class="mt-8 flex justify-end">
+          <button type="button" onclick="nextStep(2)" class="bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 px-6 rounded-xl transition-all active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.3)]">Next: Who's invited? →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: WHO -->
+      <div id="step-2" class="wizard-step hidden opacity-0 transition-all duration-300 translate-x-4">
+        <button type="button" onclick="prevStep(1)" class="text-xs text-slate-400 hover:text-white mb-4 flex items-center gap-1 transition-colors">← Back</button>
+        <h2 class="text-xl font-bold text-white mb-2">Who's invited?</h2>
+        <p class="text-sm text-slate-400 mb-6">Select the groups for this outing, or leave blank to allow all members.</p>
+        
+        <div class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          {% for g in groups %}
+          <label class="flex items-center justify-between p-4 rounded-xl border border-slate-700 bg-slate-800/50 cursor-pointer hover:border-amber-500/50 transition-all group">
+            <span class="text-white font-medium group-hover:text-amber-400 transition-colors">{{ g.name }}</span>
+            <input type="checkbox" value="{{ g.id }}" class="wizard-group-cb w-5 h-5 rounded border-slate-600 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900 bg-slate-700">
+          </label>
+          {% else %}
+          <div class="text-slate-500 text-sm italic p-4 text-center border border-dashed border-slate-700 rounded-xl">No groups found. All members will be able to join.</div>
+          {% endfor %}
+        </div>
+
+        <div class="mt-8 flex justify-between items-center">
+          <button type="button" onclick="nextStep(3)" class="bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 px-6 rounded-xl transition-all active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.3)] ml-auto">Next: When is it? →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: WHEN -->
+      <div id="step-3" class="wizard-step hidden opacity-0 transition-all duration-300 translate-x-4">
+        <button type="button" onclick="prevStep(2)" class="text-xs text-slate-400 hover:text-white mb-4 flex items-center gap-1 transition-colors">← Back</button>
+        <h2 class="text-xl font-bold text-white mb-2">When is it?</h2>
+        <p class="text-sm text-slate-400 mb-6">Select one or more target dates. You'll pick specific showtimes next.</p>
+        
+        <div class="bg-black/40 border border-slate-700 rounded-xl p-4">
+           <!-- date picker logic identical to dashboard.html calRender etc. -->
+           <div class="flex items-center justify-between mb-4">
+             <button type="button" onclick="wizardCalNav(-1)" class="text-slate-400 hover:text-white p-2">&larr;</button>
+             <span id="wizard-cal-month" class="text-white font-bold tracking-wide"></span>
+             <button type="button" onclick="wizardCalNav(1)" class="text-slate-400 hover:text-white p-2">&rarr;</button>
+           </div>
+           <div class="grid grid-cols-7 gap-1 text-center mb-2">
+             <div class="text-xs text-slate-500 font-bold">Su</div><div class="text-xs text-slate-500 font-bold">Mo</div><div class="text-xs text-slate-500 font-bold">Tu</div><div class="text-xs text-slate-500 font-bold">We</div><div class="text-xs text-slate-500 font-bold">Th</div><div class="text-xs text-slate-500 font-bold">Fr</div><div class="text-xs text-slate-500 font-bold">Sa</div>
+           </div>
+           <div id="wizard-cal-grid" class="grid grid-cols-7 gap-1"></div>
+        </div>
+        <div id="wizard-cal-selected" class="flex flex-wrap gap-2 mt-4 min-h-[2rem]"></div>
+        
+        <div id="wizard-error" class="hidden mt-4 bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-lg"></div>
+
+        <div class="mt-8 flex justify-between items-center">
+          <button type="button" onclick="submitWizard()" id="submit-btn" class="bg-emerald-500 hover:bg-emerald-400 text-black font-black py-3 px-8 rounded-xl transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] active:scale-95 ml-auto flex items-center gap-2">
+            Create Outing & Curate 
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Logic to handle stepping
+let currentStep = 1;
+
+function showStep(step) {
+  document.querySelectorAll('.wizard-step').forEach(el => {
+    el.classList.add('hidden', 'opacity-0', 'translate-x-4', '-translate-x-4');
+  });
+  const target = document.getElementById(`step-${step}`);
+  target.classList.remove('hidden');
+  
+  // Update dots
+  for(let i=1; i<=3; i++) {
+    const dot = document.getElementById(`step-${i}-dot`);
+    if(i === step) {
+      dot.className = 'flex-1 h-1.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-all duration-300';
+    } else if (i < step) {
+      dot.className = 'flex-1 h-1.5 rounded-full bg-amber-500/30 transition-all duration-300';
+    } else {
+      dot.className = 'flex-1 h-1.5 rounded-full bg-slate-700 transition-all duration-300';
+    }
+  }
+
+  // Animate in
+  setTimeout(() => {
+    target.classList.remove('opacity-0', 'translate-x-4', '-translate-x-4');
+  }, 10);
+  
+  if(step === 1) document.getElementById('poll-title').focus();
+}
+
+function nextStep(step) {
+  if (step === 2) {
+    if (!document.getElementById('poll-title').value.trim()) {
+      alert("Please enter a title.");
+      return;
+    }
+  }
+  
+  const currentEl = document.getElementById(`step-${currentStep}`);
+  currentEl.classList.add('opacity-0', '-translate-x-4');
+  setTimeout(() => {
+    currentStep = step;
+    showStep(step);
+  }, 300);
+}
+
+function prevStep(step) {
+  const currentEl = document.getElementById(`step-${currentStep}`);
+  currentEl.classList.add('opacity-0', 'translate-x-4');
+  setTimeout(() => {
+    currentStep = step;
+    showStep(step);
+  }, 300);
+}
+
+// Calendar Logic
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let _calYear = new Date().getFullYear();
+let _calMonth = new Date().getMonth();
+let _calSelected = new Set();
+const todayIso = new Date().toISOString().slice(0,10);
+
+function wizardCalRender() {
+  document.getElementById('wizard-cal-month').textContent = `${MONTHS[_calMonth]} ${_calYear}`;
+  const grid = document.getElementById('wizard-cal-grid');
+  grid.innerHTML = '';
+  const firstDay = new Date(_calYear, _calMonth, 1).getDay();
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  
+  for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sel = _calSelected.has(iso);
+    const isPast = iso < todayIso;
+    const isToday = iso === todayIso;
+    
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = d;
+    btn.className = `w-full aspect-square text-sm rounded-lg font-bold transition-all flex items-center justify-center
+      ${sel ? 'bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.5)] scale-105' 
+      : isPast ? 'text-slate-600 cursor-not-allowed opacity-50 bg-transparent' 
+      : isToday ? 'ring-1 ring-amber-500/50 text-amber-200 hover:bg-slate-800'
+      : 'text-slate-300 hover:bg-slate-700 bg-black/20'}`;
+    
+    if (!isPast || sel) {
+      btn.onclick = () => wizardCalToggle(iso);
+    }
+    grid.appendChild(btn);
+  }
+  wizardCalRenderPills();
+}
+
+function wizardCalToggle(iso) {
+  if (_calSelected.has(iso)) _calSelected.delete(iso); else _calSelected.add(iso);
+  wizardCalRender();
+}
+
+function wizardCalNav(dir) {
+  _calMonth += dir; 
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; } 
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; } 
+  wizardCalRender();
+}
+
+function wizardCalRenderPills() {
+  const sorted = [..._calSelected].sort();
+  document.getElementById('wizard-cal-selected').innerHTML = sorted.map(d =>
+    `<span class="inline-flex items-center gap-1.5 bg-slate-800/80 text-amber-500 text-xs px-3 py-1.5 rounded-full border border-amber-500/20 font-medium">
+      ${d}
+      <button type="button" onclick="wizardCalToggle('${d}')" class="text-slate-400 hover:text-white transition-colors">×</button>
+    </span>`
+  ).join('');
+}
+
+wizardCalRender();
+
+async function submitWizard() {
+  const title = document.getElementById('poll-title').value.trim();
+  const dates = [..._calSelected].sort();
+  const group_ids = [...document.querySelectorAll('.wizard-group-cb:checked')].map(cb => parseInt(cb.value));
+  const errEl = document.getElementById('wizard-error');
+  const btn = document.getElementById('submit-btn');
+  
+  if (!dates.length) {
+    errEl.textContent = 'Please select at least one date.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  
+  errEl.classList.add('hidden');
+  const ogText = btn.innerHTML;
+  btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Creating...`;
+  btn.disabled = true;
+
+  const resp = await fetch('/api/admin/polls', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title, target_dates: dates, group_ids})
+  });
+  
+  if (resp.ok) {
+    const data = await resp.json();
+    window.location.href = `/admin/polls/${data.id}/movies`;
+  } else {
+    const d = await resp.json();
+    errEl.textContent = d.detail || 'Error creating poll.';
+    errEl.classList.remove('hidden');
+    btn.innerHTML = ogText;
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

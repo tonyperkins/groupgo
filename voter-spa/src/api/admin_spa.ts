@@ -26,6 +26,7 @@ export interface AdminPollState {
     access_uuid: string | null;
     target_dates: string[];
     is_single_vote: boolean;
+    voting_closes_at: string | null;
   };
   events: {
     id: number;
@@ -57,6 +58,9 @@ export interface AdminPollState {
 }
 
 export const adminSpaApi = {
+  createPoll: (data: { title: string; target_dates: string[]; group_ids: number[] }) =>
+    api.post<{ id: number; title: string; status: string; access_uuid: string }>(`/api/admin/polls`, data),
+
   getPollState: (pollId: number) => 
     api.get<AdminPollState>(`/api/spa/polls/${pollId}`),
 
@@ -93,6 +97,7 @@ export const adminSpaApi = {
 
   updatePollTitle: (pollId: number, title: string) => api.patch<{ status: string; title: string }>(`/api/spa/polls/${pollId}/title`, { title }),
   updatePollSingleVote: (pollId: number, is_single_vote: boolean) => api.patch<{ status: string; is_single_vote: boolean }>(`/api/spa/polls/${pollId}/is_single_vote`, { is_single_vote }),
+  updatePollDeadline: (pollId: number, voting_closes_at: string | null) => api.patch<{ status: string; voting_closes_at: string | null }>(`/api/spa/polls/${pollId}/deadline`, { voting_closes_at }),
   deletePoll: (pollId: number) => api.delete<{ status: string }>(`/api/spa/polls/${pollId}`),
 
   publishPoll: (pollId: number) =>

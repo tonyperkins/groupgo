@@ -136,4 +136,7 @@ export const voterApi = {
 
   authSignup: (name: string, email: string) => 
     api.post<{ ok: boolean, message: string }>("/api/auth/signup", { name, email }),
+
+  guestJoin: (name: string, access_uuid: string) =>
+    api.post<{ ok: boolean, message: string }>("/api/auth/guest-join", { name, access_uuid }),
 };

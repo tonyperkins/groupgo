@@ -32,12 +32,11 @@
       <p class="page-subtitle mt-3">Add events and their times, then publish for your group to vote.</p>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
-      {% if poll.status == 'OPEN' %}
+      <a href="/vote/p/{{ poll.access_uuid }}?preview=true" target="_blank" class="btn-ghost text-xs">👀 Preview</a>
       <button type="button"
         data-poll-id="{{ poll.id }}" data-poll-title="{{ poll.title }}"
         onclick="showInviteLinkFromButton(this)"
         class="btn-primary text-xs">🔗 Invite Link</button><span class="gg-help-icon" data-help-body="Generates a unique join link for this poll. Share it with your group — members click it, enter their PIN, and land directly in the voter app. The link is poll-specific and expires when the poll is archived.">ⓘ</span>
-      {% endif %}
       <div class="relative" id="poll-actions-menu">
         <button id="poll-actions-btn" type="button" onclick="togglePollActionsMenu()" class="btn-ghost text-xs" title="Poll actions">⋯ Actions</button>
         <div id="poll-actions-dropdown" class="hidden fixed z-[9999] bg-slate-800 border border-slate-700 rounded-xl shadow-xl min-w-[180px] py-1">

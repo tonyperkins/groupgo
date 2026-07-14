@@ -1,5 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Join — GroupGo{% endblock %}
+{% block title %}{{ poll.title if poll else 'Join' }} — GroupGo{% endblock %}
+
+{% block og_meta %}{% endblock %}
+{% block og_title %}{{ poll.title }} — You're Invited! 🎉{% endblock %}
+{% block og_description %}Join the vote for {{ poll.title }}{% if poll_dates %} on {{ poll_dates | first | display_date }}{% endif %}. Your group is waiting for you!{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_image %}{% endblock %}
+
 {% block page_header %}{% endblock %}
 {% block main_class %}overflow-hidden{% endblock %}
 

@@ -11,13 +11,12 @@
       <p class="page-subtitle mt-3">Create a poll, curate the event shortlist, add times, and guide the group from idea to final plan without bouncing between tools.</p>
     </div>
     <div class="cta-row">
-      <button onclick="openNewPollModal()"
-        class="btn-primary gap-2 text-sm">
+      <a href="/vote/admin/new" class="btn-primary gap-2 text-sm inline-flex items-center">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
         </svg>
         New Poll
-      </button>
+      </a>
     </div>
   </div>
   <div class="hero-metrics mt-6">
@@ -41,8 +40,7 @@
   <div class="empty-state-icon">🎬</div>
   <p class="text-white font-semibold text-lg mb-2">No polls yet</p>
   <p class="text-slate-400 text-sm mb-4">Create your first poll to start curating events and times.</p>
-  <button onclick="openNewPollModal()"
-    class="btn-primary text-sm">Create First Poll</button>
+  <a href="/vote/admin/new" class="btn-primary text-sm inline-flex items-center">Create First Poll</a>
 </div>
 {% else %}
 

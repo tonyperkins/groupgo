@@ -141,6 +141,66 @@ async def secure_join_page(request: Request, access_uuid: str, db: Session = Dep
     return response
 
 
+@router.get("/p/{access_uuid}", response_class=HTMLResponse)
+async def public_og_redirect_page(request: Request, access_uuid: str, db: Session = Depends(get_db)):
+    """Dynamic Open Graph meta tags route for unfurl cards.
+    Returns a minimal HTML page with OG tags, which immediately redirects real users to /join/{uuid}.
+    """
+    from app.models import PollEvent, Event
+    poll = db.exec(select(Poll).where(Poll.access_uuid == access_uuid)).first()
+    if not poll:
+        return RedirectResponse("/no-poll")
+
+    # Get the top movie's poster
+    first_event = db.exec(
+        select(Event)
+        .join(PollEvent)
+        .where(PollEvent.poll_id == poll.id)
+        .order_by(PollEvent.sort_order)
+    ).first()
+
+    og_image = "https://groupgo.org/static/logo.png" # Fallback
+    if first_event and first_event.poster_path:
+        og_image = movie_service.poster_url(first_event.poster_path)
+
+    og_title = poll.title or "Vote on our next Outing"
+    og_description = poll.description or "Join this GroupGo poll to vote on our next group outing!"
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{og_title}</title>
+        <meta name="description" content="{og_description}">
+        
+        <!-- Open Graph -->
+        <meta property="og:title" content="{og_title}">
+        <meta property="og:description" content="{og_description}">
+        <meta property="og:image" content="{og_image}">
+        <meta property="og:url" content="{request.url}">
+        <meta property="og:type" content="website">
+        
+        <!-- Twitter Card -->
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="{og_title}">
+        <meta name="twitter:description" content="{og_description}">
+        <meta name="twitter:image" content="{og_image}">
+        
+        <meta http-equiv="refresh" content="0; url=/join/{access_uuid}">
+        <script>
+            window.location.replace("/join/{access_uuid}");
+        </script>
+    </head>
+    <body style="background:#0A0A0F; color:#fff; font-family:sans-serif; padding:2rem; text-align:center;">
+        <p>Redirecting to <a href="/join/{access_uuid}" style="color:#22C55E;">{og_title}</a>...</p>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
 @router.get("/join/{access_uuid}/enter", response_class=HTMLResponse)
 async def secure_join_enter(
     request: Request,

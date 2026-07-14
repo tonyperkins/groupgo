@@ -14,10 +14,12 @@ import {
   VoteTab,
   ResultsTab,
   AdminCurationTab,
+  AdminCreationWizard,
   ProfileTab,
   LoginView,
   SignupView,
   ConfirmModal,
+  GuestJoinView,
 } from "./components";
 import type { SessionVote } from "./components";
 import { StatusChip } from "./components/StatusChip";
@@ -72,7 +74,7 @@ function NoActivePollScreen({ meData }: NoActivePollScreenProps) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>Your Polls</h2>
             <button 
-              onClick={() => window.location.href = "/admin/polls/new"}
+              onClick={() => window.location.href = "/vote/admin/new"}
               style={{
                 background: C.accent, color: "#000", border: "none", 
                 borderRadius: 99, padding: "8px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer"
@@ -218,7 +220,7 @@ export default function App() {
       })
       .catch((err) => {
         if (err.status === 401) {
-          if (window.location.pathname === "/signup" || window.location.pathname === "/login") {
+          if (pathname === "/signup" || pathname === "/login") {
             setLoading(false);
           } else {
             window.location.href = "/login";
@@ -228,7 +230,7 @@ export default function App() {
           setLoading(false);
         }
       });
-  }, [window.location.search]);
+  }, [pathname, window.location.search]);
 
   // ── Vote actions (stubs — fleshed out in Sessions 3–4) ──────────────────────
 
@@ -382,25 +384,33 @@ export default function App() {
 
   // ── Browse mode (no PIN — viewer only) ─────────────────────────────────────
   if (meData.state === "browse") {
-    const joinBanner = meData.join_url ? (
+    if (pathname.startsWith("/vote/join/")) {
+      return (
+        <Routes>
+          <Route path="/vote/join/:accessUuid" element={<GuestJoinView pollTitle={meData.poll?.title} />} />
+        </Routes>
+      );
+    }
+
+    const joinBanner = meData.poll?.access_uuid ? (
       <div style={{
         background: C.accentGlow, borderBottom: `1px solid ${C.accentDim}`,
         padding: "10px 16px", display: "flex", alignItems: "center",
         justifyContent: "space-between", gap: 12, flexShrink: 0,
       }}>
         <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>
-          🎟️ Enter your PIN to join and vote
+          🎟️ Enter your name to join and vote
         </span>
-        <a
-          href={meData.join_url}
+        <button
+          onClick={() => navigate(`/vote/join/${meData.poll?.access_uuid}`)}
           style={{
             background: C.accent, color: "#000", fontWeight: 700,
-            fontSize: 11, padding: "5px 14px", borderRadius: 99,
-            textDecoration: "none", whiteSpace: "nowrap",
+            fontSize: 11, padding: "5px 14px", border: "none", borderRadius: 99,
+            cursor: "pointer", whiteSpace: "nowrap",
           }}
         >
           Join to Vote
-        </a>
+        </button>
       </div>
     ) : null;
 
@@ -440,6 +450,7 @@ export default function App() {
                    isFlexible={false}
                    isEditing={false}
                    pollId={state.meData?.poll?.id ?? 0}
+                   votingClosesAt={state.meData?.poll?.voting_closes_at ?? null}
                    onSessionVote={() => {}}
                    onSetFlexible={() => {}}
                    onJoin={() => {}}
@@ -477,6 +488,7 @@ export default function App() {
               isFlexible={false}
               isEditing={false}
               pollId={state.meData?.poll?.id ?? 0}
+              votingClosesAt={state.meData?.poll?.voting_closes_at ?? null}
               onSessionVote={() => {}}
               onSetFlexible={() => {}}
               onJoin={() => {}}
@@ -509,14 +521,23 @@ export default function App() {
 
   const routeContent = (
     <Routes>
+      <Route path="/vote/admin/new" element={meData.user?.role === "platform_admin" ? <AdminCreationWizard /> : <Navigate to="/vote/vote" replace />} />
       <Route path="/vote/dashboard" element={<NoActivePollScreen meData={meData} />} />
       <Route path="/vote/admin" element={
         (meData.poll?.id && (meData.poll?.status?.toUpperCase() === "DRAFT" || meData.poll?.status?.toUpperCase() === "OPEN")) ? (
           <AdminCurationTab 
             pollId={meData.poll.id} 
             onPublish={() => {
-              // Reload the app to resync state to OPEN mode
-              window.location.href = "/vote";
+              // Instead of a hard redirect, we just refetch data to sync the UI to OPEN mode.
+              // This keeps the user on the curation canvas so they can click 'Share'.
+              voterApi.getMe(meData.poll?.id ?? undefined).then((data) => {
+                setState((prev) => ({ 
+                  ...prev, 
+                  meData: data,
+                  toast: "Poll published! Use the Share button to invite voters. 🚀",
+                  toastType: "success"
+                }));
+              });
             }} 
           />
         ) : (
@@ -550,6 +571,7 @@ export default function App() {
           isFlexible={prefs.is_flexible}
           isEditing={state.isEditing}
           pollId={state.meData?.poll?.id ?? 0}
+          votingClosesAt={state.meData?.poll?.voting_closes_at ?? null}
           onSessionVote={castSessionVote}
           onSetFlexible={handleSetFlexible}
           onJoin={handleJoin}
@@ -565,6 +587,8 @@ export default function App() {
           onCancelEdit={handleCancelEdit}
           sessions={state.meData?.sessions ?? []}
           events={state.meData?.events ?? []}
+          accessUuid={state.meData?.poll?.access_uuid}
+          pollTitle={state.meData?.poll?.title}
         />
       } />
           <Route
@@ -578,12 +602,11 @@ export default function App() {
               />
             }
           />
-      <Route path="/vote"           element={<Navigate to={meData.user?.role === "platform_admin" ? "/vote/dashboard" : "/vote/vote"} replace />} />
-      <Route path="/vote/movies"    element={<Navigate to="/vote/vote" replace />} />
-      <Route path="/vote/discover"  element={<Navigate to="/vote/vote" replace />} />
-      <Route path="/vote/showtimes" element={<Navigate to="/vote/vote" replace />} />
-      <Route path="/vote/*"         element={<Navigate to={meData.poll?.status?.toUpperCase() === "DRAFT" ? "/vote/admin" : (meData.user?.role === "platform_admin" ? "/vote/dashboard" : "/vote/vote")} replace />} />
-      <Route path="*"               element={<Navigate to={meData.poll?.status?.toUpperCase() === "DRAFT" ? "/vote/admin" : (meData.user?.role === "platform_admin" ? "/vote/dashboard" : "/vote/vote")} replace />} />
+      <Route path="/vote"           element={<Navigate to={meData.user?.role === "platform_admin" ? "/vote/dashboard" : (meData.poll?.status === "CLOSED" ? "/vote/results" : "/vote/vote")} replace />} />
+      <Route path="/vote/movies"    element={<Navigate to={meData.poll?.status === "CLOSED" ? "/vote/results" : "/vote/vote"} replace />} />
+      <Route path="/vote/discover"  element={<Navigate to={meData.poll?.status === "CLOSED" ? "/vote/results" : "/vote/vote"} replace />} />
+      <Route path="/vote/showtimes" element={<Navigate to={meData.poll?.status === "CLOSED" ? "/vote/results" : "/vote/vote"} replace />} />
+      <Route path="*"               element={<Navigate to={meData.poll?.status?.toUpperCase() === "DRAFT" ? "/vote/admin" : (meData.user?.role === "platform_admin" ? "/vote/dashboard" : (meData.poll?.status === "CLOSED" ? "/vote/results" : "/vote/vote"))} replace />} />
     </Routes>
   );
 

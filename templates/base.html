@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#0A0A0F"/>
   <title>{% block title %}GroupGo{% endblock %}</title>
+  
+  {# Open Graph / Social Sharing - Override in child templates #}
+  {% block og_meta %}
+  <meta property="og:site_name" content="GroupGo"/>
+  <meta property="og:title" content="{% block og_title %}GroupGo — Plan Group Outings{% endblock %}"/>
+  <meta property="og:description" content="{% block og_description %}Coordinate movie nights, dinners, and events with your friends. No more endless group chat debates.{% endblock %}"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="{{ request.url if request is defined else 'https://groupgo.app' }}"/>
+  <meta property="og:image" content="{% block og_image %}/static/favicon.svg{% endblock %}"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  
+  {# Twitter Card #}
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="{% block twitter_title %}{% block og_title %}GroupGo{% endblock %}{% endblock %}"/>
+  <meta name="twitter:description" content="{% block twitter_description %}{% block og_description %}Coordinate movie nights with your friends{% endblock %}{% endblock %}"/>
+  <meta name="twitter:image" content="{% block twitter_image %}{% block og_image %}/static/favicon.svg{% endblock %}{% endblock %}"/>
+  {% endblock %}
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>

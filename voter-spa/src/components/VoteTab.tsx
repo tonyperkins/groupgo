@@ -14,9 +14,48 @@ interface VoteTabProps {
   isFlexible: boolean;
   isEditing: boolean;
   pollId: number;
+  votingClosesAt: string | null;
   onSessionVote: (sessionId: number, vote: SessionVote) => void;
   onSetFlexible: (flexible: boolean) => void;
   onJoin: () => void;
+}
+
+function useCountdown(targetDate: string | null) {
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!targetDate) {
+      setTimeLeft(null);
+      return;
+    }
+    const target = new Date(targetDate + "Z").getTime();
+    
+    const update = () => {
+      const now = Date.now();
+      const diff = target - now;
+      if (diff <= 0) {
+        setTimeLeft("Voting closed");
+        return;
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        setTimeLeft(`Closes in ${days}d ${hours % 24}h`);
+      } else {
+        setTimeLeft(`Closes in ${hours}h ${mins}m ${secs}s`);
+      }
+    };
+    
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return timeLeft;
 }
 
 function formatDate(dateStr: string): string {
@@ -561,10 +600,12 @@ export function VoteTab({
   isFlexible,
   isEditing,
   pollId,
+  votingClosesAt,
   onSessionVote,
   onSetFlexible,
   onJoin,
 }: VoteTabProps) {
+  const countdown = useCountdown(votingClosesAt);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [eventFilter, setEventFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<string | null>(null);
@@ -617,6 +658,18 @@ export function VoteTab({
     <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
 
       {/* ── Preview join nudge ────────────────────────────────────── */}
+      {countdown && (
+        <div style={{
+          background: "rgba(232, 160, 32, 0.1)", border: `1px solid ${C.accentDim}`,
+          borderRadius: 8, padding: "8px 12px",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          color: C.accent, fontWeight: 700, fontSize: FS.sm,
+          boxShadow: `0 0 10px rgba(232, 160, 32, 0.05)`
+        }}>
+          <span>⏳</span> {countdown}
+        </div>
+      )}
+
       {!isParticipating && (
         <div style={{
           background: C.card, border: `1px solid ${C.accent}`,

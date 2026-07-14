@@ -39,18 +39,42 @@ def _get_browse_poll_id(request: Request) -> int | None:
         return None
 
 
+def _evaluate_poll_deadline(poll: Poll | None, db: Session) -> Poll | None:
+    if poll and poll.status == "OPEN" and poll.voting_closes_at:
+        try:
+            deadline_str = poll.voting_closes_at.replace("Z", "+00:00")
+            deadline = datetime.fromisoformat(deadline_str)
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) >= deadline:
+                poll.status = "CLOSED"
+                db.add(poll)
+                db.commit()
+                db.refresh(poll)
+        except Exception as e:
+            print(f"Error evaluating deadline for poll {poll.id}: {e}")
+    return poll
+
 def _get_voter_poll_for_request(request: Request, statuses: list[str], db: Session) -> Poll | None:
+    poll = None
     secure_poll_id = get_secure_poll_id(request)
     if secure_poll_id is not None:
-        return db.exec(
+        poll = db.exec(
             select(Poll).where(Poll.id == secure_poll_id, Poll.status.in_(statuses))
         ).first()
-    browse_poll_id = _get_browse_poll_id(request)
-    if browse_poll_id is not None:
-        return db.exec(
-            select(Poll).where(Poll.id == browse_poll_id, Poll.status.in_(statuses))
-        ).first()
-    return db.exec(select(Poll).where(Poll.status.in_(statuses)).order_by(Poll.id.desc())).first()
+    else:
+        browse_poll_id = _get_browse_poll_id(request)
+        if browse_poll_id is not None:
+            poll = db.exec(
+                select(Poll).where(Poll.id == browse_poll_id, Poll.status.in_(statuses))
+            ).first()
+        else:
+            poll = db.exec(select(Poll).where(Poll.status.in_(statuses)).order_by(Poll.id.desc())).first()
+
+    poll = _evaluate_poll_deadline(poll, db)
+    if poll and poll.status not in statuses:
+        return None
+    return poll
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -563,11 +587,15 @@ async def voter_me(request: Request, db: Session = Depends(get_db)):
     statuses = ["OPEN", "CLOSED"]
     if user and user.role == "platform_admin":
         statuses.append("DRAFT")
+    elif _get_browse_poll_id(request) is not None or get_secure_poll_id(request) is not None:
+        statuses.append("DRAFT")
 
     owned_polls = []
     if user and user.role == "platform_admin":
+        # In this private homelab context, satisfy Tony's request to see all polls as admin,
+        # ensuring legacy null-creator polls also appear.
         owned_polls = db.exec(
-            select(Poll).where(Poll.created_by_user_id == user.id).order_by(Poll.id.desc())
+            select(Poll).order_by(Poll.id.desc())
         ).all()
 
     poll = _get_voter_poll_for_request(request, statuses, db)
@@ -1469,15 +1497,24 @@ async def admin_create_poll(request: Request, db: Session = Depends(get_db)):
     if not title or not target_dates:
         raise HTTPException(status_code=400, detail="title and target_dates required")
 
+    # Extract current admin user
+    from app.middleware.auth import get_admin_user
+    user = get_admin_user(request, db)
+
     poll = Poll(
         title=title,
         status="DRAFT",
         group_id=primary_group_id,
+        created_by_user_id=user.id,
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(poll)
     db.commit()
     db.refresh(poll)
+    
+    from app.services.security_service import ensure_poll_access_uuid
+    ensure_poll_access_uuid(poll, db)
+
     for date in target_dates:
         db.add(PollDate(poll_id=poll.id, date=date))
     for gid in group_ids:
@@ -1663,14 +1700,12 @@ async def admin_send_poll_email(
 async def admin_get_invite_link(
     request: Request, poll_id: int, db: Session = Depends(get_db)
 ):
-    """Return (or create) the current invite link for an OPEN poll."""
+    """Return (or create) the current invite link for the poll."""
     verify_admin(request, db)
     from app.services.security_service import build_poll_invite_url, ensure_poll_access_uuid
     poll = db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
-    if poll.status != "OPEN":
-        raise HTTPException(status_code=400, detail="Invite links are only available for OPEN polls")
     ensure_poll_access_uuid(poll, db)
     invite_url = build_poll_invite_url(poll, db)
     return {"poll_id": poll.id, "access_uuid": poll.access_uuid, "invite_url": invite_url}
