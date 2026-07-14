@@ -45,3 +45,4 @@ build/
 # IDE
 .vscode/
 .idea/
+.node/

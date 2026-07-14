@@ -4,12 +4,13 @@ on:
   push:
     branches:
       - postgres-migration
-      - master
   workflow_dispatch:
 
 env:
   ACR_NAME: ${{ secrets.ACR_NAME }}
   IMAGE_NAME: groupgo
+  RESOURCE_GROUP: groupgo-azure-rg
+  CONTAINER_APP_NAME: groupgo-app
 
 jobs:
   build-and-push:
@@ -18,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: postgres-migration
 
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
@@ -38,16 +41,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Web App
-        if: github.ref == 'refs/heads/master'
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          images: ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-      - name: Deploy to Azure Web App (Test Environment)
-        if: github.ref == 'refs/heads/postgres-migration'
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_TEST }}
-          images: ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Deploy to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
